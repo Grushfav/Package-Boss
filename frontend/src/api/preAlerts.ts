@@ -1,0 +1,34 @@
+import { api } from './client'
+import type { InvoicePresignResponse, PreAlert } from '../types'
+
+export async function fetchMyPreAlerts(): Promise<PreAlert[]> {
+  const { data } = await api.get<{ pre_alerts: PreAlert[] }>('/me/pre-alerts')
+  return data.pre_alerts
+}
+
+export async function createPreAlert(payload: {
+  carrier_tracking: string
+  invoice_object_key?: string
+  merchant?: string
+  description?: string
+  declared_value_usd?: number
+}): Promise<PreAlert> {
+  const { data } = await api.post<{ pre_alert: PreAlert }>('/me/pre-alerts', payload)
+  return data.pre_alert
+}
+
+export async function cancelPreAlert(id: string): Promise<PreAlert> {
+  const { data } = await api.delete<{ pre_alert: PreAlert }>(`/me/pre-alerts/${id}`)
+  return data.pre_alert
+}
+
+export async function presignInvoiceUpload(
+  filename: string,
+  contentType: string,
+): Promise<InvoicePresignResponse> {
+  const { data } = await api.post<InvoicePresignResponse>('/me/uploads/invoice/presign', {
+    filename,
+    content_type: contentType,
+  })
+  return data
+}

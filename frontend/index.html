@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#22C55E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Package Boss" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <title>Package Boss — Ship Smart. Ship Easy.</title>
+    <script>
+      (function () {
+        var t = localStorage.getItem('package-boss-theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = 'dark';
+        }
+        document.documentElement.classList.add(t);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

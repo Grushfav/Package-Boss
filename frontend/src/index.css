@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-boss-green: #22c55e;
+  --color-boss-green-dim: #16a34a;
+  --color-boss-gold: #eab308;
+  --color-boss-navy: #0f2744;
+
+  --color-background: #0a0a0a;
+  --color-foreground: #ffffff;
+  --color-card: #1a1a1a;
+  --color-muted: #9ca3af;
+  --color-border: rgb(255 255 255 / 0.1);
+  --color-input: #1a1a1a;
+  --color-accent-subtle: rgb(34 197 94 / 0.05);
+}
+
+:root.light {
+  --color-background: #f1f5f9;
+  --color-foreground: #0f172a;
+  --color-card: #ffffff;
+  --color-muted: #64748b;
+  --color-border: rgb(15 23 42 / 0.12);
+  --color-input: #ffffff;
+  --color-accent-subtle: rgb(34 197 94 / 0.08);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #shipping-label,
+  #shipping-label * {
+    visibility: visible;
+  }
+
+  #shipping-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4in;
+    margin: 0;
+    padding: 0.25in;
+  }
+}

@@ -1,0 +1,34 @@
+import { Link } from 'react-router-dom'
+import { Button } from '../ui/Button'
+
+export function Hero() {
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <span className="h-px w-8 bg-boss-green" />
+        <span className="text-sm font-semibold uppercase tracking-widest text-boss-green">
+          Ship Smart. Ship Easy.
+        </span>
+      </div>
+
+      <h1 className="text-4xl font-black uppercase leading-tight md:text-5xl lg:text-6xl">
+        Ship it like a{' '}
+        <span className="italic text-boss-green">Boss!</span>
+      </h1>
+
+      <p className="mt-6 text-lg text-muted">
+      Your ideal transit hub for 
+      bringing just about anything from abroad straight to yaad.
+      </p>
+
+      <div className="mt-8 flex flex-wrap gap-4">
+        <Link to="/signup">
+          <Button>Get Your Miami Address →</Button>
+        </Link>
+        <Link to="/rates">
+          <Button variant="outline">View Rates</Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
