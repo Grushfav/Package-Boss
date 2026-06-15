@@ -19,10 +19,10 @@ export function Header() {
     <header className="border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link to="/" className="flex items-center gap-2.5">
-          <Package className="h-7 w-7 text-boss-green" strokeWidth={2.25} />
+          <Package className="h-7 w-7 text-boss-gold" strokeWidth={2.25} />
           <span className="text-xl font-black italic tracking-tight">
             <span className="text-foreground">PACKAGE </span>
-            <span className="text-boss-green">BOSS</span>
+            <span className="text-boss-gold">BOSS</span>
           </span>
         </Link>
 

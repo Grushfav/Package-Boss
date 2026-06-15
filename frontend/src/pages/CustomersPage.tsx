@@ -43,19 +43,13 @@ export function CustomersPage() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <div className="mb-2">
-        <Link to="/warehouse" className="text-sm text-muted hover:text-boss-green">
-          ← Warehouse
-        </Link>
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <IconBadge icon={Users} size="sm" />
           <div>
-            <h1 className="text-2xl font-black uppercase">Customers</h1>
-            <p className="text-sm text-muted">Look up a customer to start a receival</p>
+            <h1 className="text-2xl font-black uppercase">Customer Directory</h1>
+            <p className="text-sm text-muted">Browse customers or start a receival</p>
           </div>
         </div>
         <Link to="/warehouse/receive">

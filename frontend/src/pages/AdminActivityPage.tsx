@@ -1,9 +1,6 @@
 import { Activity } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { fetchActivityLog } from '../api/admin'
-import { useAuth } from '../context/AuthContext'
-import { isAdmin } from '../lib/roles'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Button } from '../components/ui/Button'
 import type { AuditLogEntry } from '../types'
@@ -14,9 +11,6 @@ const ACTION_LABELS: Record<string, string> = {
 }
 
 export function AdminActivityPage() {
-  const { user } = useAuth()
-  const backTo = isAdmin(user?.role) ? '/admin' : '/warehouse'
-  const backLabel = isAdmin(user?.role) ? 'Operations' : 'Warehouse'
   const [activity, setActivity] = useState<AuditLogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
@@ -39,14 +33,8 @@ export function AdminActivityPage() {
   const currentPage = Math.floor(offset / limit) + 1
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <div className="mb-2">
-        <Link to={backTo} className="text-sm text-muted hover:text-boss-green">
-          ← {backLabel}
-        </Link>
-      </div>
-
-      <div className="mb-8 flex items-center gap-2.5">
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mb-6 flex items-center gap-2.5">
         <IconBadge icon={Activity} size="sm" />
         <h1 className="text-2xl font-black uppercase">Activity Log</h1>
       </div>

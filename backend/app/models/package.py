@@ -12,6 +12,8 @@ class Package(db.Model):
     customer_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
 
     carrier_tracking = db.Column(db.String(100))
+    label_name = db.Column(db.String(255))
+    label_boss_id = db.Column(db.String(20))
     shipper = db.Column(db.String(30))
     actual_weight_lbs = db.Column(db.Numeric(8, 2))
     billable_weight_lbs = db.Column(db.Integer)
@@ -19,6 +21,7 @@ class Package(db.Model):
     rate_tier_label = db.Column(db.String(50))
 
     status = db.Column(db.String(50), nullable=False, default="received_miami")
+    label_printed_at = db.Column(db.DateTime, nullable=True)
     received_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(
@@ -44,12 +47,16 @@ class Package(db.Model):
             "status": self.status,
             "status_label": STATUS_LABELS.get(self.status, self.status),
             "carrier_tracking": self.carrier_tracking,
+            "label_name": self.label_name,
+            "label_boss_id": self.label_boss_id,
+            "is_unidentified": self.status == "unidentified",
             "shipper": self.shipper,
             "shipper_label": SHIPPER_LABELS.get(self.shipper, self.shipper) if self.shipper else None,
             "actual_weight_lbs": float(self.actual_weight_lbs) if self.actual_weight_lbs else None,
             "billable_weight_lbs": self.billable_weight_lbs,
             "shipping_cost_usd": float(self.shipping_cost_usd) if self.shipping_cost_usd else None,
             "rate_tier_label": self.rate_tier_label,
+            "label_printed_at": self.label_printed_at.isoformat() if self.label_printed_at else None,
             "received_at": self.received_at.isoformat() if self.received_at else None,
             "created_at": self.created_at.isoformat(),
         }

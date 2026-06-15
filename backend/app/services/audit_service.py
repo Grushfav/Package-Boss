@@ -4,6 +4,8 @@ from app.models.user import User
 
 # Clerk/admin package actions
 ACTION_PACKAGE_RECEIVED = "package.received"
+ACTION_PACKAGE_RECEIVED_UNIDENTIFIED = "package.received_unidentified"
+ACTION_PACKAGE_ASSIGNED = "package.assigned"
 ACTION_PACKAGE_STATUS_UPDATED = "package.status_updated"
 
 

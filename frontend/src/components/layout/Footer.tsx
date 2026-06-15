@@ -7,7 +7,7 @@ export function Footer() {
         <div>
           <p className="text-xl font-black italic">
             <span className="text-foreground">PACKAGE </span>
-            <span className="text-boss-green">BOSS</span>
+            <span className="text-boss-gold">BOSS</span>
           </p>
           <p className="mt-3 text-sm text-muted">
             Redefining logistics between Florida and Jamaica with power, speed, and precision.

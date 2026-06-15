@@ -4,10 +4,11 @@ import type { Package, StaffCustomer } from '../../types'
 
 interface ShippingLabelProps {
   pkg: Package
-  customer: StaffCustomer
+  customer?: StaffCustomer | null
+  className?: string
 }
 
-export function ShippingLabel({ pkg, customer }: ShippingLabelProps) {
+export function ShippingLabel({ pkg, customer, className = '' }: ShippingLabelProps) {
   const barcodeRef = useRef<SVGSVGElement>(null)
 
   useEffect(() => {
@@ -25,8 +26,7 @@ export function ShippingLabel({ pkg, customer }: ShippingLabelProps) {
 
   return (
     <div
-      id="shipping-label"
-      className="mx-auto w-full max-w-md border-2 border-black bg-white p-6 text-black"
+      className={`shipping-label mx-auto w-full max-w-md border-2 border-black bg-white p-6 text-black ${className}`}
     >
       <div className="border-b-2 border-black pb-3 text-center">
         <p className="text-2xl font-black tracking-tight">PACKAGE BOSS</p>
@@ -41,19 +41,30 @@ export function ShippingLabel({ pkg, customer }: ShippingLabelProps) {
 
       <div className="mt-4 space-y-1 border-t border-black pt-4 text-sm">
         <p className="text-xs font-bold uppercase tracking-wider">Ship To</p>
-        <p className="text-lg font-bold">{customer.full_name}</p>
-        <p className="font-mono font-semibold">{customer.shipping_id}</p>
-        <p>{customer.parish}, Jamaica</p>
+        {customer ? (
+          <>
+            <p className="text-lg font-bold">{customer.full_name}</p>
+            <p className="font-mono font-semibold">{customer.shipping_id}</p>
+            <p>{customer.parish}, Jamaica</p>
+          </>
+        ) : (
+          <>
+            <p className="text-lg font-bold text-red-700">UNIDENTIFIED</p>
+            {pkg.label_name && <p>Name on label: {pkg.label_name}</p>}
+            {pkg.label_boss_id && (
+              <p className="font-mono font-semibold">BOSS ID on label: {pkg.label_boss_id}</p>
+            )}
+            {!pkg.label_name && !pkg.label_boss_id && (
+              <p className="text-gray-600">Owner not identified</p>
+            )}
+          </>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 border-t border-black pt-4 text-sm">
         <div>
           <p className="text-xs uppercase text-gray-600">Weight</p>
           <p className="font-semibold">{pkg.billable_weight_lbs} lbs</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase text-gray-600">Shipping</p>
-          <p className="font-semibold">${pkg.shipping_cost_usd?.toFixed(2)} USD</p>
         </div>
         {pkg.shipper_label && (
           <div>
@@ -76,6 +87,19 @@ export function ShippingLabel({ pkg, customer }: ShippingLabelProps) {
   )
 }
 
+export function printShippingLabels() {
+  window.print()
+}
+
 export function printShippingLabel() {
+  window.print()
+}
+
+export function markPrintedAfterPrint(onPrinted: () => void) {
+  const handler = () => {
+    onPrinted()
+    window.removeEventListener('afterprint', handler)
+  }
+  window.addEventListener('afterprint', handler)
   window.print()
 }

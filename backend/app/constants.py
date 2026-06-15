@@ -15,7 +15,11 @@ JAMAICA_PARISHES = [
     "St. Catherine",
 ]
 
+UNIDENTIFIED_HOLDER_EMAIL = "unidentified@package-boss.internal"
+UNIDENTIFIED_HOLDER_SHIPPING_ID = "BOSS-00000"
+
 PACKAGE_STATUSES = [
+    "unidentified",
     "awaiting_receipt",
     "received_miami",
     "processing",
@@ -25,7 +29,11 @@ PACKAGE_STATUSES = [
     "delivered",
 ]
 
+# Shipment statuses clerks can set (excludes unidentified queue state)
+UPDATABLE_STATUSES = [s for s in PACKAGE_STATUSES if s != "unidentified"]
+
 STATUS_LABELS = {
+    "unidentified": "Unidentified — Awaiting Owner",
     "awaiting_receipt": "Awaiting Receipt",
     "received_miami": "Received in Miami",
     "processing": "Processing",

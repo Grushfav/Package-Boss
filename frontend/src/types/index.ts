@@ -66,6 +66,9 @@ export interface Package {
   status: string
   status_label: string
   carrier_tracking?: string | null
+  label_name?: string | null
+  label_boss_id?: string | null
+  is_unidentified?: boolean
   shipper?: string | null
   shipper_label?: string | null
   customer?: StaffCustomer
@@ -73,6 +76,7 @@ export interface Package {
   billable_weight_lbs?: number | null
   shipping_cost_usd?: number | null
   rate_tier_label?: string | null
+  label_printed_at?: string | null
   received_at?: string | null
   created_at: string
   events?: PackageEvent[]
@@ -96,7 +100,7 @@ export interface PresignResponse {
   upload_url: string
   object_key: string
   public_url: string | null
-  shipping_id: string
+  shipping_id?: string
 }
 
 export interface InvoicePresignResponse {

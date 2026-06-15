@@ -1,6 +1,5 @@
 import { Shield, UserPlus, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { createClerk, demoteClerk, fetchClerks, promoteToClerk } from '../api/admin'
 import { api } from '../api/client'
 import { getErrorMessage } from '../api/client'
@@ -88,13 +87,8 @@ export function AdminClerksPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
-      <div className="mb-2">
-        <Link to="/admin" className="text-sm text-muted hover:text-boss-green">
-          ← Admin
-        </Link>
-      </div>
-      <div className="mb-8 flex items-center gap-2.5">
+    <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="mb-6 flex items-center gap-2.5">
         <IconBadge icon={Shield} size="sm" />
         <h1 className="text-2xl font-black uppercase">Manage Clerks</h1>
       </div>

@@ -1,4 +1,4 @@
-import { Activity, Shield, UserCog, Warehouse } from 'lucide-react'
+import { Activity, Shield } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -61,7 +61,7 @@ export function AdminHomePage() {
   }, [])
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
+    <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <IconBadge icon={Shield} size="sm" />
@@ -70,29 +70,13 @@ export function AdminHomePage() {
             <p className="text-sm text-muted">Metrics & clerk package activity</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            to="/warehouse/activity"
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold hover:border-boss-green/40"
-          >
-            <Activity className="h-4 w-4" />
-            Activity log
-          </Link>
-          <Link
-            to="/admin/clerks"
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold hover:border-boss-green/40"
-          >
-            <UserCog className="h-4 w-4" />
-            Clerks
-          </Link>
-          <Link
-            to="/warehouse"
-            className="inline-flex items-center gap-2 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-2 text-sm font-semibold text-boss-green"
-          >
-            <Warehouse className="h-4 w-4" />
-            Warehouse
-          </Link>
-        </div>
+        <Link
+          to="/warehouse/activity"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold hover:border-boss-green/40"
+        >
+          <Activity className="h-4 w-4" />
+          Activity log
+        </Link>
       </div>
 
       {overview && (

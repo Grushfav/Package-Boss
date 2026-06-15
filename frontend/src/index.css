@@ -46,17 +46,24 @@ body {
     visibility: hidden;
   }
 
-  #shipping-label,
-  #shipping-label * {
+  .shipping-label,
+  .shipping-label * {
     visibility: visible;
   }
 
-  #shipping-label {
-    position: absolute;
+  .shipping-label {
+    position: relative;
     left: 0;
     top: 0;
     width: 4in;
-    margin: 0;
+    margin: 0 auto;
     padding: 0.25in;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .shipping-label:last-child {
+    page-break-after: auto;
+    break-after: auto;
   }
 }

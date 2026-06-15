@@ -5,9 +5,9 @@ from flask import Flask
 from flask_cors import CORS
 
 from app.config import Config
-from app.db_schema import ensure_schema
 from app.extensions import db, init_redis, jwt, migrate
 from app.models.user import User
+from app.services.unidentified_service import ensure_unidentified_holder
 from app.routes import (
     admin_bp,
     auth_bp,
@@ -60,11 +60,14 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp, url_prefix="/api")
 
     with app.app_context():
+        from sqlalchemy import inspect
+
         from app import models  # noqa: F401
 
-        ensure_schema(app)
-        seed_rate_tiers()
-        _promote_role_emails(app)
+        if "shipping_rate_tiers" in inspect(db.engine).get_table_names():
+            seed_rate_tiers()
+            ensure_unidentified_holder()
+            _promote_role_emails(app)
 
     return app
 

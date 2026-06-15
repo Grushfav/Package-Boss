@@ -6,6 +6,8 @@ import { ThemeProvider } from './context/ThemeContext'
 import { AdminActivityPage } from './pages/AdminActivityPage'
 import { AdminClerksPage } from './pages/AdminClerksPage'
 import { AdminHomePage } from './pages/AdminHomePage'
+import { AdminLayout } from './components/layout/AdminLayout'
+import { WarehouseLayout } from './components/layout/WarehouseLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { NewPreAlertPage } from './pages/NewPreAlertPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
@@ -18,6 +20,8 @@ import { SignupPage } from './pages/SignupPage'
 import { StatusUpdatePage } from './pages/StatusUpdatePage'
 import { TrackPage } from './pages/TrackPage'
 import { CustomersPage } from './pages/CustomersPage'
+import { PrintQueuePage } from './pages/PrintQueuePage'
+import { UnidentifiedQueuePage } from './pages/UnidentifiedQueuePage'
 import { WarehouseHomePage } from './pages/WarehouseHomePage'
 
 function App() {
@@ -41,16 +45,22 @@ function App() {
               </Route>
 
               <Route element={<RequireWarehouse />}>
-                <Route path="/warehouse" element={<WarehouseHomePage />} />
-                <Route path="/warehouse/customers" element={<CustomersPage />} />
-                <Route path="/warehouse/receive" element={<ReceivePage />} />
-                <Route path="/warehouse/status" element={<StatusUpdatePage />} />
-                <Route path="/warehouse/activity" element={<AdminActivityPage />} />
+                <Route element={<WarehouseLayout />}>
+                  <Route path="/warehouse" element={<WarehouseHomePage />} />
+                  <Route path="/warehouse/customers" element={<CustomersPage />} />
+                  <Route path="/warehouse/receive" element={<ReceivePage />} />
+                  <Route path="/warehouse/unidentified" element={<UnidentifiedQueuePage />} />
+                  <Route path="/warehouse/print-queue" element={<PrintQueuePage />} />
+                  <Route path="/warehouse/status" element={<StatusUpdatePage />} />
+                  <Route path="/warehouse/activity" element={<AdminActivityPage />} />
+                </Route>
               </Route>
 
               <Route element={<RequireAdmin />}>
-                <Route path="/admin" element={<AdminHomePage />} />
-                <Route path="/admin/clerks" element={<AdminClerksPage />} />
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin" element={<AdminHomePage />} />
+                  <Route path="/admin/clerks" element={<AdminClerksPage />} />
+                </Route>
               </Route>
 
               <Route path="/admin/activity" element={<Navigate to="/warehouse/activity" replace />} />

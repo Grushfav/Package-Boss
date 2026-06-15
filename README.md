@@ -27,13 +27,37 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `backend/.env` and set `TRN_ENCRYPTION_KEY` and `TRN_PEPPER`.
+Copy `.env.example` to `.env` in the project root and set `TRN_ENCRYPTION_KEY`, `TRN_PEPPER`, and `DATABASE_URL`.
 
 ```bash
 # Generate keys
 python -c "from cryptography.fernet import Fernet; print('TRN_ENCRYPTION_KEY=' + Fernet.generate_key().decode())"
 python -c "import secrets; print('TRN_PEPPER=' + secrets.token_hex(32))"
 ```
+
+Apply database migrations (required before first run):
+
+```bash
+set FLASK_APP=wsgi:app
+flask db upgrade
+```
+
+For a **new** database:
+
+```bash
+flask db upgrade
+```
+
+For an **existing** database that already has tables (e.g. Neon from before Flask-Migrate):
+
+```bash
+flask db stamp 8004a576854d
+flask db upgrade
+```
+
+The first command marks the initial revision as applied without re-creating tables. The second applies any newer migrations (such as `label_printed_at`).
+
+After model changes, create a migration with `flask db migrate -m "description"` and apply with `flask db upgrade`.
 
 Run the API:
 
@@ -45,6 +69,8 @@ python wsgi.py
 API: http://localhost:5000/api/health
 
 ### 3. Frontend
+
+Requires **Node.js 18+** (20.19+ recommended). Vite is pinned to v6 for compatibility — no Rolldown native bindings needed.
 
 ```bash
 cd frontend
@@ -118,6 +144,10 @@ Package-Boss/
 | GET | `/api/staff/customers/<boss_id>` | Staff | Customer lookup for receive |
 | POST | `/api/staff/packages/receive` | Staff | Receive package + rate |
 | PATCH | `/api/staff/packages/<tracking>/status` | Staff | Update shipment status |
+| GET | `/api/staff/packages` | Staff | List packages by received date (bulk status) |
+| PATCH | `/api/staff/packages/bulk-status` | Staff | Bulk update shipment status |
+| GET | `/api/staff/packages/print-queue` | Staff | Unprinted labels queue |
+| PATCH | `/api/staff/packages/mark-printed` | Staff | Mark labels as printed |
 | POST | `/api/uploads/presign` | Clerk | R2 presigned upload URL |
 | GET | `/api/admin/clerks` | Admin | List clerks |
 | POST | `/api/admin/clerks` | Admin | Promote customer or create clerk |
@@ -145,10 +175,26 @@ Package-Boss/
 |------|--------|
 | 1a | **Scan** carrier barcode → Start receival |
 | 1b | **Or** search customer by name/BOSS ID → Start receival |
-| 2 | Confirm customer + enter shipper, weight |
+| 1c | **Or** no match → record label details → **unidentified queue** |
+| 2 | Confirm customer (or label info) + enter shipper, weight |
 | 3 | Complete receival → `PB-2026-…` tracking + **printable label** |
 
 API: `GET /api/shippers`, `GET /api/warehouse/customers/search?q=`
+
+### Unidentified (miscellaneous) queue
+
+Packages with no matching BOSS ID or customer name are received into a clerk queue at `/warehouse/unidentified`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/staff/packages/receive-unidentified` | Clerk | Receive without matched owner |
+| GET | `/api/staff/packages/unidentified` | Clerk | List queue |
+| POST | `/api/staff/packages/<id>/assign` | Clerk | Assign package to customer |
+| POST | `/api/uploads/presign-unidentified` | Clerk | R2 photo upload for unidentified packages |
+
+### Print queue
+
+When receival volume is high, clerks can **Queue & receive next** instead of printing immediately. Unprinted packages appear at `/warehouse/print-queue` (shared across all clerks, last 7 days). Labels do not show shipping price.
 
 ### R2 photo uploads (optional)
 
@@ -183,6 +229,15 @@ Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, an
 | GET | `/api/admin/stats/pre-alerts-vs-receives` | Daily comparison |
 | GET | `/api/admin/activity` | Clerk package action log |
 
-### Existing database upgrades
+### Database migrations
 
-On startup the API runs a lightweight schema sync (`app/db_schema.py`) that adds missing Phase 3 columns (e.g. `users.role`) and creates package tables. Restart the backend after pulling Phase 3 — no manual SQL required.
+Schema is managed with **Flask-Migrate** (Alembic). Migrations live in `backend/migrations/`.
+
+| Command | Purpose |
+|---------|---------|
+| `flask db upgrade` | Apply pending migrations |
+| `flask db migrate -m "…"` | Generate migration after model changes |
+| `flask db stamp 8004a576854d` | Mark existing DB at initial revision (skip table creation) |
+| `flask db current` | Show current revision |
+
+Run commands from `backend/` with `FLASK_APP=wsgi:app` (or use `backend/.flaskenv`).
