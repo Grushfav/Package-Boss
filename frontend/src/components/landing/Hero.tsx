@@ -12,7 +12,7 @@ export function Hero() {
       </div>
 
       <h1 className="text-4xl font-black uppercase leading-tight md:text-5xl lg:text-6xl">
-        Ship it like a{' '}
+        Ship like a{' '}
         <span className="italic text-boss-green">Boss!</span>
       </h1>
 
