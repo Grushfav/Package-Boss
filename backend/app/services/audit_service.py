@@ -7,6 +7,8 @@ ACTION_PACKAGE_RECEIVED = "package.received"
 ACTION_PACKAGE_RECEIVED_UNIDENTIFIED = "package.received_unidentified"
 ACTION_PACKAGE_ASSIGNED = "package.assigned"
 ACTION_PACKAGE_STATUS_UPDATED = "package.status_updated"
+ACTION_PACKAGE_INVOICE_REQUESTED = "package.invoice_requested"
+ACTION_PACKAGE_BILLING_UPDATED = "package.billing_updated"
 
 
 def log_package_action(

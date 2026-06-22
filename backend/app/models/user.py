@@ -22,6 +22,9 @@ class User(db.Model):
     shipping_id = db.Column(db.String(20), unique=True, nullable=False, index=True)
     role = db.Column(db.String(20), nullable=False, default="customer")
 
+    terms_accepted_at = db.Column(db.DateTime, nullable=True)
+    whatsapp_opt_in = db.Column(db.Boolean, default=False, nullable=False)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
@@ -42,6 +45,7 @@ class User(db.Model):
             "parish": self.parish,
             "shipping_id": self.shipping_id,
             "role": self.role,
+            "whatsapp_opt_in": self.whatsapp_opt_in,
             "created_at": self.created_at.isoformat(),
         }
         if include_trn_masked:

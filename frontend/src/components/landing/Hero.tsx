@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { TAGLINE } from '../../content/marketing'
 import { Button } from '../ui/Button'
 
 export function Hero() {
@@ -16,10 +17,7 @@ export function Hero() {
         <span className="italic text-boss-green">Boss!</span>
       </h1>
 
-      <p className="mt-6 text-lg text-muted">
-      Your ideal transit hub for 
-      bringing just about anything from abroad straight to yaad.
-      </p>
+      <p className="mt-6 text-lg text-muted">{TAGLINE}</p>
 
       <div className="mt-8 flex flex-wrap gap-4">
         <Link to="/signup">

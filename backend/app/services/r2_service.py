@@ -52,6 +52,15 @@ def build_unidentified_object_key(filename: str) -> str:
     return f"packages/unidentified/{uuid.uuid4()}.{ext}"
 
 
+def build_package_invoice_object_key(shipping_id: str, tracking_number: str, filename: str) -> str:
+    safe_name = _sanitize_filename(filename)
+    ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else "pdf"
+    if ext not in INVOICE_EXTENSIONS:
+        ext = "pdf"
+    safe_tracking = re.sub(r"[^A-Z0-9-]", "", tracking_number.upper())[:30] or "package"
+    return f"invoices/{shipping_id}/packages/{safe_tracking}/{uuid.uuid4()}.{ext}"
+
+
 def build_invoice_object_key(shipping_id: str, filename: str) -> str:
     safe_name = _sanitize_filename(filename)
     ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else "pdf"

@@ -1,27 +1,35 @@
 import { api } from './client'
 
-export interface RateTier {
+export interface RateRow {
   label: string
-  min_weight_lbs: number
-  max_weight_lbs: number
-  pricing_type: 'flat' | 'per_lb'
-  rate_display: string
+  weight_lbs: number
+  cost_usd: number
+  cost_jmd: number
+  rate_display_usd: string
+  rate_display_jmd: string
 }
 
 export interface RatesResponse {
   currency: string
+  jmd_per_usd: number
+  max_auto_rate_lbs: number
+  quote_note: string
   rounding_note: string
-  tiers: RateTier[]
+  formula_note: string
+  tiers: RateRow[]
 }
 
 export interface EstimateResponse {
   actual_weight_lbs: number
   billable_weight_lbs: number
   cost_usd: number
+  cost_jmd: number
   tier_label: string
   route: string
   currency: string
+  jmd_per_usd: number
   rounding_note: string
+  quote_note: string
 }
 
 export async function fetchRates(): Promise<RatesResponse> {

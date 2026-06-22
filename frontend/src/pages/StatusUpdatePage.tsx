@@ -18,6 +18,8 @@ import {
 
 } from '../api/staff'
 
+import { PackageStaffModal } from '../components/warehouse/PackageStaffModal'
+
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 
 import { PACKAGE_STATUSES } from '../lib/packageStatuses'
@@ -179,6 +181,8 @@ export function StatusUpdatePage() {
   const [singleLoading, setSingleLoading] = useState(false)
 
   const [singleSuccess, setSingleSuccess] = useState('')
+
+  const [staffPackage, setStaffPackage] = useState<Package | null>(null)
 
 
 
@@ -670,7 +674,9 @@ export function StatusUpdatePage() {
 
                   <th className="pb-3 pr-3">Received</th>
 
-                  <th className="pb-3">Weight</th>
+                  <th className="pb-3 pr-3">Weight</th>
+
+                  <th className="pb-3">Actions</th>
 
                 </tr>
 
@@ -732,7 +738,17 @@ export function StatusUpdatePage() {
 
                     </td>
 
-                    <td className="py-3">{pkg.billable_weight_lbs ?? '—'} lbs</td>
+                    <td className="py-3 pr-3">{pkg.billable_weight_lbs ?? '—'} lbs</td>
+
+                    <td className="py-3">
+                      <button
+                        type="button"
+                        onClick={() => setStaffPackage(pkg)}
+                        className="text-xs font-semibold text-boss-green hover:underline"
+                      >
+                        Manage
+                      </button>
+                    </td>
 
                   </tr>
 
@@ -988,6 +1004,17 @@ export function StatusUpdatePage() {
 
         </div>
 
+      )}
+
+      {staffPackage && (
+        <PackageStaffModal
+          pkg={staffPackage}
+          onClose={() => setStaffPackage(null)}
+          onUpdated={(updated) => {
+            setPackages((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)))
+            setStaffPackage(updated)
+          }}
+        />
       )}
 
     </div>

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { fetchRates, type RateTier } from '../api/rates'
+import { fetchRates } from '../api/rates'
 import { getErrorMessage } from '../api/client'
 import { ShippingEstimator } from '../components/landing/ShippingEstimator'
+import { ShippingFrequencyCard } from '../components/landing/ShippingFrequencyCard'
 import { useAuth } from '../context/AuthContext'
 import { getHomeRoute } from '../lib/routing'
 
@@ -18,8 +19,12 @@ export function RatesPage() {
 }
 
 function RatesPageContent() {
-  const [tiers, setTiers] = useState<RateTier[]>([])
+  const [tiers, setTiers] = useState<Awaited<ReturnType<typeof fetchRates>>['tiers']>([])
   const [roundingNote, setRoundingNote] = useState('')
+  const [formulaNote, setFormulaNote] = useState('')
+  const [quoteNote, setQuoteNote] = useState('')
+  const [jmdPerUsd, setJmdPerUsd] = useState(160)
+  const [maxLbs, setMaxLbs] = useState(30)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -28,6 +33,10 @@ function RatesPageContent() {
       .then((data) => {
         setTiers(data.tiers)
         setRoundingNote(data.rounding_note)
+        setFormulaNote(data.formula_note)
+        setQuoteNote(data.quote_note)
+        setJmdPerUsd(data.jmd_per_usd)
+        setMaxLbs(data.max_auto_rate_lbs)
       })
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false))
@@ -39,7 +48,11 @@ function RatesPageContent() {
         <h1 className="text-3xl font-black uppercase">
           Package <span className="italic text-boss-green">Rates</span>
         </h1>
-        <p className="mt-2 text-muted">Miami → Kingston shipping rates in USD.</p>
+        <p className="mt-2 text-muted">Miami → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)</p>
+
+        <div className="mx-auto mt-8 max-w-sm">
+          <ShippingFrequencyCard />
+        </div>
 
         <div className="mt-8">
           <ShippingEstimator />
@@ -47,7 +60,8 @@ function RatesPageContent() {
 
         <div className="mt-10 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="border-b border-border px-6 py-5">
-            <h2 className="text-xl font-bold text-foreground">Package Rates</h2>
+            <h2 className="text-xl font-bold text-foreground">Rate table (1–{maxLbs} lbs)</h2>
+            {formulaNote && <p className="mt-2 text-sm text-muted">{formulaNote}</p>}
           </div>
 
           {loading && (
@@ -60,32 +74,39 @@ function RatesPageContent() {
 
           {!loading && !error && (
             <>
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-background text-left text-sm font-semibold text-muted">
-                    <th className="px-6 py-4">Weight</th>
-                    <th className="px-6 py-4 text-right">Rate (USD)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tiers.map((tier, i) => (
-                    <tr
-                      key={tier.label}
-                      className={i % 2 === 0 ? 'bg-card' : 'bg-background/50'}
-                    >
-                      <td className="border-t border-border px-6 py-4 text-muted">
-                        {tier.label}
-                      </td>
-                      <td className="border-t border-border px-6 py-4 text-right font-bold text-foreground">
-                        {tier.rate_display}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[320px]">
+                  <thead>
+                    <tr className="bg-background text-left text-sm font-semibold text-muted">
+                      <th className="px-6 py-4">Weight</th>
+                      <th className="px-6 py-4 text-right">USD</th>
+                      <th className="px-6 py-4 text-right">JMD</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="border-t border-border px-6 py-4 text-sm text-muted">
-                {roundingNote}
-              </p>
+                  </thead>
+                  <tbody>
+                    {tiers.map((tier, i) => (
+                      <tr
+                        key={tier.weight_lbs}
+                        className={i % 2 === 0 ? 'bg-card' : 'bg-background/50'}
+                      >
+                        <td className="border-t border-border px-6 py-3 text-muted">
+                          {tier.label}
+                        </td>
+                        <td className="border-t border-border px-6 py-3 text-right font-bold text-foreground">
+                          {tier.rate_display_usd}
+                        </td>
+                        <td className="border-t border-border px-6 py-3 text-right font-semibold text-muted">
+                          {tier.rate_display_jmd}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="space-y-2 border-t border-border px-6 py-4 text-sm text-muted">
+                <p>{roundingNote}</p>
+                <p className="text-amber-400/90">{quoteNote}</p>
+              </div>
             </>
           )}
         </div>

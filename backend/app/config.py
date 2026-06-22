@@ -35,6 +35,7 @@ class Config:
     WAREHOUSE_COUNTRY = os.environ.get("WAREHOUSE_COUNTRY", "US")
 
     EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "console")
+    WHATSAPP_PROVIDER = os.environ.get("WHATSAPP_PROVIDER", "console")
 
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
     CLERK_EMAIL = os.environ.get("CLERK_EMAIL", "").strip().lower()

@@ -194,3 +194,53 @@ export async function updatePackageStatus(
   )
   return data.package
 }
+
+export async function requestPackageInvoice(
+  packageId: string,
+  payload: { channel: 'email' | 'whatsapp' | 'both'; note?: string },
+): Promise<{ package: Package; channels_sent: string[] }> {
+  const { data } = await api.post<{ package: Package; channels_sent: string[] }>(
+    `/staff/packages/${packageId}/request-invoice`,
+    payload,
+  )
+  return data
+}
+
+export async function updatePackageBilling(
+  packageId: string,
+  payload: {
+    estimated_freight_usd?: number
+    duties_usd?: number
+    handling_usd?: number
+    other_fees_usd?: number
+    declared_value_usd?: number
+    billing_status?: 'pending' | 'ready' | 'paid'
+    publish?: boolean
+  },
+): Promise<Package> {
+  const { data } = await api.patch<{ package: Package }>(
+    `/staff/packages/${packageId}/billing`,
+    payload,
+  )
+  return data.package
+}
+
+export async function fetchCustomerDeliveryAddresses(
+  shippingId: string,
+): Promise<import('../types').DeliveryAddress[]> {
+  const { data } = await api.get<{ addresses: import('../types').DeliveryAddress[] }>(
+    `/staff/customers/${encodeURIComponent(shippingId)}/delivery-addresses`,
+  )
+  return data.addresses
+}
+
+export async function setPackageDeliveryAddress(
+  packageId: string,
+  deliveryAddressId: string,
+): Promise<Package> {
+  const { data } = await api.patch<{ package: Package }>(
+    `/staff/packages/${packageId}/delivery-address`,
+    { delivery_address_id: deliveryAddressId },
+  )
+  return data.package
+}

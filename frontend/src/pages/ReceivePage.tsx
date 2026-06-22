@@ -22,6 +22,8 @@ import type { Package, Shipper, StaffCustomer } from '../types'
 
 type ReceiveStep = 'idle' | 'receiving' | 'complete'
 
+const MAX_RECEIVE_LBS = 30
+
 const RUSH_MODE_KEY = 'boss:warehouse:rush-mode'
 const LAST_SHIPPER_KEY = 'boss:warehouse:last-shipper'
 
@@ -207,6 +209,13 @@ export function ReceivePage() {
       setError('Select a customer before completing receival.')
       return
     }
+    const lbs = parseFloat(weight)
+    if (lbs > MAX_RECEIVE_LBS) {
+      setError(
+        `Packages over ${MAX_RECEIVE_LBS} lbs require a custom quote. Email support@packageboss.com.`,
+      )
+      return
+    }
 
     setError('')
     setSubmitLoading(true)
@@ -247,6 +256,13 @@ export function ReceivePage() {
       setError('Enter the name on the label, BOSS ID from the label, or carrier tracking.')
       return
     }
+    const lbs = parseFloat(weight)
+    if (lbs > MAX_RECEIVE_LBS) {
+      setError(
+        `Packages over ${MAX_RECEIVE_LBS} lbs require a custom quote. Email support@packageboss.com.`,
+      )
+      return
+    }
 
     setError('')
     setSubmitLoading(true)
@@ -279,9 +295,14 @@ export function ReceivePage() {
     }
   }
 
-  const canComplete = Boolean(customer && shipper && weight)
+  const canComplete = Boolean(
+    customer && shipper && weight && parseFloat(weight) <= MAX_RECEIVE_LBS,
+  )
   const canCompleteUnidentified = Boolean(
-    shipper && weight && (labelName.trim() || labelBossId.trim() || carrierTracking.trim()),
+    shipper &&
+      weight &&
+      parseFloat(weight) <= MAX_RECEIVE_LBS &&
+      (labelName.trim() || labelBossId.trim() || carrierTracking.trim()),
   )
 
   function handlePrintNow() {
@@ -570,6 +591,7 @@ export function ReceivePage() {
               type="number"
               step="0.01"
               min="0.01"
+              max={MAX_RECEIVE_LBS}
               placeholder="7.3"
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
@@ -581,6 +603,9 @@ export function ReceivePage() {
               }}
               required
             />
+            <p className="text-xs text-muted">
+              Max {MAX_RECEIVE_LBS} lbs for standard rates. Heavier packages need a custom quote.
+            </p>
 
             {!rushMode && (
               <Input

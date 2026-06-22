@@ -6,11 +6,19 @@ from app.models.package import Package
 from app.models.user import User
 from app.services.audit_service import (
     ACTION_PACKAGE_ASSIGNED,
+    ACTION_PACKAGE_BILLING_UPDATED,
+    ACTION_PACKAGE_INVOICE_REQUESTED,
     ACTION_PACKAGE_RECEIVED,
     ACTION_PACKAGE_RECEIVED_UNIDENTIFIED,
     ACTION_PACKAGE_STATUS_UPDATED,
     log_package_action,
 )
+from app.services.billing_service import (
+    assign_delivery_address,
+    request_package_invoice,
+    update_package_billing,
+)
+from app.services.delivery_address_service import list_delivery_addresses
 from app.services.package_service import (
     assign_unidentified_package,
     bulk_update_package_status,
@@ -186,7 +194,9 @@ def receive_package_endpoint():
                 "shipper": package.shipper,
                 "carrier_tracking": package.carrier_tracking,
                 "billable_weight_lbs": package.billable_weight_lbs,
-                "shipping_cost_usd": float(package.shipping_cost_usd) if package.shipping_cost_usd else None,
+                "estimated_freight_usd": float(package.estimated_freight_usd)
+                if package.estimated_freight_usd
+                else None,
             },
         )
 
@@ -484,3 +494,136 @@ def update_status(tracking_number: str):
         )
 
     return jsonify({"package": package.to_dict(include_events=True)})
+
+
+@staff_bp.route("/staff/customers/<shipping_id>/delivery-addresses", methods=["GET"])
+@warehouse_required()
+def list_customer_delivery_addresses(shipping_id: str):
+    shipping_id = shipping_id.strip().upper()
+    user = customer_query().filter_by(shipping_id=shipping_id).first()
+    if not user:
+        return jsonify({"error": "Customer not found"}), 404
+
+    addresses = list_delivery_addresses(user)
+    return jsonify({"addresses": [a.to_dict() for a in addresses]})
+
+
+@staff_bp.route("/staff/packages/<package_id>/request-invoice", methods=["POST"])
+@warehouse_required()
+def request_invoice(package_id: str):
+    import uuid as uuid_lib
+
+    try:
+        pid = uuid_lib.UUID(package_id)
+    except ValueError:
+        return jsonify({"error": "Invalid package ID"}), 400
+
+    package = Package.query.get(pid)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    channel = (data.get("channel") or "email").strip().lower()
+    note = data.get("note")
+
+    try:
+        result = request_package_invoice(package, channel, note)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    actor = get_user_from_jwt()
+    if actor:
+        log_package_action(
+            actor,
+            ACTION_PACKAGE_INVOICE_REQUESTED,
+            str(package.id),
+            f"Requested invoice for {package.tracking_number} via {channel}",
+            metadata={
+                "tracking_number": package.tracking_number,
+                "channel": channel,
+                "channels_sent": result["channels_sent"],
+                "note": note,
+            },
+        )
+
+    return jsonify({"package": package.to_dict(), **result})
+
+
+@staff_bp.route("/staff/packages/<package_id>/billing", methods=["PATCH"])
+@warehouse_required()
+def update_billing(package_id: str):
+    import uuid as uuid_lib
+
+    try:
+        pid = uuid_lib.UUID(package_id)
+    except ValueError:
+        return jsonify({"error": "Invalid package ID"}), 400
+
+    package = Package.query.get(pid)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+
+    try:
+        package = update_package_billing(
+            package,
+            estimated_freight_usd=data.get("estimated_freight_usd"),
+            duties_usd=data.get("duties_usd"),
+            handling_usd=data.get("handling_usd"),
+            other_fees_usd=data.get("other_fees_usd"),
+            declared_value_usd=data.get("declared_value_usd"),
+            billing_status=data.get("billing_status"),
+            publish=bool(data.get("publish")),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    actor = get_user_from_jwt()
+    if actor:
+        log_package_action(
+            actor,
+            ACTION_PACKAGE_BILLING_UPDATED,
+            str(package.id),
+            f"Updated billing for {package.tracking_number}",
+            metadata={
+                "tracking_number": package.tracking_number,
+                "total_due_usd": float(package.total_due_usd) if package.total_due_usd else None,
+                "billing_status": package.billing_status,
+                "publish": bool(data.get("publish")),
+            },
+        )
+
+    return jsonify({"package": package.to_dict()})
+
+
+@staff_bp.route("/staff/packages/<package_id>/delivery-address", methods=["PATCH"])
+@warehouse_required()
+def set_package_delivery_address(package_id: str):
+    import uuid as uuid_lib
+
+    try:
+        pid = uuid_lib.UUID(package_id)
+    except ValueError:
+        return jsonify({"error": "Invalid package ID"}), 400
+
+    package = Package.query.get(pid)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    address_id = data.get("delivery_address_id")
+    if not address_id:
+        return jsonify({"error": "delivery_address_id is required"}), 400
+
+    try:
+        aid = uuid_lib.UUID(str(address_id))
+    except ValueError:
+        return jsonify({"error": "Invalid delivery address ID"}), 400
+
+    try:
+        package = assign_delivery_address(package, aid, package.customer)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"package": package.to_dict()})

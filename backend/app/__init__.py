@@ -23,6 +23,22 @@ from app.routes import (
 )
 from app.seeds.rate_tiers import seed_rate_tiers
 
+_STARTUP_USER_COLUMNS = frozenset({"terms_accepted_at", "whatsapp_opt_in"})
+_STARTUP_PACKAGE_COLUMNS = frozenset({"estimated_freight_usd", "billing_status", "invoice_status"})
+
+
+def _startup_schema_ready(inspector) -> bool:
+    tables = set(inspector.get_table_names())
+    if "users" not in tables or "shipping_rate_tiers" not in tables:
+        return False
+    if "delivery_addresses" not in tables:
+        return False
+    user_columns = {col["name"] for col in inspector.get_columns("users")}
+    if not _STARTUP_USER_COLUMNS.issubset(user_columns):
+        return False
+    package_columns = {col["name"] for col in inspector.get_columns("packages")}
+    return _STARTUP_PACKAGE_COLUMNS.issubset(package_columns)
+
 
 def create_app(config_class=Config):
     root_env = Path(__file__).resolve().parent.parent.parent / ".env"
@@ -64,10 +80,15 @@ def create_app(config_class=Config):
 
         from app import models  # noqa: F401
 
-        if "shipping_rate_tiers" in inspect(db.engine).get_table_names():
+        inspector = inspect(db.engine)
+        if _startup_schema_ready(inspector):
             seed_rate_tiers()
             ensure_unidentified_holder()
             _promote_role_emails(app)
+        elif inspector.get_table_names():
+            app.logger.warning(
+                "Skipping startup seeds — run `flask db upgrade` to apply pending migrations."
+            )
 
     return app
 

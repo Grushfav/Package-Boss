@@ -59,8 +59,10 @@ def receive_package(
         shipper=(shipper or "").strip().lower() or None,
         actual_weight_lbs=quote["actual_weight_lbs"],
         billable_weight_lbs=quote["billable_weight_lbs"],
-        shipping_cost_usd=quote["cost_usd"],
+        estimated_freight_usd=quote["cost_usd"],
         rate_tier_label=quote["tier_label"],
+        billing_status="pending",
+        invoice_status="pending",
         status="received_miami",
         received_at=datetime.utcnow(),
     )
@@ -113,8 +115,10 @@ def receive_unidentified_package(
         shipper=(shipper or "").strip().lower() or None,
         actual_weight_lbs=quote["actual_weight_lbs"],
         billable_weight_lbs=quote["billable_weight_lbs"],
-        shipping_cost_usd=quote["cost_usd"],
+        estimated_freight_usd=quote["cost_usd"],
         rate_tier_label=quote["tier_label"],
+        billing_status="pending",
+        invoice_status="pending",
         status="unidentified",
         received_at=datetime.utcnow(),
     )

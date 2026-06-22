@@ -10,7 +10,8 @@ export function Footer() {
             <span className="text-boss-gold">BOSS</span>
           </p>
           <p className="mt-3 text-sm text-muted">
-            Redefining logistics between Florida and Jamaica with power, speed, and precision.
+            Package Boss Shipping &amp; Logistics — international air freight and package shipping
+            from Miami to Jamaica.
           </p>
         </div>
 
@@ -26,14 +27,17 @@ export function Footer() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-widest text-boss-gold">Quick Actions</h4>
           <ul className="mt-3 space-y-2 text-sm text-muted">
+            <li><Link to="/about" className="hover:text-boss-green">About Us</Link></li>
+            <li><Link to="/services" className="hover:text-boss-green">Services</Link></li>
             <li><Link to="/track" className="hover:text-boss-green">Track My Package</Link></li>
             <li><Link to="/rates" className="hover:text-boss-green">View Rates</Link></li>
+            <li><Link to="/terms" className="hover:text-boss-green">Terms &amp; Conditions</Link></li>
             <li><Link to="/signup" className="hover:text-boss-green">Sign Up</Link></li>
           </ul>
         </div>
       </div>
       <div className="border-t border-border py-4 text-center text-xs text-muted">
-        © {new Date().getFullYear()} Package Boss Logistics. Domestic & International Shipping.
+        © {new Date().getFullYear()} Package Boss Shipping &amp; Logistics. Terms effective June 21, 2026.
       </div>
     </footer>
   )

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 from app.constants import STATUS_LABELS
 from app.extensions import db
@@ -29,7 +29,20 @@ def get_overview() -> dict:
     in_transit = Package.query.filter_by(status="in_transit").count()
 
     revenue_30d = (
-        db.session.query(func.coalesce(func.sum(Package.shipping_cost_usd), 0))
+        db.session.query(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            Package.billing_status.in_(["ready", "paid"]),
+                            Package.total_due_usd,
+                        ),
+                        else_=Package.estimated_freight_usd,
+                    )
+                ),
+                0,
+            )
+        )
         .filter(Package.received_at >= month_start)
         .scalar()
     )

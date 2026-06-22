@@ -241,3 +241,9 @@ Schema is managed with **Flask-Migrate** (Alembic). Migrations live in `backend/
 | `flask db current` | Show current revision |
 
 Run commands from `backend/` with `FLASK_APP=wsgi:app` (or use `backend/.flaskenv`).
+
+### Official rates & terms
+
+- **Rates:** `$4.00` for the first lb + `$2.50` per additional lb, billable weight rounded up (1–30 lbs). JMD shown at **160 JMD = 1 USD**. Over 30 lbs → custom quote.
+- **Terms:** `/terms` — Package Boss Shipping & Logistics, effective **June 21, 2026**. Signup requires acceptance (`terms_accepted_at` on user).
+- **Migration:** `flask db upgrade` applies `c3d4e5f6a7b8` (adds `terms_accepted_at`).

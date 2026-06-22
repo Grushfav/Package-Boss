@@ -12,6 +12,7 @@ export function SignupPage() {
   const [parishes, setParishes] = useState<string[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -32,10 +33,14 @@ export function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!acceptTerms) {
+      setError('You must accept the Terms and Conditions to create an account.')
+      return
+    }
     setError('')
     setLoading(true)
     try {
-      const data = await register(form)
+      const data = await register({ ...form, accept_terms: true })
       setSession(data.access_token, data.user)
       navigate('/dashboard', { state: { shipping_address: data.shipping_address } })
     } catch (err) {
@@ -125,11 +130,27 @@ export function SignupPage() {
             </select>
           </div>
 
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-background p-4">
+            <input
+              type="checkbox"
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border accent-boss-green"
+            />
+            <span className="text-sm text-muted">
+              I agree to the{' '}
+              <Link to="/terms" target="_blank" className="text-boss-green hover:underline">
+                Terms and Conditions
+              </Link>{' '}
+              of Package Boss Shipping &amp; Logistics (effective June 21, 2026).
+            </span>
+          </label>
+
           {error && (
             <p className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>
           )}
 
-          <Button type="submit" fullWidth disabled={loading}>
+          <Button type="submit" fullWidth disabled={loading || !acceptTerms}>
             {loading ? 'Creating account...' : 'Create Account'}
           </Button>
         </form>

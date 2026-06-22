@@ -1,5 +1,7 @@
 import uuid
 
+from datetime import datetime
+
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token
 
@@ -61,6 +63,9 @@ def register():
     if User.query.filter_by(trn_hash=trn_hashed).first():
         return _error("An account with this TRN already exists", 409)
 
+    if not data.get("accept_terms"):
+        return _error("You must accept the Terms and Conditions to create an account")
+
     shipping_id = generate_shipping_id()
 
     user = User(
@@ -73,6 +78,7 @@ def register():
         trn_encrypted=encrypt_trn(data["trn"]),
         trn_hash=trn_hashed,
         shipping_id=shipping_id,
+        terms_accepted_at=datetime.utcnow(),
     )
 
     db.session.add(user)

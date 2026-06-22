@@ -29,8 +29,12 @@ export function ShippingLabel({ pkg, customer, className = '' }: ShippingLabelPr
       className={`shipping-label mx-auto w-full max-w-md border-2 border-black bg-white p-6 text-black ${className}`}
     >
       <div className="border-b-2 border-black pb-3 text-center">
-        <p className="text-2xl font-black tracking-tight">PACKAGE BOSS</p>
-        <p className="text-xs uppercase tracking-widest text-gray-600">Miami → Kingston</p>
+        <img
+          src="/logo-bw.svg"
+          alt="Package Boss"
+          className="mx-auto h-[1.35in] max-w-full w-auto object-contain print:h-[1.35in] print:max-w-full"
+        />
+        <p className="mt-1 text-xs uppercase tracking-widest text-gray-600">Miami → Kingston</p>
       </div>
 
       <div className="my-4 flex justify-center">

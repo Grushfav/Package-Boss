@@ -84,3 +84,24 @@ SHIPPERS = [
 
 SHIPPER_CODES = {s["code"] for s in SHIPPERS}
 SHIPPER_LABELS = {s["code"]: s["label"] for s in SHIPPERS}
+
+# Kingston & Portmore delivery area
+DELIVERY_PARISHES = ["Kingston", "St. Andrew", "St. Catherine"]
+MAX_DELIVERY_ADDRESSES = 4
+
+INVOICE_STATUSES = ["not_required", "pending", "requested", "received"]
+INVOICE_STATUS_LABELS = {
+    "not_required": "Not Required",
+    "pending": "Awaiting Invoice",
+    "requested": "Invoice Requested",
+    "received": "Invoice Received",
+}
+
+BILLING_STATUSES = ["pending", "ready", "paid"]
+BILLING_STATUS_LABELS = {
+    "pending": "Bill Pending",
+    "ready": "Amount Due",
+    "paid": "Paid",
+}
+
+INVOICE_REQUEST_CHANNELS = ["email", "whatsapp", "both"]

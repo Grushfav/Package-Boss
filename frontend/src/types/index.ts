@@ -10,7 +10,25 @@ export interface User {
   role?: 'customer' | 'clerk' | 'admin'
   trn_masked?: string
   trn_on_file?: boolean
+  whatsapp_opt_in?: boolean
   created_at: string
+}
+
+export interface DeliveryAddress {
+  id: string
+  label: string
+  recipient_name?: string | null
+  line1: string
+  line2?: string | null
+  community?: string | null
+  parish: string
+  contact_number: string
+  delivery_notes?: string | null
+  is_default: boolean
+  sort_order: number
+  formatted: string
+  created_at: string
+  updated_at: string
 }
 
 export interface ShippingAddress {
@@ -37,6 +55,7 @@ export interface RegisterPayload {
   contact_number: string
   trn: string
   parish: string
+  accept_terms: boolean
 }
 
 export interface PackageEvent {
@@ -74,7 +93,20 @@ export interface Package {
   customer?: StaffCustomer
   actual_weight_lbs?: number | null
   billable_weight_lbs?: number | null
-  shipping_cost_usd?: number | null
+  estimated_freight_usd?: number | null
+  duties_usd?: number | null
+  handling_usd?: number | null
+  other_fees_usd?: number | null
+  total_due_usd?: number | null
+  billing_status?: 'pending' | 'ready' | 'paid'
+  billing_status_label?: string
+  invoice_status?: 'not_required' | 'pending' | 'requested' | 'received'
+  invoice_status_label?: string
+  invoice_url?: string | null
+  invoice_request_note?: string | null
+  declared_value_usd?: number | null
+  delivery_address_id?: string | null
+  delivery_address?: DeliveryAddress | null
   rate_tier_label?: string | null
   label_printed_at?: string | null
   received_at?: string | null

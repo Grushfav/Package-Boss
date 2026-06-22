@@ -1,0 +1,166 @@
+from datetime import datetime
+from decimal import Decimal
+
+from app.constants import INVOICE_REQUEST_CHANNELS
+from app.extensions import db
+from app.models.package import Package
+from app.models.user import User
+from app.services.delivery_address_service import build_invoice_upload_url, get_delivery_address
+from app.services.email_service import send_invoice_request_email
+from app.services.package_service import add_package_event
+from app.services.whatsapp_service import send_invoice_request_whatsapp
+
+
+def _decimal(value) -> Decimal | None:
+    if value is None:
+        return None
+    return Decimal(str(value)).quantize(Decimal("0.01"))
+
+
+def compute_total_due(
+    freight: Decimal | None,
+    duties: Decimal | None,
+    handling: Decimal | None,
+    other: Decimal | None,
+) -> Decimal | None:
+    parts = [freight, duties, handling, other]
+    if all(p is None for p in parts):
+        return None
+    total = Decimal("0")
+    for part in parts:
+        if part is not None:
+            total += part
+    return total.quantize(Decimal("0.01"))
+
+
+def update_package_billing(
+    package: Package,
+    *,
+    estimated_freight_usd: float | None = None,
+    duties_usd: float | None = None,
+    handling_usd: float | None = None,
+    other_fees_usd: float | None = None,
+    declared_value_usd: float | None = None,
+    billing_status: str | None = None,
+    publish: bool = False,
+) -> Package:
+    from app.constants import BILLING_STATUSES
+
+    if estimated_freight_usd is not None:
+        package.estimated_freight_usd = _decimal(estimated_freight_usd)
+    if duties_usd is not None:
+        package.duties_usd = _decimal(duties_usd)
+    if handling_usd is not None:
+        package.handling_usd = _decimal(handling_usd)
+    if other_fees_usd is not None:
+        package.other_fees_usd = _decimal(other_fees_usd)
+    if declared_value_usd is not None:
+        package.declared_value_usd = _decimal(declared_value_usd)
+
+    package.total_due_usd = compute_total_due(
+        package.estimated_freight_usd,
+        package.duties_usd,
+        package.handling_usd,
+        package.other_fees_usd,
+    )
+
+    if publish:
+        if package.total_due_usd is None:
+            raise ValueError("Set at least freight or fee amounts before publishing a bill")
+        package.billing_status = "ready"
+    elif billing_status:
+        if billing_status not in BILLING_STATUSES:
+            raise ValueError("Invalid billing status")
+        package.billing_status = billing_status
+
+    package.updated_at = datetime.utcnow()
+    db.session.commit()
+    return package
+
+
+def request_package_invoice(
+    package: Package,
+    channel: str,
+    note: str | None = None,
+) -> dict:
+    if channel not in INVOICE_REQUEST_CHANNELS:
+        raise ValueError("channel must be email, whatsapp, or both")
+
+    if package.status == "unidentified":
+        raise ValueError("Assign package to a customer before requesting an invoice")
+
+    customer: User = package.customer
+    upload_url = build_invoice_upload_url(str(package.id))
+
+    channels_sent: list[str] = []
+
+    if channel in ("email", "both"):
+        send_invoice_request_email(
+            customer.email,
+            customer.first_name,
+            package.tracking_number,
+            upload_url,
+            note,
+        )
+        channels_sent.append("email")
+
+    if channel in ("whatsapp", "both"):
+        if customer.whatsapp_opt_in:
+            send_invoice_request_whatsapp(
+                customer.contact_number,
+                customer.first_name,
+                package.tracking_number,
+                upload_url,
+                note,
+            )
+            channels_sent.append("whatsapp")
+        elif channel == "whatsapp":
+            raise ValueError("Customer has not opted in to WhatsApp notifications")
+
+    package.invoice_status = "requested"
+    package.invoice_requested_at = datetime.utcnow()
+    package.invoice_requested_via = channel
+    package.invoice_request_note = (note or "").strip() or None
+    package.updated_at = datetime.utcnow()
+
+    add_package_event(
+        package,
+        package.status,
+        f"Invoice requested via {channel}"
+        + (f" — {note}" if note else ""),
+    )
+    db.session.commit()
+
+    return {"channels_sent": channels_sent, "invoice_status": package.invoice_status}
+
+
+def attach_package_invoice(
+    package: Package,
+    invoice_object_key: str,
+    declared_value_usd: float | None = None,
+) -> Package:
+    customer = package.customer
+    prefix = f"invoices/{customer.shipping_id}/"
+    if not invoice_object_key.startswith(prefix):
+        raise ValueError("Invalid invoice object key")
+
+    package.invoice_object_key = invoice_object_key
+    package.invoice_status = "received"
+    package.invoice_received_at = datetime.utcnow()
+    if declared_value_usd is not None:
+        package.declared_value_usd = _decimal(declared_value_usd)
+
+    add_package_event(package, package.status, "Customer uploaded invoice")
+    db.session.commit()
+    return package
+
+
+def assign_delivery_address(package: Package, address_id, customer: User) -> Package:
+    address = get_delivery_address(customer, address_id)
+    if not address:
+        raise ValueError("Delivery address not found")
+
+    package.delivery_address_id = address.id
+    package.updated_at = datetime.utcnow()
+    db.session.commit()
+    return package

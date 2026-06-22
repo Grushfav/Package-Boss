@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { AboutPreview } from '../components/landing/AboutPreview'
 import { BossMemberLogin } from '../components/landing/BossMemberLogin'
 import { Hero } from '../components/landing/Hero'
 import { ShippingEstimator } from '../components/landing/ShippingEstimator'
@@ -20,6 +21,8 @@ export function LandingPage() {
           <ShippingEstimator />
         </div>
       </section>
+
+      <AboutPreview />
 
       <section className="border-t border-border px-4 py-16">
         <div className="mx-auto max-w-6xl rounded-2xl border border-border bg-card p-8 text-center shadow-sm md:p-12">

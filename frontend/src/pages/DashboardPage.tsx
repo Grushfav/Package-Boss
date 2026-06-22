@@ -11,6 +11,9 @@ import {
   getCachedShippingAddress,
 } from "../lib/offlineAddress";
 import { Button } from "../components/ui/Button";
+import { DeliveryAddressesSection } from "../components/account/DeliveryAddressesSection";
+import { SHIPPING_FREQUENCY_SHORT } from "../content/marketing";
+import { formatPackageBilling, packageNeedsInvoiceUpload } from "../lib/packageBilling";
 import type { Package as Pkg, PreAlert, ShippingAddress } from "../types";
 
 export function DashboardPage() {
@@ -108,6 +111,10 @@ function CustomerDashboard() {
       <p className="mt-2 text-muted">
         Your BOSS shipping ID:{" "}
         <strong className="text-foreground">{user?.shipping_id}</strong>
+      </p>
+      <p className="mt-2 text-sm text-muted">
+        Packages ship from Miami to Jamaica{" "}
+        <span className="font-semibold text-boss-green">{SHIPPING_FREQUENCY_SHORT}</span>.
       </p>
 
       <div className="mt-8 rounded-2xl border border-boss-green/30 bg-card p-8 shadow-sm">
@@ -272,18 +279,26 @@ function CustomerDashboard() {
                     {pkg.status_label}
                   </span>
                 </div>
-                {pkg.shipping_cost_usd != null && (
-                  <p className="mt-2 text-sm text-muted">
-                    {pkg.billable_weight_lbs} lbs · $
-                    {pkg.shipping_cost_usd.toFixed(2)} USD
-                  </p>
+                {packageNeedsInvoiceUpload(pkg) && (
+                  <Link
+                    to={`/packages/${pkg.id}/upload-invoice`}
+                    className="mt-3 inline-block rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/25 dark:text-amber-300"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Upload invoice required →
+                  </Link>
                 )}
+                <p className="mt-2 text-sm text-muted">
+                  {pkg.billable_weight_lbs != null && `${pkg.billable_weight_lbs} lbs · `}
+                  {formatPackageBilling(pkg)}
+                </p>
               </Link>
             ))}
           </div>
         )}
       </div>
 
+      <DeliveryAddressesSection />
     
     </div>
   );

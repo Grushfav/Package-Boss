@@ -1,12 +1,13 @@
 import { MapPin, PackageSearch, Scale, Truck } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import { trackPackage } from '../api/track'
 import { PackageTimeline } from '../components/packages/PackageTimeline'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
+import { packageNeedsInvoiceUpload } from '../lib/packageBilling'
 import type { Package } from '../types'
 
 export function TrackPage() {
@@ -108,16 +109,46 @@ export function TrackPage() {
                   </div>
                 </div>
               )}
-              {pkg.shipping_cost_usd != null && (
+              {pkg.estimated_freight_usd != null && (
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
                   <Truck className="h-5 w-5 text-muted" />
                   <div>
-                    <p className="text-xs text-muted">Shipping Cost</p>
-                    <p className="text-sm font-semibold">${pkg.shipping_cost_usd.toFixed(2)} USD</p>
+                    <p className="text-xs text-muted">Freight estimate</p>
+                    <p className="text-sm font-semibold">
+                      ${pkg.estimated_freight_usd.toFixed(2)} USD
+                    </p>
                   </div>
                 </div>
               )}
+              {(pkg.billing_status === 'ready' || pkg.billing_status === 'paid') &&
+                pkg.total_due_usd != null && (
+                  <div className="flex items-center gap-3 rounded-lg border border-boss-green/30 bg-boss-green/5 p-4 sm:col-span-2">
+                    <Truck className="h-5 w-5 text-boss-green" />
+                    <div>
+                      <p className="text-xs text-muted">{pkg.billing_status_label}</p>
+                      <p className="text-sm font-bold text-boss-green">
+                        ${pkg.total_due_usd.toFixed(2)} USD
+                      </p>
+                    </div>
+                  </div>
+                )}
             </div>
+
+            {packageNeedsInvoiceUpload(pkg) && (
+              <Link
+                to={`/packages/${pkg.id}/upload-invoice`}
+                className="mt-4 inline-block rounded-lg bg-amber-500/15 px-4 py-2 text-sm font-semibold text-amber-700 dark:text-amber-300"
+              >
+                Upload invoice →
+              </Link>
+            )}
+
+            {pkg.billing_status === 'pending' && pkg.estimated_freight_usd != null && (
+              <p className="mt-4 text-xs text-muted">
+                Freight shown is an estimate only. Final bill may include duties (items over $100
+                USD), handling, and other fees after invoice review.
+              </p>
+            )}
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-6">

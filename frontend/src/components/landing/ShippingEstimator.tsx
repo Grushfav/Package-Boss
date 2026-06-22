@@ -7,27 +7,43 @@ import { Button } from '../ui/Button'
 import { IconBadge } from '../ui/IconBadge'
 import { Input } from '../ui/Input'
 
+const MAX_AUTO_LBS = 30
+
 export function ShippingEstimator() {
   const [weight, setWeight] = useState('1.0')
   const [estimate, setEstimate] = useState<{
     cost_usd: number
+    cost_jmd: number
     billable_weight_lbs: number
     actual_weight_lbs: number
     tier_label: string
     route: string
+    jmd_per_usd: number
   } | null>(null)
+  const [requiresQuote, setRequiresQuote] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function calculate() {
     setError('')
+    setRequiresQuote(false)
+    setEstimate(null)
     setLoading(true)
     try {
-      const result = await estimateRate(parseFloat(weight))
+      const w = parseFloat(weight)
+      if (w > MAX_AUTO_LBS) {
+        setRequiresQuote(true)
+        return
+      }
+      const result = await estimateRate(w)
       setEstimate(result)
     } catch (err) {
-      setError(getErrorMessage(err))
-      setEstimate(null)
+      const msg = getErrorMessage(err)
+      if (msg.toLowerCase().includes('custom quote')) {
+        setRequiresQuote(true)
+      } else {
+        setError(msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -52,6 +68,7 @@ export function ShippingEstimator() {
             type="number"
             min="0.1"
             step="0.1"
+            max={MAX_AUTO_LBS}
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
           />
@@ -62,12 +79,29 @@ export function ShippingEstimator() {
 
         <div className="flex flex-col justify-center rounded-xl border border-boss-green/20 bg-accent-subtle p-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted">
-            Estimated Rate
+            Estimated Freight
           </p>
-          {estimate ? (
+          {requiresQuote ? (
+            <>
+              <p className="mt-3 text-lg font-bold text-amber-400">Custom quote required</p>
+              <p className="mt-2 text-sm text-muted">
+                Packages over {MAX_AUTO_LBS} lbs need a quote from Package Boss Shipping &amp;
+                Logistics.
+              </p>
+              <a
+                href="mailto:support@packageboss.com"
+                className="mt-3 text-sm font-semibold text-boss-green hover:underline"
+              >
+                Request a quote →
+              </a>
+            </>
+          ) : estimate ? (
             <>
               <p className="mt-2 text-3xl font-black text-boss-green">
                 ${estimate.cost_usd.toFixed(2)} USD
+              </p>
+              <p className="mt-1 text-xl font-bold text-muted">
+                ${estimate.cost_jmd.toLocaleString()} JMD
               </p>
               <p className="mt-2 text-sm italic text-muted">{estimate.route}</p>
               {estimate.billable_weight_lbs !== estimate.actual_weight_lbs && (
@@ -75,7 +109,9 @@ export function ShippingEstimator() {
                   {estimate.actual_weight_lbs} lb billed as {estimate.billable_weight_lbs} lb
                 </p>
               )}
-              <p className="mt-1 text-xs text-muted">{estimate.tier_label}</p>
+              <p className="mt-1 text-xs text-muted">
+                {estimate.tier_label} · {estimate.jmd_per_usd} JMD = 1 USD
+              </p>
             </>
           ) : (
             <p className="mt-2 text-muted">Enter weight to estimate</p>
@@ -89,7 +125,8 @@ export function ShippingEstimator() {
 
       <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted">
-          *Weights are rounded up to the nearest whole pound.
+          *Freight estimates only — weights rounded up to the nearest pound. Duties, handling, and
+          other charges may apply after invoice review.
         </p>
         <Link to="/rates">
           <Button variant="outline" className="!border-boss-gold !text-boss-gold hover:!bg-boss-gold/10">
