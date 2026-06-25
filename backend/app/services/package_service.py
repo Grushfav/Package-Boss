@@ -5,28 +5,17 @@ from datetime import datetime, timedelta
 from flask import current_app
 
 from app.constants import UNIDENTIFIED_HOLDER_SHIPPING_ID
-from app.extensions import db, redis_client
+from app.extensions import db
 from app.models.package import Package, PackageEvent, PackagePhoto
 from app.models.user import User
 from app.services.shipping_service import calculate_shipping_cost
+from app.services.image_upload_service import is_valid_photo_reference
 
 
 def generate_tracking_number() -> str:
     year = datetime.utcnow().year
-    key = f"boss:tracking_seq:{year}"
-    start = 1
-
-    if redis_client is not None:
-        try:
-            if not redis_client.exists(key):
-                redis_client.set(key, start - 1)
-            seq = redis_client.incr(key)
-            return f"PB-{year}-{seq:06d}"
-        except Exception:
-            current_app.logger.warning("Redis unavailable for tracking number, using DB fallback")
-
     packages = Package.query.filter(Package.tracking_number.like(f"PB-{year}-%")).all()
-    max_seq = start - 1
+    max_seq = 0
     for pkg in packages:
         match = re.match(rf"PB-{year}-(\d+)$", pkg.tracking_number)
         if match:
@@ -35,10 +24,52 @@ def generate_tracking_number() -> str:
 
 
 def add_package_event(package: Package, status: str, note: str | None = None) -> None:
+    previous_status = package.status
+    had_events = bool(package.events)
+
     event = PackageEvent(package_id=package.id, status=status, note=note)
     db.session.add(event)
     package.status = status
     package.updated_at = datetime.utcnow()
+
+    if status != "unidentified" and (previous_status != status or not had_events):
+        _notify_package_status_email(package, status, note)
+
+
+def _notify_package_status_email(package: Package, status: str, note: str | None) -> None:
+    customer = package.customer
+    if customer is None and package.customer_id:
+        customer = db.session.get(User, package.customer_id)
+    if not customer or customer.shipping_id == UNIDENTIFIED_HOLDER_SHIPPING_ID:
+        current_app.logger.info(
+            "Skipping status email for %s (no customer or unidentified holder)",
+            package.tracking_number,
+        )
+        return
+
+    try:
+        from app.services.email_service import EmailServiceError, send_package_status_email
+
+        send_package_status_email(
+            customer.email,
+            customer.first_name,
+            package.tracking_number,
+            status,
+            note=note,
+        )
+    except EmailServiceError as exc:
+        current_app.logger.error(
+            "Status email failed for %s → %s: %s",
+            package.tracking_number,
+            customer.email,
+            exc,
+        )
+    except Exception as exc:
+        current_app.logger.warning(
+            "Failed to send status email for %s: %s",
+            package.tracking_number,
+            exc,
+        )
 
 
 def receive_package(
@@ -76,7 +107,7 @@ def receive_package(
     )
 
     for key in photo_keys or []:
-        if key and key.startswith(f"packages/{customer.shipping_id}/"):
+        if is_valid_photo_reference(key, shipping_id=customer.shipping_id):
             db.session.add(PackagePhoto(package_id=package.id, r2_object_key=key))
 
     db.session.commit()
@@ -139,7 +170,7 @@ def receive_unidentified_package(
     )
 
     for key in photo_keys or []:
-        if key and key.startswith("packages/unidentified/"):
+        if is_valid_photo_reference(key, unidentified=True):
             db.session.add(PackagePhoto(package_id=package.id, r2_object_key=key))
 
     db.session.commit()
@@ -212,6 +243,7 @@ def warehouse_package_to_dict(package: Package) -> dict:
         data["customer"] = {
             "id": str(customer.id),
             "full_name": customer.full_name,
+            "email": customer.email,
             "shipping_id": customer.shipping_id,
             "parish": customer.parish,
         }

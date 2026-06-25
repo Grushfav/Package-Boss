@@ -26,7 +26,7 @@ class PreAlert(db.Model):
 
     def to_dict(self) -> dict:
         from app.constants import PRE_ALERT_STATUS_LABELS
-        from app.services.r2_service import get_public_url
+        from app.services.image_upload_service import resolve_stored_url
 
         return {
             "id": str(self.id),
@@ -35,7 +35,7 @@ class PreAlert(db.Model):
             "description": self.description,
             "declared_value_usd": float(self.declared_value_usd) if self.declared_value_usd else None,
             "invoice_object_key": self.invoice_object_key,
-            "invoice_url": get_public_url(self.invoice_object_key) if self.invoice_object_key else None,
+            "invoice_url": resolve_stored_url(self.invoice_object_key) if self.invoice_object_key else None,
             "status": self.status,
             "status_label": PRE_ALERT_STATUS_LABELS.get(self.status, self.status),
             "package_id": str(self.package_id) if self.package_id else None,

@@ -1,17 +1,34 @@
 import hashlib
 import secrets
+import time
 
 from flask import current_app, request
-
-from app.extensions import redis_client
 
 RESET_TTL_SECONDS = 900  # 15 minutes
 RATE_LIMIT_TTL = 3600
 RATE_LIMIT_MAX = 3
 
+_reset_tokens: dict[str, tuple[str, float]] = {}
+_rate_limits: dict[str, tuple[int, float]] = {}
+
 
 def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode()).hexdigest()
+
+
+def _store_reset(token_hash: str, user_id: str) -> None:
+    _reset_tokens[token_hash] = (user_id, time.time() + RESET_TTL_SECONDS)
+
+
+def _get_reset(token_hash: str) -> str | None:
+    entry = _reset_tokens.get(token_hash)
+    if not entry:
+        return None
+    user_id, expires = entry
+    if time.time() > expires:
+        _reset_tokens.pop(token_hash, None)
+        return None
+    return user_id
 
 
 def generate_reset_token() -> tuple[str, str]:
@@ -20,34 +37,26 @@ def generate_reset_token() -> tuple[str, str]:
 
 
 def store_reset_token(user_id: str, token_hash: str) -> None:
-    if redis_client is None:
-        raise RuntimeError("Redis is required for password reset")
-    redis_client.setex(f"password_reset:{token_hash}", RESET_TTL_SECONDS, user_id)
+    _store_reset(token_hash, user_id)
 
 
 def get_user_id_for_token(raw_token: str) -> str | None:
-    if redis_client is None:
-        return None
-    token_hash = _hash_token(raw_token)
-    return redis_client.get(f"password_reset:{token_hash}")
+    return _get_reset(_hash_token(raw_token))
 
 
 def delete_reset_token(raw_token: str) -> None:
-    if redis_client is None:
-        return
-    token_hash = _hash_token(raw_token)
-    redis_client.delete(f"password_reset:{token_hash}")
+    _reset_tokens.pop(_hash_token(raw_token), None)
 
 
 def check_rate_limit(email: str) -> None:
-    if redis_client is None:
-        return
-
+    now = time.time()
     ip = request.remote_addr or "unknown"
     for key in (f"reset_attempts:email:{email}", f"reset_attempts:ip:{ip}"):
-        count = redis_client.incr(key)
-        if count == 1:
-            redis_client.expire(key, RATE_LIMIT_TTL)
+        count, expires = _rate_limits.get(key, (0, now + RATE_LIMIT_TTL))
+        if now > expires:
+            count, expires = 0, now + RATE_LIMIT_TTL
+        count += 1
+        _rate_limits[key] = (count, expires)
         if count > RATE_LIMIT_MAX:
             raise ValueError("Too many reset attempts. Try again later.")
 

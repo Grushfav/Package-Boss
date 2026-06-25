@@ -6,7 +6,8 @@ from app.extensions import db
 from app.models.package import Package
 from app.models.user import User
 from app.services.delivery_address_service import build_invoice_upload_url, get_delivery_address
-from app.services.email_service import send_invoice_request_email
+from app.services.email_service import EmailServiceError, send_invoice_request_email
+from app.services.image_upload_service import is_valid_invoice_reference
 from app.services.package_service import add_package_event
 from app.services.whatsapp_service import send_invoice_request_whatsapp
 
@@ -93,27 +94,40 @@ def request_package_invoice(
     upload_url = build_invoice_upload_url(str(package.id))
 
     channels_sent: list[str] = []
+    email_result: dict | None = None
 
     if channel in ("email", "both"):
-        send_invoice_request_email(
-            customer.email,
-            customer.first_name,
-            package.tracking_number,
-            upload_url,
-            note,
-        )
-        channels_sent.append("email")
-
-    if channel in ("whatsapp", "both"):
-        if customer.whatsapp_opt_in:
-            send_invoice_request_whatsapp(
-                customer.contact_number,
+        try:
+            email_result = send_invoice_request_email(
+                customer.email,
                 customer.first_name,
                 package.tracking_number,
                 upload_url,
                 note,
             )
-            channels_sent.append("whatsapp")
+            channels_sent.append("email")
+        except (EmailServiceError, NotImplementedError) as exc:
+            raise ValueError(f"Failed to send invoice email: {exc}") from exc
+
+    if channel in ("whatsapp", "both"):
+        if customer.whatsapp_opt_in:
+            try:
+                send_invoice_request_whatsapp(
+                    customer.contact_number,
+                    customer.first_name,
+                    package.tracking_number,
+                    upload_url,
+                    note,
+                )
+                channels_sent.append("whatsapp")
+            except NotImplementedError as exc:
+                if channel == "whatsapp":
+                    raise ValueError(f"Failed to send WhatsApp message: {exc}") from exc
+                current_app.logger.warning(
+                    "WhatsApp invoice request skipped for %s: %s",
+                    package.tracking_number,
+                    exc,
+                )
         elif channel == "whatsapp":
             raise ValueError("Customer has not opted in to WhatsApp notifications")
 
@@ -131,7 +145,12 @@ def request_package_invoice(
     )
     db.session.commit()
 
-    return {"channels_sent": channels_sent, "invoice_status": package.invoice_status}
+    return {
+        "channels_sent": channels_sent,
+        "invoice_status": package.invoice_status,
+        "email_recipient": customer.email if "email" in channels_sent else None,
+        "email_request_id": email_result.get("requestId") if email_result else None,
+    }
 
 
 def attach_package_invoice(
@@ -140,8 +159,7 @@ def attach_package_invoice(
     declared_value_usd: float | None = None,
 ) -> Package:
     customer = package.customer
-    prefix = f"invoices/{customer.shipping_id}/"
-    if not invoice_object_key.startswith(prefix):
+    if not is_valid_invoice_reference(invoice_object_key, customer.shipping_id):
         raise ValueError("Invalid invoice object key")
 
     package.invoice_object_key = invoice_object_key

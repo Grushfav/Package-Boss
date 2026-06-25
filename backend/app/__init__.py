@@ -5,7 +5,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from app.config import Config
-from app.extensions import db, init_redis, jwt, migrate
+from app.extensions import db, jwt, migrate
 from app.models.user import User
 from app.services.unidentified_service import ensure_unidentified_holder
 from app.routes import (
@@ -51,11 +51,6 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-
-    try:
-        init_redis(app)
-    except Exception as exc:
-        app.logger.warning("Redis connection failed: %s", exc)
 
     CORS(
         app,

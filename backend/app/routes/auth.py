@@ -2,7 +2,7 @@ import uuid
 
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import create_access_token
 
 from app.constants import JAMAICA_PARISHES
@@ -14,7 +14,7 @@ from app.services.auth_service import (
     validate_password,
     verify_password,
 )
-from app.services.email_service import send_password_reset_email
+from app.services.email_service import EmailServiceError, send_password_reset_email, send_welcome_email
 from app.services.reset_token_service import (
     build_reset_url,
     check_rate_limit,
@@ -84,13 +84,19 @@ def register():
     db.session.add(user)
     db.session.commit()
 
+    shipping_address = build_shipping_address(user.shipping_id)
+    try:
+        send_welcome_email(user.email, user.first_name, user.shipping_id, shipping_address)
+    except (EmailServiceError, NotImplementedError) as exc:
+        current_app.logger.warning("Welcome email not sent for %s: %s", user.email, exc)
+
     access_token = create_access_token(identity=str(user.id))
 
     return jsonify(
         {
             "access_token": access_token,
             "user": user.to_dict(include_trn_masked=True),
-            "shipping_address": build_shipping_address(user.shipping_id),
+            "shipping_address": shipping_address,
         }
     ), 201
 
@@ -138,7 +144,8 @@ def forgot_password():
             store_reset_token(str(user.id), token_hash)
             reset_url = build_reset_url(raw_token)
             send_password_reset_email(user.email, user.first_name, reset_url)
-        except RuntimeError:
+        except (RuntimeError, EmailServiceError) as exc:
+            current_app.logger.error("Password reset failed for %s: %s", email, exc)
             return _error("Password reset is temporarily unavailable", 503)
 
     return jsonify(

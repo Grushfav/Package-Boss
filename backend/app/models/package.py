@@ -55,7 +55,7 @@ class Package(db.Model):
 
     def to_dict(self, include_events: bool = False, include_photos: bool = False) -> dict:
         from app.constants import BILLING_STATUS_LABELS, INVOICE_STATUS_LABELS, SHIPPER_LABELS, STATUS_LABELS
-        from app.services.r2_service import get_public_url
+        from app.services.image_upload_service import resolve_stored_url
 
         data = {
             "id": str(self.id),
@@ -82,7 +82,7 @@ class Package(db.Model):
             "invoice_status": self.invoice_status,
             "invoice_status_label": INVOICE_STATUS_LABELS.get(self.invoice_status, self.invoice_status),
             "invoice_object_key": self.invoice_object_key,
-            "invoice_url": get_public_url(self.invoice_object_key) if self.invoice_object_key else None,
+            "invoice_url": resolve_stored_url(self.invoice_object_key) if self.invoice_object_key else None,
             "declared_value_usd": float(self.declared_value_usd) if self.declared_value_usd else None,
             "invoice_requested_at": self.invoice_requested_at.isoformat()
             if self.invoice_requested_at
@@ -136,11 +136,11 @@ class PackagePhoto(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     def to_dict(self) -> dict:
-        from app.services.r2_service import get_public_url
+        from app.services.image_upload_service import resolve_stored_url
 
         return {
             "id": str(self.id),
             "object_key": self.r2_object_key,
-            "url": get_public_url(self.r2_object_key),
+            "url": resolve_stored_url(self.r2_object_key),
             "created_at": self.created_at.isoformat(),
         }

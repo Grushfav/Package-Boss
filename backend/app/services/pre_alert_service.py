@@ -3,7 +3,7 @@ from datetime import datetime
 from app.extensions import db
 from app.models.pre_alert import PreAlert
 from app.models.user import User
-from app.services.r2_service import is_r2_configured
+from app.services.image_upload_service import is_storage_configured, is_valid_invoice_reference
 
 
 def normalize_carrier_tracking(value: str) -> str:
@@ -22,10 +22,10 @@ def create_pre_alert(
     if not tracking:
         raise ValueError("carrier_tracking is required")
 
-    if is_r2_configured() and not invoice_object_key:
+    if is_storage_configured() and not invoice_object_key:
         raise ValueError("invoice upload is required")
 
-    if invoice_object_key and not invoice_object_key.startswith(f"invoices/{customer.shipping_id}/"):
+    if invoice_object_key and not is_valid_invoice_reference(invoice_object_key, customer.shipping_id):
         raise ValueError("Invalid invoice object key")
 
     existing = PreAlert.query.filter_by(

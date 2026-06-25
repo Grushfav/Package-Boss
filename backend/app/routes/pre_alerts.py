@@ -7,12 +7,8 @@ from app.constants import ALLOWED_INVOICE_TYPES
 from app.models.pre_alert import PreAlert
 from app.models.user import User
 from app.services.pre_alert_service import cancel_pre_alert, create_pre_alert
-from app.services.r2_service import (
-    build_invoice_object_key,
-    generate_presigned_upload,
-    get_public_url,
-    is_r2_configured,
-)
+from app.services.image_upload_service import ImageUploadError, create_upload_presign, is_storage_configured
+from app.services.r2_service import build_invoice_object_key
 from app.utils.auth_decorators import get_user_from_jwt
 
 pre_alerts_bp = Blueprint("pre_alerts", __name__)
@@ -129,27 +125,34 @@ def presign_invoice_upload():
     if not user:
         return _error("Customer access required", 403)
 
-    if not is_r2_configured():
+    if not is_storage_configured():
         return _error("Invoice storage is not configured", 503)
 
     data = request.get_json(silent=True) or {}
     filename = (data.get("filename") or "invoice.pdf").strip()
     content_type = (data.get("content_type") or "application/pdf").strip().lower()
+    content_length = data.get("content_length") or data.get("contentLength")
 
     if content_type not in ALLOWED_INVOICE_TYPES:
         return _error("Only JPEG, PNG, WebP, and PDF files are allowed")
 
+    try:
+        content_length = int(content_length)
+    except (TypeError, ValueError):
+        return _error("content_length is required")
+
     object_key = build_invoice_object_key(user.shipping_id, filename)
 
     try:
-        upload_url = generate_presigned_upload(object_key, content_type)
+        return jsonify(
+            create_upload_presign(
+                content_type=content_type,
+                content_length=content_length,
+                prefix="invoices",
+                r2_object_key=object_key,
+            )
+        )
+    except ImageUploadError as exc:
+        return _error(str(exc), exc.status_code or 503)
     except Exception as exc:
         return _error(f"Failed to generate upload URL: {exc}", 500)
-
-    return jsonify(
-        {
-            "upload_url": upload_url,
-            "object_key": object_key,
-            "public_url": get_public_url(object_key),
-        }
-    )

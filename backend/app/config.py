@@ -19,7 +19,6 @@ class Config:
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", SECRET_KEY)
     JWT_ACCESS_TOKEN_EXPIRES = 60 * 60 * 24 * 7  # 7 days
 
-    REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     BOSS_ID_SEQ_START = int(os.environ.get("BOSS_ID_SEQ_START", "90001"))
 
     TRN_ENCRYPTION_KEY = os.environ.get("TRN_ENCRYPTION_KEY", "")
@@ -35,6 +34,14 @@ class Config:
     WAREHOUSE_COUNTRY = os.environ.get("WAREHOUSE_COUNTRY", "US")
 
     EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "console")
+    EMAIL_API_URL = os.environ.get("EMAIL_API_URL", "").rstrip("/")
+    EMAIL_API_KEY = os.environ.get("EMAIL_API_KEY", "")
+    IMAGE_UPLOAD_URL = os.environ.get("IMAGE_UPLOAD_URL", "")
+    IMAGE_API_KEY = os.environ.get("IMAGE_API_KEY", "")
+    IMAGE_UPLOAD_WORKER_URL = os.environ.get("IMAGE_UPLOAD_WORKER_URL", "").rstrip("/")
+    IMAGE_UPLOAD_API_KEY = os.environ.get("IMAGE_UPLOAD_API_KEY", "") or IMAGE_API_KEY
+    DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "gavin@geeksja.com")
+    EMAIL_LOGO_URL = os.environ.get("EMAIL_LOGO_URL", "").strip()
     WHATSAPP_PROVIDER = os.environ.get("WHATSAPP_PROVIDER", "console")
 
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
