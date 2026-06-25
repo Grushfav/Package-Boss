@@ -89,6 +89,27 @@ SHIPPER_LABELS = {s["code"]: s["label"] for s in SHIPPERS}
 DELIVERY_PARISHES = ["Kingston", "St. Andrew", "St. Catherine"]
 MAX_DELIVERY_ADDRESSES = 4
 
+MAX_AUTHORIZED_PICKUPS = 5
+
+PICKUP_RELATIONSHIPS = ["spouse", "family", "friend", "colleague", "other"]
+
+PICKUP_RELATIONSHIP_LABELS = {
+    "spouse": "Spouse",
+    "family": "Family member",
+    "friend": "Friend",
+    "colleague": "Colleague",
+    "other": "Other",
+}
+
+PICKUP_ID_TYPES = ["drivers_license", "passport", "national_id", "voter_id"]
+
+PICKUP_ID_TYPE_LABELS = {
+    "drivers_license": "Driver's licence",
+    "passport": "Passport",
+    "national_id": "National ID",
+    "voter_id": "Voter ID",
+}
+
 INVOICE_STATUSES = ["not_required", "pending", "requested", "received"]
 INVOICE_STATUS_LABELS = {
     "not_required": "Not Required",

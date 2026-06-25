@@ -1,4 +1,5 @@
 from app.models.audit_log import AuditLog
+from app.models.authorized_pickup import AuthorizedPickupPerson
 from app.models.delivery_address import DeliveryAddress
 from app.models.package import Package, PackageEvent, PackagePhoto
 from app.models.pre_alert import PreAlert
@@ -13,5 +14,6 @@ __all__ = [
     "PackagePhoto",
     "PreAlert",
     "AuditLog",
+    "AuthorizedPickupPerson",
     "DeliveryAddress",
 ]
