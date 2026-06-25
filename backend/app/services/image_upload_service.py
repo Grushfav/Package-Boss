@@ -14,6 +14,53 @@ class ImageUploadError(Exception):
         self.status_code = status_code
 
 
+_MIME_BY_EXT = {
+    "pdf": "application/pdf",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "webp": "image/webp",
+}
+
+
+def guess_content_type(filename: str, default: str = "application/octet-stream") -> str:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return _MIME_BY_EXT.get(ext, default)
+
+
+def parse_content_length(data: dict) -> int:
+    raw = data.get("content_length")
+    if raw is None:
+        raw = data.get("contentLength")
+    if raw is None:
+        raw = data.get("size")
+    if raw is None:
+        raise ValueError("content_length is required")
+    try:
+        length = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("content_length is required") from exc
+    if length <= 0:
+        raise ValueError("content_length must be greater than 0")
+    return length
+
+
+def parse_presign_fields(
+    data: dict,
+    *,
+    default_filename: str,
+    default_content_type: str,
+) -> tuple[str, str, int]:
+    filename = (data.get("filename") or default_filename).strip()
+    content_type = (
+        data.get("content_type") or data.get("contentType") or ""
+    ).strip().lower()
+    if not content_type:
+        content_type = guess_content_type(filename, default_content_type)
+    content_length = parse_content_length(data)
+    return filename, content_type, content_length
+
+
 def worker_base_url() -> str:
     base = (current_app.config.get("IMAGE_UPLOAD_WORKER_URL") or "").strip().rstrip("/")
     if base:
@@ -149,6 +196,26 @@ def create_presigned_upload(
     }
 
 
+def complete_presigned_upload(
+    *,
+    upload_url: str,
+    file_bytes: bytes,
+    content_type: str,
+    upload_headers: dict | None = None,
+) -> None:
+    headers = {**(upload_headers or {}), "Content-Type": content_type}
+    try:
+        upload = requests.put(
+            upload_url,
+            data=file_bytes,
+            headers=headers,
+            timeout=120,
+        )
+        upload.raise_for_status()
+    except requests.RequestException as exc:
+        raise ImageUploadError(f"Upload failed: {exc}") from exc
+
+
 def upload_bytes(file_bytes: bytes, content_type: str, *, prefix: str = "packages") -> str:
     """Server-side upload (Step A + B). Returns publicUrl."""
     presign = create_presigned_upload(
@@ -156,17 +223,12 @@ def upload_bytes(file_bytes: bytes, content_type: str, *, prefix: str = "package
         content_length=len(file_bytes),
         prefix=prefix,
     )
-    upload_headers = {**presign["upload_headers"], "Content-Type": content_type}
-    try:
-        upload = requests.put(
-            presign["upload_url"],
-            data=file_bytes,
-            headers=upload_headers,
-            timeout=60,
-        )
-        upload.raise_for_status()
-    except requests.RequestException as exc:
-        raise ImageUploadError(f"Upload failed: {exc}") from exc
+    complete_presigned_upload(
+        upload_url=presign["upload_url"],
+        file_bytes=file_bytes,
+        content_type=content_type,
+        upload_headers=presign["upload_headers"],
+    )
     return presign["public_url"]
 
 

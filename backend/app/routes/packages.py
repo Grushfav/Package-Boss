@@ -7,7 +7,12 @@ from app.constants import ALLOWED_INVOICE_TYPES
 from app.models.package import Package
 from app.models.user import User
 from app.services.billing_service import attach_package_invoice
-from app.services.image_upload_service import ImageUploadError, create_upload_presign, is_storage_configured
+from app.services.image_upload_service import (
+    ImageUploadError,
+    create_upload_presign,
+    is_storage_configured,
+    parse_presign_fields,
+)
 from app.services.r2_service import build_package_invoice_object_key
 
 packages_bp = Blueprint("packages", __name__)
@@ -81,17 +86,17 @@ def presign_package_invoice(package_id: str):
         return jsonify({"error": "Invoice storage is not configured"}), 503
 
     data = request.get_json(silent=True) or {}
-    filename = (data.get("filename") or "invoice.pdf").strip()
-    content_type = (data.get("content_type") or "application/pdf").strip().lower()
-    content_length = data.get("content_length") or data.get("contentLength")
+    try:
+        filename, content_type, content_length = parse_presign_fields(
+            data,
+            default_filename="invoice.pdf",
+            default_content_type="application/pdf",
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     if content_type not in ALLOWED_INVOICE_TYPES:
         return jsonify({"error": "Only JPEG, PNG, WebP, and PDF files are allowed"}), 400
-
-    try:
-        content_length = int(content_length)
-    except (TypeError, ValueError):
-        return jsonify({"error": "content_length is required"}), 400
 
     object_key = build_package_invoice_object_key(
         user.shipping_id, package.tracking_number, filename

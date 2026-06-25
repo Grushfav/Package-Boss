@@ -7,7 +7,12 @@ from app.constants import ALLOWED_INVOICE_TYPES
 from app.models.pre_alert import PreAlert
 from app.models.user import User
 from app.services.pre_alert_service import cancel_pre_alert, create_pre_alert
-from app.services.image_upload_service import ImageUploadError, create_upload_presign, is_storage_configured
+from app.services.image_upload_service import (
+    ImageUploadError,
+    create_upload_presign,
+    is_storage_configured,
+    parse_presign_fields,
+)
 from app.services.r2_service import build_invoice_object_key
 from app.utils.auth_decorators import get_user_from_jwt
 
@@ -129,17 +134,17 @@ def presign_invoice_upload():
         return _error("Invoice storage is not configured", 503)
 
     data = request.get_json(silent=True) or {}
-    filename = (data.get("filename") or "invoice.pdf").strip()
-    content_type = (data.get("content_type") or "application/pdf").strip().lower()
-    content_length = data.get("content_length") or data.get("contentLength")
+    try:
+        filename, content_type, content_length = parse_presign_fields(
+            data,
+            default_filename="invoice.pdf",
+            default_content_type="application/pdf",
+        )
+    except ValueError as exc:
+        return _error(str(exc))
 
     if content_type not in ALLOWED_INVOICE_TYPES:
         return _error("Only JPEG, PNG, WebP, and PDF files are allowed")
-
-    try:
-        content_length = int(content_length)
-    except (TypeError, ValueError):
-        return _error("content_length is required")
 
     object_key = build_invoice_object_key(user.shipping_id, filename)
 
