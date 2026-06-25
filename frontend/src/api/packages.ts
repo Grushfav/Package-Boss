@@ -1,4 +1,5 @@
 import { api } from './client'
+import { presignFilePayload } from '../lib/normalizeUploadFile'
 import type { InvoicePresignResponse, Package } from '../types'
 
 export async function fetchMyPackages(): Promise<Package[]> {
@@ -15,10 +16,11 @@ export async function presignPackageInvoice(
   packageId: string,
   filename: string,
   contentType: string,
+  contentLength: number,
 ): Promise<InvoicePresignResponse> {
   const { data } = await api.post<InvoicePresignResponse>(
     `/me/packages/${packageId}/invoice/presign`,
-    { filename, content_type: contentType },
+    presignFilePayload({ filename, contentType, contentLength }),
   )
   return data
 }

@@ -1,4 +1,5 @@
 import { api } from './client'
+import { presignFilePayload } from '../lib/normalizeUploadFile'
 import type { Package, PresignResponse, Shipper, StaffCustomer } from '../types'
 
 export interface WarehouseSummary {
@@ -54,11 +55,11 @@ export async function presignUpload(
   shippingId: string,
   filename: string,
   contentType: string,
+  contentLength: number,
 ): Promise<PresignResponse> {
   const { data } = await api.post<PresignResponse>('/uploads/presign', {
     shipping_id: shippingId,
-    filename,
-    content_type: contentType,
+    ...presignFilePayload({ filename, contentType, contentLength }),
   })
   return data
 }
@@ -66,10 +67,10 @@ export async function presignUpload(
 export async function presignUnidentifiedUpload(
   filename: string,
   contentType: string,
+  contentLength: number,
 ): Promise<PresignResponse> {
   const { data } = await api.post<PresignResponse>('/uploads/presign-unidentified', {
-    filename,
-    content_type: contentType,
+    ...presignFilePayload({ filename, contentType, contentLength }),
   })
   return data
 }
@@ -198,8 +199,13 @@ export async function updatePackageStatus(
 export async function requestPackageInvoice(
   packageId: string,
   payload: { channel: 'email' | 'whatsapp' | 'both'; note?: string },
-): Promise<{ package: Package; channels_sent: string[] }> {
-  const { data } = await api.post<{ package: Package; channels_sent: string[] }>(
+): Promise<{ package: Package; channels_sent: string[]; email_recipient?: string | null; email_request_id?: string | null }> {
+  const { data } = await api.post<{
+    package: Package
+    channels_sent: string[]
+    email_recipient?: string | null
+    email_request_id?: string | null
+  }>(
     `/staff/packages/${packageId}/request-invoice`,
     payload,
   )

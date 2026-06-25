@@ -7,17 +7,10 @@ Miami → Kingston logistics platform. Customers sign up, receive a unique `BOSS
 - **Frontend:** Vite + React + TypeScript + Tailwind CSS + PWA
 - **Backend:** Flask + SQLAlchemy + JWT
 - **Database:** Neon PostgreSQL (SQLite for local dev)
-- **Cache:** Redis (BOSS ID generation, password reset in Phase 2)
 
 ## Quick start
 
-### 1. Redis
-
-```bash
-docker compose up -d
-```
-
-### 2. Backend
+### 1. Backend
 
 ```bash
 cd backend
@@ -68,7 +61,7 @@ python wsgi.py
 
 API: http://localhost:5000/api/health
 
-### 3. Frontend
+### 2. Frontend
 
 Requires **Node.js 18+** (20.19+ recommended). Vite is pinned to v6 for compatibility — no Rolldown native bindings needed.
 
@@ -125,7 +118,7 @@ Package-Boss/
 - Tiered USD rates table with ceil rounding
 - Shipping estimator on landing + `/rates` page
 - Landing login card (email only)
-- Password reset via email link (Redis + console email in dev)
+- Password reset via email link
 
 ## Phase 3 (complete)
 

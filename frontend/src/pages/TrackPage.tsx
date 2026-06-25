@@ -1,16 +1,29 @@
 import { MapPin, PackageSearch, Scale, Truck } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import { trackPackage } from '../api/track'
 import { PackageTimeline } from '../components/packages/PackageTimeline'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
+import { useAuth } from '../context/AuthContext'
 import { packageNeedsInvoiceUpload } from '../lib/packageBilling'
+import { getHomeRoute } from '../lib/routing'
 import type { Package } from '../types'
 
 export function TrackPage() {
+  const { user, isAuthenticated } = useAuth()
+  const isCustomer = !user?.role || user.role === 'customer'
+
+  if (isAuthenticated && !isCustomer) {
+    return <Navigate to={getHomeRoute(user?.role)} replace />
+  }
+
+  return <TrackPageContent />
+}
+
+export function TrackPageContent({ embedded = false }: { embedded?: boolean } = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [trackingNumber, setTrackingNumber] = useState(searchParams.get('tracking') || '')
   const [pkg, setPkg] = useState<Package | null>(null)
@@ -46,10 +59,14 @@ export function TrackPage() {
   }, [])
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12">
-      <div className="mb-8 flex items-center gap-2.5">
-        <IconBadge icon={PackageSearch} size="sm" />
-        <h1 className="text-2xl font-black uppercase">Track Package</h1>
+    <div className={embedded ? '' : 'mx-auto max-w-3xl px-4 py-12'}>
+      <div className={`mb-8 flex items-center gap-2.5 ${embedded ? 'mb-6' : ''}`}>
+        {!embedded && <IconBadge icon={PackageSearch} size="sm" />}
+        {embedded ? (
+          <h2 className="text-lg font-bold uppercase tracking-wide">Track Package</h2>
+        ) : (
+          <h1 className="text-2xl font-black uppercase">Track Package</h1>
+        )}
       </div>
 
       <form
@@ -114,9 +131,7 @@ export function TrackPage() {
                   <Truck className="h-5 w-5 text-muted" />
                   <div>
                     <p className="text-xs text-muted">Freight estimate</p>
-                    <p className="text-sm font-semibold">
-                      ${pkg.estimated_freight_usd.toFixed(2)} USD
-                    </p>
+                    <p className="text-sm font-semibold">${pkg.estimated_freight_usd.toFixed(2)} USD</p>
                   </div>
                 </div>
               )}
@@ -124,12 +139,10 @@ export function TrackPage() {
                 pkg.total_due_usd != null && (
                   <div className="flex items-center gap-3 rounded-lg border border-boss-green/30 bg-boss-green/5 p-4 sm:col-span-2">
                     <Truck className="h-5 w-5 text-boss-green" />
-                    <div>
-                      <p className="text-xs text-muted">{pkg.billing_status_label}</p>
-                      <p className="text-sm font-bold text-boss-green">
-                        ${pkg.total_due_usd.toFixed(2)} USD
-                      </p>
-                    </div>
+                    <p className="text-xs text-muted">{pkg.billing_status_label}</p>
+                    <p className="text-sm font-bold text-boss-green">
+                      ${pkg.total_due_usd.toFixed(2)} USD
+                    </p>
                   </div>
                 )}
             </div>

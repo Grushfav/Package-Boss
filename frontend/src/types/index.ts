@@ -31,6 +31,23 @@ export interface DeliveryAddress {
   updated_at: string
 }
 
+export interface AuthorizedPickupPerson {
+  id: string
+  full_name: string
+  contact_number: string
+  id_type: string
+  id_type_label: string
+  notes?: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface PickupOption {
+  value: string
+  label: string
+}
+
 export interface ShippingAddress {
   line1: string
   line2: string
@@ -130,6 +147,7 @@ export interface StaffCustomer {
 
 export interface PresignResponse {
   upload_url: string
+  upload_headers?: Record<string, string>
   object_key: string
   public_url: string | null
   shipping_id?: string
@@ -137,6 +155,7 @@ export interface PresignResponse {
 
 export interface InvoicePresignResponse {
   upload_url: string
+  upload_headers?: Record<string, string>
   object_key: string
   public_url: string | null
 }

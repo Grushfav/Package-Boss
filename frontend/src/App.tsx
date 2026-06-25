@@ -9,7 +9,16 @@ import { AdminClerksPage } from './pages/AdminClerksPage'
 import { AdminHomePage } from './pages/AdminHomePage'
 import { AdminLayout } from './components/layout/AdminLayout'
 import { WarehouseLayout } from './components/layout/WarehouseLayout'
-import { DashboardPage } from './pages/DashboardPage'
+import { CustomerDashboardLayout } from './components/layout/CustomerDashboardLayout'
+import { DashboardHomePage } from './pages/dashboard/DashboardHomePage'
+import { DashboardTrackPage } from './pages/dashboard/DashboardTrackPage'
+import { DashboardAddressPage } from './pages/dashboard/DashboardAddressPage'
+import { DashboardAuthorizedPickupsPage } from './pages/dashboard/DashboardAuthorizedPickupsPage'
+import { DashboardPackagesPage } from './pages/dashboard/DashboardPackagesPage'
+import { DashboardNotificationsPage } from './pages/dashboard/DashboardNotificationsPage'
+import { DashboardPreAlertsPage } from './pages/dashboard/DashboardPreAlertsPage'
+import { DashboardProfilePage } from './pages/dashboard/DashboardProfilePage'
+import { DashboardRatesPage } from './pages/dashboard/DashboardRatesPage'
 import { NewPreAlertPage } from './pages/NewPreAlertPage'
 import { PackageInvoiceUploadPage } from './pages/PackageInvoiceUploadPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
@@ -47,7 +56,17 @@ function App() {
               <Route path="/track" element={<TrackPage />} />
 
               <Route element={<RequireAuth />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/dashboard" element={<CustomerDashboardLayout />}>
+                  <Route index element={<DashboardHomePage />} />
+                  <Route path="track" element={<DashboardTrackPage />} />
+                  <Route path="profile" element={<DashboardProfilePage />} />
+                  <Route path="delivery-address" element={<DashboardAddressPage />} />
+                  <Route path="authorized-pickups" element={<DashboardAuthorizedPickupsPage />} />
+                  <Route path="pre-alerts" element={<DashboardPreAlertsPage />} />
+                  <Route path="packages" element={<DashboardPackagesPage />} />
+                  <Route path="rates" element={<DashboardRatesPage />} />
+                  <Route path="notifications" element={<DashboardNotificationsPage />} />
+                </Route>
                 <Route path="/pre-alerts/new" element={<NewPreAlertPage />} />
                 <Route path="/packages/:packageId/upload-invoice" element={<PackageInvoiceUploadPage />} />
               </Route>

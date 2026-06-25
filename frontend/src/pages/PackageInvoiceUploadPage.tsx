@@ -1,6 +1,6 @@
 import { FileUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import { fetchMyPackage, submitPackageInvoice } from '../api/packages'
 import { Button } from '../components/ui/Button'
@@ -44,7 +44,7 @@ export function PackageInvoiceUploadPage() {
         invoice_object_key: invoiceKey,
         declared_value_usd: declaredValue ? parseFloat(declaredValue) : undefined,
       })
-      navigate('/dashboard')
+      navigate('/dashboard/packages')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -113,7 +113,7 @@ export function PackageInvoiceUploadPage() {
             onChange={(e) => setSkipUpload(e.target.checked)}
             className="rounded border-border"
           />
-          Skip upload (dev only — requires R2 in production)
+          Skip upload (dev only — requires file storage in production)
         </label>
 
         {error && (
@@ -124,11 +124,9 @@ export function PackageInvoiceUploadPage() {
           <Button type="submit" disabled={loading}>
             {loading ? 'Uploading...' : 'Submit invoice'}
           </Button>
-          <Link to="/dashboard">
-            <Button type="button" variant="outline">
-              Cancel
-            </Button>
-          </Link>
+          <Button type="button" variant="outline" onClick={() => navigate('/dashboard/packages')}>
+            Cancel
+          </Button>
         </div>
       </form>
     </div>

@@ -5,7 +5,6 @@ import {
   deleteDeliveryAddress,
   fetchDeliveryAddresses,
   setDefaultDeliveryAddress,
-  updateWhatsappOptIn,
 } from '../../api/deliveryAddresses'
 import { api } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
@@ -27,7 +26,7 @@ const emptyForm = {
 }
 
 export function DeliveryAddressesSection() {
-  const { user, refreshUser } = useAuth()
+  const { user } = useAuth()
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([])
   const [maxAddresses, setMaxAddresses] = useState(4)
   const [parishes, setParishes] = useState<string[]>([])
@@ -35,7 +34,6 @@ export function DeliveryAddressesSection() {
   const [showForm, setShowForm] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [whatsappOptIn, setWhatsappOptIn] = useState(user?.whatsapp_opt_in ?? false)
 
   function load() {
     fetchDeliveryAddresses()
@@ -50,10 +48,6 @@ export function DeliveryAddressesSection() {
     load()
     api.get<{ parishes: string[] }>('/parishes').then(({ data }) => setParishes(data.parishes))
   }, [])
-
-  useEffect(() => {
-    setWhatsappOptIn(user?.whatsapp_opt_in ?? false)
-  }, [user?.whatsapp_opt_in])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -94,21 +88,10 @@ export function DeliveryAddressesSection() {
     }
   }
 
-  async function handleWhatsappToggle(checked: boolean) {
-    setWhatsappOptIn(checked)
-    try {
-      await updateWhatsappOptIn(checked)
-      await refreshUser?.()
-    } catch (err) {
-      setWhatsappOptIn(!checked)
-      setError(getErrorMessage(err))
-    }
-  }
-
   const deliveryParishOptions = parishes.filter((p) => DELIVERY_PARISHES.includes(p))
 
   return (
-    <div className="mt-8">
+    <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-bold uppercase tracking-wide">Delivery Addresses</h2>
         {addresses.length < maxAddresses && (
@@ -120,16 +103,6 @@ export function DeliveryAddressesSection() {
       <p className="mt-2 text-sm text-muted">
         Save up to {maxAddresses} Jamaica addresses for Kingston &amp; Portmore delivery.
       </p>
-
-      <label className="mt-4 flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={whatsappOptIn}
-          onChange={(e) => handleWhatsappToggle(e.target.checked)}
-          className="h-4 w-4 rounded border-border accent-boss-green"
-        />
-        <span>Receive WhatsApp updates (including invoice requests)</span>
-      </label>
 
       {error && (
         <p className="mt-3 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>

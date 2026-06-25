@@ -1,4 +1,5 @@
 import { api } from './client'
+import { presignFilePayload } from '../lib/normalizeUploadFile'
 import type { InvoicePresignResponse, PreAlert } from '../types'
 
 export async function fetchMyPreAlerts(): Promise<PreAlert[]> {
@@ -25,10 +26,10 @@ export async function cancelPreAlert(id: string): Promise<PreAlert> {
 export async function presignInvoiceUpload(
   filename: string,
   contentType: string,
+  contentLength: number,
 ): Promise<InvoicePresignResponse> {
   const { data } = await api.post<InvoicePresignResponse>('/me/uploads/invoice/presign', {
-    filename,
-    content_type: contentType,
+    ...presignFilePayload({ filename, contentType, contentLength }),
   })
   return data
 }

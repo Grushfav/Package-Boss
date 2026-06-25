@@ -39,13 +39,24 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
     }
   }, [pkg.customer?.shipping_id])
 
+  const [success, setSuccess] = useState('')
+
   async function handleRequestInvoice() {
     setError('')
+    setSuccess('')
     setLoading(true)
     try {
       const result = await requestPackageInvoice(pkg.id, { channel, note: note || undefined })
       onUpdated(result.package)
       setNote('')
+      const parts: string[] = []
+      if (result.channels_sent.includes('email') && result.email_recipient) {
+        parts.push(`Email sent to ${result.email_recipient}`)
+      }
+      if (result.channels_sent.includes('whatsapp')) {
+        parts.push('WhatsApp notification sent')
+      }
+      setSuccess(parts.join(' · ') || 'Invoice request sent')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -125,6 +136,12 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
           ))}
         </div>
 
+        {success && (
+          <p className="mt-3 rounded-lg bg-boss-green/10 px-3 py-2 text-sm text-boss-green">
+            {success}
+          </p>
+        )}
+
         {error && (
           <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</p>
         )}
@@ -132,8 +149,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
         {tab === 'invoice' && (
           <div className="mt-4 space-y-4">
             <p className="text-sm text-muted">
-              Send the customer a link to upload their invoice. Email and WhatsApp use placeholder
-              providers (console log) until configured.
+            Send the customer a link to upload their invoice/receipt by email or WhatsApp.
             </p>
             <div className="space-y-1.5">
               <label className="block text-xs font-medium uppercase tracking-wider text-muted">
@@ -166,8 +182,11 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
               </a>
             )}
             <Button onClick={handleRequestInvoice} disabled={loading}>
-              {loading ? 'Sending...' : 'Request invoice'}
+              {loading ? 'Sending...' : pkg.invoice_status === 'requested' ? 'Resend request' : 'Request invoice'}
             </Button>
+            {pkg.customer?.email && (
+              <p className="text-xs text-muted">Customer email: {pkg.customer.email}</p>
+            )}
           </div>
         )}
 

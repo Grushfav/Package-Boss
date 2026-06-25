@@ -47,7 +47,7 @@ export function NewPreAlertPage() {
         declared_value_usd: declaredValue ? parseFloat(declaredValue) : undefined,
       })
 
-      navigate('/dashboard')
+      navigate('/dashboard/pre-alerts')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -58,7 +58,7 @@ export function NewPreAlertPage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
       <div className="mb-2">
-        <Link to="/dashboard" className="text-sm text-muted hover:text-boss-green">
+        <Link to="/dashboard/pre-alerts" className="text-sm text-muted hover:text-boss-green">
           ← Dashboard
         </Link>
       </div>
@@ -130,7 +130,7 @@ export function NewPreAlertPage() {
                   if (e.target.checked) setInvoiceFile(null)
                 }}
               />
-              Skip invoice for now (requires R2 in production)
+              Skip invoice for now (requires file storage in production)
             </label>
           </div>
 

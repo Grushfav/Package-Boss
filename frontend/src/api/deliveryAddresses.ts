@@ -39,7 +39,3 @@ export async function setDefaultDeliveryAddress(id: string): Promise<DeliveryAdd
   )
   return data.address
 }
-
-export async function updateWhatsappOptIn(optIn: boolean): Promise<void> {
-  await api.patch('/me', { whatsapp_opt_in: optIn })
-}

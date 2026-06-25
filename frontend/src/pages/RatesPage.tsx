@@ -18,7 +18,7 @@ export function RatesPage() {
   return <RatesPageContent />
 }
 
-function RatesPageContent() {
+export function RatesPageContent({ embedded = false }: { embedded?: boolean } = {}) {
   const [tiers, setTiers] = useState<Awaited<ReturnType<typeof fetchRates>>['tiers']>([])
   const [roundingNote, setRoundingNote] = useState('')
   const [formulaNote, setFormulaNote] = useState('')
@@ -43,14 +43,26 @@ function RatesPageContent() {
   }, [])
 
   return (
-    <div className="px-4 py-12">
-      <div className="mx-auto max-w-4xl">
-        <h1 className="text-3xl font-black uppercase">
-          Package <span className="italic text-boss-green">Rates</span>
-        </h1>
-        <p className="mt-2 text-muted">Miami → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)</p>
+    <div className={embedded ? '' : 'px-4 py-12'}>
+      <div className={embedded ? '' : 'mx-auto max-w-4xl'}>
+        {!embedded && (
+          <>
+            <h1 className="text-3xl font-black uppercase">
+              Package <span className="italic text-boss-green">Rates</span>
+            </h1>
+            <p className="mt-2 text-muted">Miami → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)</p>
+          </>
+        )}
+        {embedded && (
+          <>
+            <h2 className="text-lg font-bold uppercase tracking-wide">Rates</h2>
+            <p className="mt-2 text-sm text-muted">
+              Miami → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)
+            </p>
+          </>
+        )}
 
-        <div className="mx-auto mt-8 max-w-sm">
+        <div className={`mx-auto max-w-sm ${embedded ? 'mt-4' : 'mt-8'}`}>
           <ShippingFrequencyCard />
         </div>
 
