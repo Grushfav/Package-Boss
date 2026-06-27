@@ -8,8 +8,8 @@ from app.constants import UNIDENTIFIED_HOLDER_SHIPPING_ID
 from app.extensions import db
 from app.models.package import Package, PackageEvent, PackagePhoto
 from app.models.user import User
-from app.services.shipping_service import calculate_shipping_cost
 from app.services.image_upload_service import is_valid_photo_reference
+from app.services.shipping_service import calculate_shipping_cost
 
 
 def generate_tracking_number() -> str:
@@ -90,11 +90,11 @@ def receive_package(
         shipper=(shipper or "").strip().lower() or None,
         actual_weight_lbs=quote["actual_weight_lbs"],
         billable_weight_lbs=quote["billable_weight_lbs"],
-        estimated_freight_usd=quote["cost_usd"],
+        estimated_freight_jmd=quote["cost_jmd"],
         rate_tier_label=quote["tier_label"],
         billing_status="pending",
         invoice_status="pending",
-        status="received_miami",
+        status="received",
         received_at=datetime.utcnow(),
     )
     db.session.add(package)
@@ -102,8 +102,8 @@ def receive_package(
 
     add_package_event(
         package,
-        "received_miami",
-        note or f"Package received at Miami warehouse for {customer.shipping_id}",
+        "received",
+        note or f"Package received at Fort Lauderdale for {customer.shipping_id}",
     )
 
     for key in photo_keys or []:
@@ -146,7 +146,7 @@ def receive_unidentified_package(
         shipper=(shipper or "").strip().lower() or None,
         actual_weight_lbs=quote["actual_weight_lbs"],
         billable_weight_lbs=quote["billable_weight_lbs"],
-        estimated_freight_usd=quote["cost_usd"],
+        estimated_freight_jmd=quote["cost_jmd"],
         rate_tier_label=quote["tier_label"],
         billing_status="pending",
         invoice_status="pending",
@@ -184,7 +184,7 @@ def assign_unidentified_package(package: Package, customer: User, note: str | No
     package.customer_id = customer.id
     add_package_event(
         package,
-        "received_miami",
+        "received",
         note or f"Assigned to {customer.shipping_id} ({customer.full_name})",
     )
     db.session.commit()
@@ -379,7 +379,8 @@ def get_warehouse_summary() -> dict:
     return {
         "print_queue_pending": print_queue_pending,
         "unidentified_count": Package.query.filter_by(status="unidentified").count(),
-        "received_miami_count": Package.query.filter_by(status="received_miami").count(),
+        "received_count": Package.query.filter_by(status="received").count(),
+        "received_miami_count": Package.query.filter_by(status="received").count(),
         "packages_today": Package.query.filter(Package.received_at >= today_start).count(),
         "pending_pre_alerts": PreAlert.query.filter_by(status="pending").count(),
     }

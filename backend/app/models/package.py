@@ -18,11 +18,11 @@ class Package(db.Model):
     actual_weight_lbs = db.Column(db.Numeric(8, 2))
     billable_weight_lbs = db.Column(db.Integer)
     shipping_cost_usd = db.Column(db.Numeric(10, 2))
-    estimated_freight_usd = db.Column(db.Numeric(10, 2))
-    duties_usd = db.Column(db.Numeric(10, 2))
-    handling_usd = db.Column(db.Numeric(10, 2))
-    other_fees_usd = db.Column(db.Numeric(10, 2))
-    total_due_usd = db.Column(db.Numeric(10, 2))
+    estimated_freight_jmd = db.Column(db.Numeric(12, 2))
+    duties_jmd = db.Column(db.Numeric(12, 2))
+    handling_jmd = db.Column(db.Numeric(12, 2))
+    other_fees_jmd = db.Column(db.Numeric(12, 2))
+    total_due_jmd = db.Column(db.Numeric(12, 2))
     billing_status = db.Column(db.String(20), nullable=False, default="pending")
     invoice_status = db.Column(db.String(20), nullable=False, default="pending")
     invoice_object_key = db.Column(db.String(500))
@@ -34,7 +34,7 @@ class Package(db.Model):
     delivery_address_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("delivery_addresses.id"))
     rate_tier_label = db.Column(db.String(50))
 
-    status = db.Column(db.String(50), nullable=False, default="received_miami")
+    status = db.Column(db.String(50), nullable=False, default="received")
     label_printed_at = db.Column(db.DateTime, nullable=True)
     received_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -70,13 +70,14 @@ class Package(db.Model):
             "shipper_label": SHIPPER_LABELS.get(self.shipper, self.shipper) if self.shipper else None,
             "actual_weight_lbs": float(self.actual_weight_lbs) if self.actual_weight_lbs else None,
             "billable_weight_lbs": self.billable_weight_lbs,
-            "estimated_freight_usd": float(self.estimated_freight_usd)
-            if self.estimated_freight_usd is not None
+            "estimated_freight_jmd": float(self.estimated_freight_jmd)
+            if self.estimated_freight_jmd is not None
             else None,
-            "duties_usd": float(self.duties_usd) if self.duties_usd is not None else None,
-            "handling_usd": float(self.handling_usd) if self.handling_usd is not None else None,
-            "other_fees_usd": float(self.other_fees_usd) if self.other_fees_usd is not None else None,
-            "total_due_usd": float(self.total_due_usd) if self.total_due_usd is not None else None,
+            "duties_jmd": float(self.duties_jmd) if self.duties_jmd is not None else None,
+            "handling_jmd": float(self.handling_jmd) if self.handling_jmd is not None else None,
+            "other_fees_jmd": float(self.other_fees_jmd) if self.other_fees_jmd is not None else None,
+            "total_due_jmd": float(self.total_due_jmd) if self.total_due_jmd is not None else None,
+            "currency": "JMD",
             "billing_status": self.billing_status,
             "billing_status_label": BILLING_STATUS_LABELS.get(self.billing_status, self.billing_status),
             "invoice_status": self.invoice_status,

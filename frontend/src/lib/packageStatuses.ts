@@ -1,9 +1,14 @@
 export const PACKAGE_STATUSES = [
   { value: 'awaiting_receipt', label: 'Awaiting Receipt' },
-  { value: 'received_miami', label: 'Received in Miami' },
-  { value: 'processing', label: 'Processing' },
-  { value: 'in_transit', label: 'In Transit to Kingston' },
-  { value: 'arrived_kingston', label: 'Arrived in Kingston' },
-  { value: 'out_for_delivery', label: 'Out for Delivery' },
+  { value: 'received', label: 'Received — Fort Lauderdale' },
+  { value: 'in_transit', label: 'In Transit' },
+  { value: 'customs', label: 'Customs' },
+  { value: 'ready_for_pickup', label: 'Ready for Pickup / Delivery' },
   { value: 'delivered', label: 'Delivered' },
 ] as const
+
+export const CUSTOMER_BILL_VISIBLE_STATUSES = new Set(['ready_for_pickup', 'delivered'])
+
+export function isCustomerBillVisible(status: string): boolean {
+  return CUSTOMER_BILL_VISIBLE_STATUSES.has(status)
+}

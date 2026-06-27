@@ -6,6 +6,7 @@ export interface WarehouseSummary {
   print_queue_pending: number
   unidentified_count: number
   received_miami_count: number
+  received_count?: number
   packages_today: number
   pending_pre_alerts: number
 }
@@ -215,10 +216,10 @@ export async function requestPackageInvoice(
 export async function updatePackageBilling(
   packageId: string,
   payload: {
-    estimated_freight_usd?: number
-    duties_usd?: number
-    handling_usd?: number
-    other_fees_usd?: number
+    estimated_freight_jmd?: number
+    duties_jmd?: number
+    handling_jmd?: number
+    other_fees_jmd?: number
     declared_value_usd?: number
     billing_status?: 'pending' | 'ready' | 'paid'
     publish?: boolean
@@ -249,4 +250,122 @@ export async function setPackageDeliveryAddress(
     { delivery_address_id: deliveryAddressId },
   )
   return data.package
+}
+
+export async function fetchCustomerAccount(shippingId: string): Promise<import('../types').CustomerAccount> {
+  const { data } = await api.get<import('../types').CustomerAccount>(
+    `/staff/customers/${encodeURIComponent(shippingId.trim().toUpperCase())}/account`,
+  )
+  return data
+}
+
+export async function recordPackagePayment(
+  packageId: string,
+  payload: {
+    method: 'cash' | 'card' | 'bank_transfer'
+    reference?: string
+    notes?: string
+  },
+): Promise<{ package: Package; checkout: import('../types').PaymentCheckout }> {
+  const { data } = await api.post<{ package: Package; checkout: import('../types').PaymentCheckout }>(
+    `/staff/packages/${packageId}/payments`,
+    payload,
+  )
+  return data
+}
+
+export interface ReleaseFromCustomsResult {
+  released: number
+  packages: Package[]
+  failed: { id: string; tracking_number?: string; error: string }[]
+}
+
+export async function releasePackagesFromCustoms(payload: {
+  items: Array<{
+    package_id: string
+    duties_jmd?: number
+    handling_jmd?: number
+    other_fees_jmd?: number
+    note?: string
+  }>
+  note?: string
+}): Promise<ReleaseFromCustomsResult> {
+  const { data } = await api.post<ReleaseFromCustomsResult>(
+    '/staff/packages/release-from-customs',
+    payload,
+  )
+  return data
+}
+
+export interface BulkInvoiceRequestResult {
+  sent: number
+  results: Array<{
+    package_id: string
+    tracking_number: string
+    channels_sent?: string[]
+    email_recipient?: string
+  }>
+  failed: { id: string; tracking_number?: string; error: string }[]
+}
+
+export async function bulkRequestPackageInvoices(payload: {
+  packageIds: string[]
+  channel: 'email' | 'whatsapp' | 'both'
+  note?: string
+}): Promise<BulkInvoiceRequestResult> {
+  const { data } = await api.post<BulkInvoiceRequestResult>(
+    '/staff/packages/bulk-request-invoice',
+    {
+      package_ids: payload.packageIds,
+      channel: payload.channel,
+      note: payload.note,
+    },
+  )
+  return data
+}
+
+export async function recordCustomerCheckout(
+  shippingId: string,
+  payload: {
+    package_ids: string[]
+    method: 'cash' | 'card' | 'bank_transfer'
+    reference?: string
+    notes?: string
+  },
+): Promise<import('../types').PaymentCheckout> {
+  const { data } = await api.post<{ checkout: import('../types').PaymentCheckout }>(
+    `/staff/customers/${encodeURIComponent(shippingId.trim().toUpperCase())}/checkouts`,
+    payload,
+  )
+  return data.checkout
+}
+
+async function fetchAuthedHtml(path: string): Promise<string> {
+  const token = localStorage.getItem('access_token')
+  const base = import.meta.env.VITE_API_URL || '/api'
+  const response = await fetch(`${base}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || 'Failed to load invoice')
+  }
+  return response.text()
+}
+
+function openHtmlInNewTab(html: string) {
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank', 'noopener,noreferrer')
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+export async function openPackageBillInvoice(packageId: string): Promise<void> {
+  const html = await fetchAuthedHtml(`/staff/packages/${packageId}/bill-invoice`)
+  openHtmlInNewTab(html)
+}
+
+export async function openCheckoutBillInvoice(checkoutId: string): Promise<void> {
+  const html = await fetchAuthedHtml(`/staff/checkouts/${checkoutId}/bill-invoice`)
+  openHtmlInNewTab(html)
 }

@@ -35,9 +35,9 @@ def get_overview() -> dict:
                     case(
                         (
                             Package.billing_status.in_(["ready", "paid"]),
-                            Package.total_due_usd,
+                            Package.total_due_jmd,
                         ),
-                        else_=Package.estimated_freight_usd,
+                        else_=Package.estimated_freight_jmd,
                     )
                 ),
                 0,
@@ -53,6 +53,7 @@ def get_overview() -> dict:
         "packages_30d": packages_30d,
         "pending_pre_alerts": pending_pre_alerts,
         "in_transit": in_transit,
+        "revenue_30d_jmd": float(revenue_30d or 0),
         "revenue_30d_usd": float(revenue_30d or 0),
     }
 

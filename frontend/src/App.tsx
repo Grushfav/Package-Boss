@@ -32,6 +32,7 @@ import { ServicesPage } from './pages/ServicesPage'
 import { TermsPage } from './pages/TermsPage'
 import { StatusUpdatePage } from './pages/StatusUpdatePage'
 import { TrackPage } from './pages/TrackPage'
+import { CustomerAccountPage } from './pages/CustomerAccountPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { PrintQueuePage } from './pages/PrintQueuePage'
 import { UnidentifiedQueuePage } from './pages/UnidentifiedQueuePage'
@@ -75,6 +76,7 @@ function App() {
                 <Route element={<WarehouseLayout />}>
                   <Route path="/warehouse" element={<WarehouseHomePage />} />
                   <Route path="/warehouse/customers" element={<CustomersPage />} />
+                  <Route path="/warehouse/customers/:shippingId" element={<CustomerAccountPage />} />
                   <Route path="/warehouse/receive" element={<ReceivePage />} />
                   <Route path="/warehouse/unidentified" element={<UnidentifiedQueuePage />} />
                   <Route path="/warehouse/print-queue" element={<PrintQueuePage />} />

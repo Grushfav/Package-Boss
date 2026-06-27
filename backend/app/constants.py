@@ -21,11 +21,10 @@ UNIDENTIFIED_HOLDER_SHIPPING_ID = "BOSS-00000"
 PACKAGE_STATUSES = [
     "unidentified",
     "awaiting_receipt",
-    "received_miami",
-    "processing",
+    "received",
     "in_transit",
-    "arrived_kingston",
-    "out_for_delivery",
+    "customs",
+    "ready_for_pickup",
     "delivered",
 ]
 
@@ -35,13 +34,16 @@ UPDATABLE_STATUSES = [s for s in PACKAGE_STATUSES if s != "unidentified"]
 STATUS_LABELS = {
     "unidentified": "Unidentified — Awaiting Owner",
     "awaiting_receipt": "Awaiting Receipt",
-    "received_miami": "Received in Miami",
-    "processing": "Processing",
-    "in_transit": "In Transit to Kingston",
-    "arrived_kingston": "Arrived in Kingston",
-    "out_for_delivery": "Out for Delivery",
+    "received": "Received — Fort Lauderdale",
+    "in_transit": "In Transit",
+    "customs": "Customs",
+    "ready_for_pickup": "Ready for Pickup / Delivery",
     "delivered": "Delivered",
 }
+
+# Customer-facing bill amounts only after release from customs
+CUSTOMER_BILL_VISIBLE_STATUSES = ("ready_for_pickup", "delivered")
+PAYMENT_ELIGIBLE_STATUS = "ready_for_pickup"
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 ALLOWED_INVOICE_TYPES = {
@@ -118,11 +120,21 @@ INVOICE_STATUS_LABELS = {
     "received": "Invoice Received",
 }
 
+BILLING_CURRENCY = "JMD"
+BILLING_CURRENCY_SYMBOL = "J$"
+
 BILLING_STATUSES = ["pending", "ready", "paid"]
 BILLING_STATUS_LABELS = {
     "pending": "Bill Pending",
     "ready": "Amount Due",
     "paid": "Paid",
+}
+
+PAYMENT_METHODS = ["cash", "card", "bank_transfer"]
+PAYMENT_METHOD_LABELS = {
+    "cash": "Cash",
+    "card": "Card",
+    "bank_transfer": "Bank Transfer",
 }
 
 INVOICE_REQUEST_CHANNELS = ["email", "whatsapp", "both"]

@@ -49,7 +49,7 @@ export function CustomersPage() {
           <IconBadge icon={Users} size="sm" />
           <div>
             <h1 className="text-2xl font-black uppercase">Customer Directory</h1>
-            <p className="text-sm text-muted">Browse customers or start a receival</p>
+            <p className="text-sm text-muted">Browse customers, view accounts, or start a receival</p>
           </div>
         </div>
         <Link to="/warehouse/receive">
@@ -140,12 +140,20 @@ function CustomerRow({ customer }: { customer: StaffCustomer }) {
         <p className="text-xs text-muted">{customer.contact_number}</p>
       </td>
       <td className="px-4 py-3 text-right">
-        <Link
-          to={`/warehouse/receive?shipping_id=${encodeURIComponent(customer.shipping_id)}`}
-          className="inline-flex rounded-lg border border-boss-green/30 bg-boss-green/10 px-3 py-1.5 text-xs font-semibold uppercase text-boss-green hover:bg-boss-green/20"
-        >
-          Start receival
-        </Link>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link
+            to={`/warehouse/customers/${encodeURIComponent(customer.shipping_id)}`}
+            className="inline-flex rounded-lg border border-border px-3 py-1.5 text-xs font-semibold uppercase hover:border-boss-green/40"
+          >
+            View account
+          </Link>
+          <Link
+            to={`/warehouse/receive?shipping_id=${encodeURIComponent(customer.shipping_id)}`}
+            className="inline-flex rounded-lg border border-boss-green/30 bg-boss-green/10 px-3 py-1.5 text-xs font-semibold uppercase text-boss-green hover:bg-boss-green/20"
+          >
+            Start receival
+          </Link>
+        </div>
       </td>
     </tr>
   )

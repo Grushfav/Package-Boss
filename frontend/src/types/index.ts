@@ -110,11 +110,12 @@ export interface Package {
   customer?: StaffCustomer
   actual_weight_lbs?: number | null
   billable_weight_lbs?: number | null
-  estimated_freight_usd?: number | null
-  duties_usd?: number | null
-  handling_usd?: number | null
-  other_fees_usd?: number | null
-  total_due_usd?: number | null
+  estimated_freight_jmd?: number | null
+  duties_jmd?: number | null
+  handling_jmd?: number | null
+  other_fees_jmd?: number | null
+  total_due_jmd?: number | null
+  currency?: 'JMD'
   billing_status?: 'pending' | 'ready' | 'paid'
   billing_status_label?: string
   invoice_status?: 'not_required' | 'pending' | 'requested' | 'received'
@@ -133,6 +134,74 @@ export interface Package {
   timeline?: PackageEvent[]
   origin?: string
   destination?: string
+  payment?: PackagePaymentSummary | null
+}
+
+export interface PackagePaymentSummary {
+  checkout_id: string
+  invoice_number: string
+  amount_jmd: number
+  method: 'cash' | 'card' | 'bank_transfer'
+  method_label?: string
+  reference?: string | null
+  notes?: string | null
+  recorded_by_name?: string | null
+  recorded_at?: string
+}
+
+export interface PaymentCheckoutItem {
+  id: string
+  checkout_id: string
+  package_id: string
+  amount_jmd: number
+  tracking_number?: string
+}
+
+export interface PaymentCheckout {
+  id: string
+  customer_id: string
+  invoice_number: string
+  total_jmd: number
+  method: 'cash' | 'card' | 'bank_transfer'
+  method_label: string
+  reference?: string | null
+  notes?: string | null
+  recorded_by_name?: string | null
+  recorded_at: string
+  package_count: number
+  items?: PaymentCheckoutItem[]
+}
+
+export interface CustomerAccountSummary {
+  total_due_jmd: number
+  ready_count: number
+  paid_count: number
+  package_count: number
+  currency: 'JMD'
+}
+
+export interface CustomerAccount {
+  customer: StaffCustomer
+  packages: Package[]
+  checkouts: PaymentCheckout[]
+  summary: CustomerAccountSummary
+}
+
+/** @deprecated use PackagePaymentSummary */
+export interface PackagePayment {
+  id: string
+  package_id: string
+  customer_id: string
+  invoice_number: string
+  amount_usd: number
+  method: 'cash' | 'card' | 'bank_transfer'
+  method_label: string
+  reference?: string | null
+  notes?: string | null
+  recorded_by_id?: string | null
+  recorded_by_name?: string | null
+  recorded_at: string
+  tracking_number?: string
 }
 
 export interface StaffCustomer {

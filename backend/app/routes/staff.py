@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 from sqlalchemy import or_
 
 from app.constants import SHIPPER_CODES, SHIPPERS, STATUS_LABELS, UPDATABLE_STATUSES
@@ -8,6 +8,7 @@ from app.services.audit_service import (
     ACTION_PACKAGE_ASSIGNED,
     ACTION_PACKAGE_BILLING_UPDATED,
     ACTION_PACKAGE_INVOICE_REQUESTED,
+    ACTION_PACKAGE_PAYMENT_RECORDED,
     ACTION_PACKAGE_RECEIVED,
     ACTION_PACKAGE_RECEIVED_UNIDENTIFIED,
     ACTION_PACKAGE_STATUS_UPDATED,
@@ -17,6 +18,21 @@ from app.services.billing_service import (
     assign_delivery_address,
     request_package_invoice,
     update_package_billing,
+)
+from app.services.customs_release_service import (
+    bulk_request_customs_invoices,
+    release_packages_from_customs,
+)
+from app.services.bill_invoice_service import render_bill_invoice_html, render_checkout_invoice_html
+from app.models.payment import PaymentCheckout
+from app.services.payment_service import (
+    compute_customer_billing_summary,
+    get_package_checkout_item,
+    list_customer_checkouts,
+    list_customer_packages,
+    package_payment_summary,
+    record_package_payment,
+    record_payment_checkout,
 )
 from app.services.delivery_address_service import list_delivery_addresses
 from app.services.package_service import (
@@ -139,6 +155,263 @@ def lookup_customer(shipping_id: str):
     return jsonify({"customer": _customer_dict(user)})
 
 
+@staff_bp.route("/staff/customers/<shipping_id>/account", methods=["GET"])
+@warehouse_required()
+def customer_account(shipping_id: str):
+    shipping_id = shipping_id.strip().upper()
+    user = customer_query().filter_by(shipping_id=shipping_id).first()
+    if not user:
+        return jsonify({"error": "Customer not found"}), 404
+
+    packages = list_customer_packages(user)
+    checkouts = list_customer_checkouts(user)
+    summary = compute_customer_billing_summary(packages)
+
+    package_rows = []
+    for pkg in packages:
+        row = warehouse_package_to_dict(pkg)
+        row["payment"] = package_payment_summary(pkg)
+        package_rows.append(row)
+
+    return jsonify(
+        {
+            "customer": _customer_dict(user),
+            "packages": package_rows,
+            "checkouts": [c.to_dict(include_items=True) for c in checkouts],
+            "summary": summary,
+        }
+    )
+
+
+@staff_bp.route("/staff/packages/release-from-customs", methods=["POST"])
+@warehouse_required()
+def release_from_customs():
+    data = request.get_json(silent=True) or {}
+    items = data.get("items") or []
+    note = data.get("note")
+
+    if not isinstance(items, list) or not items:
+        return jsonify({"error": "items must be a non-empty array"}), 400
+
+    released, failed = release_packages_from_customs(items, note=note)
+
+    actor = get_user_from_jwt()
+    if actor:
+        for package in released:
+            log_package_action(
+                actor,
+                ACTION_PACKAGE_BILLING_UPDATED,
+                str(package.id),
+                f"Released {package.tracking_number} from customs — bill published",
+                metadata={
+                    "tracking_number": package.tracking_number,
+                    "to_status": "ready_for_pickup",
+                    "total_due_jmd": float(package.total_due_jmd) if package.total_due_jmd else None,
+                    "bulk": len(items) > 1,
+                },
+            )
+
+    return jsonify(
+        {
+            "released": len(released),
+            "packages": [warehouse_package_to_dict(p) for p in released],
+            "failed": failed,
+        }
+    )
+
+
+@staff_bp.route("/staff/packages/bulk-request-invoice", methods=["POST"])
+@warehouse_required()
+def bulk_request_invoice():
+    data = request.get_json(silent=True) or {}
+    package_ids = data.get("package_ids") or []
+    channel = (data.get("channel") or "email").strip().lower()
+    note = data.get("note")
+
+    if channel not in ("email", "whatsapp", "both"):
+        return jsonify({"error": "Invalid channel"}), 400
+    if not isinstance(package_ids, list) or not package_ids:
+        return jsonify({"error": "package_ids must be a non-empty array"}), 400
+    if len(package_ids) > 500:
+        return jsonify({"error": "Cannot request more than 500 invoices at once"}), 400
+
+    sent, failed = bulk_request_customs_invoices(package_ids, channel, note)
+
+    actor = get_user_from_jwt()
+    if actor:
+        for item in sent:
+            log_package_action(
+                actor,
+                ACTION_PACKAGE_INVOICE_REQUESTED,
+                item["package_id"],
+                f"Bulk invoice request for {item['tracking_number']} via {channel}",
+                metadata={
+                    "tracking_number": item["tracking_number"],
+                    "channel": channel,
+                    "channels_sent": item.get("channels_sent"),
+                    "bulk": True,
+                },
+            )
+
+    return jsonify({"sent": len(sent), "results": sent, "failed": failed})
+
+
+@staff_bp.route("/staff/customers/<shipping_id>/checkouts", methods=["POST"])
+@warehouse_required()
+def customer_checkout(shipping_id: str):
+    shipping_id = shipping_id.strip().upper()
+    user = customer_query().filter_by(shipping_id=shipping_id).first()
+    if not user:
+        return jsonify({"error": "Customer not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    package_ids = data.get("package_ids") or []
+    method = (data.get("method") or "").strip().lower()
+    if not method:
+        return jsonify({"error": "method is required"}), 400
+    if not isinstance(package_ids, list):
+        return jsonify({"error": "package_ids must be an array"}), 400
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        checkout = record_payment_checkout(
+            user,
+            package_ids,
+            method=method,
+            recorded_by=actor,
+            reference=data.get("reference"),
+            notes=data.get("notes"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    for item in checkout.items:
+        log_package_action(
+            actor,
+            ACTION_PACKAGE_PAYMENT_RECORDED,
+            str(item.package_id),
+            f"Checkout {checkout.invoice_number} — {checkout.method}",
+            metadata={
+                "checkout_id": str(checkout.id),
+                "invoice_number": checkout.invoice_number,
+                "amount_jmd": float(item.amount_jmd),
+                "method": checkout.method,
+                "reference": checkout.reference,
+                "package_count": len(checkout.items),
+            },
+        )
+
+    return jsonify({"checkout": checkout.to_dict(include_items=True)}), 201
+
+
+@staff_bp.route("/staff/checkouts/<checkout_id>/bill-invoice", methods=["GET"])
+@warehouse_required()
+def checkout_bill_invoice(checkout_id: str):
+    import uuid as uuid_lib
+
+    try:
+        cid = uuid_lib.UUID(checkout_id)
+    except ValueError:
+        return jsonify({"error": "Invalid checkout ID"}), 400
+
+    checkout = PaymentCheckout.query.get(cid)
+    if not checkout:
+        return jsonify({"error": "Checkout not found"}), 404
+
+    packages = [item.package for item in checkout.items if item.package]
+    customer = checkout.customer
+    html = render_checkout_invoice_html(checkout, customer, packages)
+    return Response(html, mimetype="text/html")
+
+
+@staff_bp.route("/staff/packages/<package_id>/payments", methods=["POST"])
+@warehouse_required()
+def record_payment(package_id: str):
+    import uuid as uuid_lib
+
+    try:
+        pid = uuid_lib.UUID(package_id)
+    except ValueError:
+        return jsonify({"error": "Invalid package ID"}), 400
+
+    package = Package.query.get(pid)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    method = (data.get("method") or "").strip().lower()
+    if not method:
+        return jsonify({"error": "method is required"}), 400
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        checkout = record_package_payment(
+            package,
+            method=method,
+            recorded_by=actor,
+            reference=data.get("reference"),
+            notes=data.get("notes"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    log_package_action(
+        actor,
+        ACTION_PACKAGE_PAYMENT_RECORDED,
+        str(package.id),
+        f"Recorded payment for {package.tracking_number} — {checkout.invoice_number} ({checkout.method})",
+        metadata={
+            "tracking_number": package.tracking_number,
+            "checkout_id": str(checkout.id),
+            "invoice_number": checkout.invoice_number,
+            "amount_jmd": float(checkout.total_jmd),
+            "method": checkout.method,
+            "reference": checkout.reference,
+        },
+    )
+
+    pkg_data = package.to_dict()
+    pkg_data["payment"] = package_payment_summary(package)
+    return jsonify({"package": pkg_data, "checkout": checkout.to_dict(include_items=True)}), 201
+
+
+@staff_bp.route("/staff/packages/<package_id>/bill-invoice", methods=["GET"])
+@warehouse_required()
+def package_bill_invoice(package_id: str):
+    import uuid as uuid_lib
+
+    try:
+        pid = uuid_lib.UUID(package_id)
+    except ValueError:
+        return jsonify({"error": "Invalid package ID"}), 400
+
+    package = Package.query.get(pid)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    if package.billing_status not in ("ready", "paid"):
+        return jsonify({"error": "Bill has not been published yet"}), 400
+
+    if package.total_due_jmd is None:
+        return jsonify({"error": "No bill amount on this package"}), 400
+
+    item = get_package_checkout_item(package)
+    checkout = item.checkout if item else None
+    customer = package.customer
+    if checkout and len(checkout.items) > 1:
+        packages = [i.package for i in checkout.items if i.package]
+        html = render_checkout_invoice_html(checkout, customer, packages)
+    else:
+        html = render_bill_invoice_html(package, customer, checkout)
+    return Response(html, mimetype="text/html")
+
+
 @staff_bp.route("/staff/packages/receive", methods=["POST"])
 @warehouse_required()
 def receive_package_endpoint():
@@ -194,8 +467,8 @@ def receive_package_endpoint():
                 "shipper": package.shipper,
                 "carrier_tracking": package.carrier_tracking,
                 "billable_weight_lbs": package.billable_weight_lbs,
-                "estimated_freight_usd": float(package.estimated_freight_usd)
-                if package.estimated_freight_usd
+                "estimated_freight_jmd": float(package.estimated_freight_jmd)
+                if package.estimated_freight_jmd
                 else None,
             },
         )
@@ -568,10 +841,10 @@ def update_billing(package_id: str):
     try:
         package = update_package_billing(
             package,
-            estimated_freight_usd=data.get("estimated_freight_usd"),
-            duties_usd=data.get("duties_usd"),
-            handling_usd=data.get("handling_usd"),
-            other_fees_usd=data.get("other_fees_usd"),
+            estimated_freight_jmd=data.get("estimated_freight_jmd", data.get("estimated_freight_usd")),
+            duties_jmd=data.get("duties_jmd", data.get("duties_usd")),
+            handling_jmd=data.get("handling_jmd", data.get("handling_usd")),
+            other_fees_jmd=data.get("other_fees_jmd", data.get("other_fees_usd")),
             declared_value_usd=data.get("declared_value_usd"),
             billing_status=data.get("billing_status"),
             publish=bool(data.get("publish")),
@@ -588,7 +861,7 @@ def update_billing(package_id: str):
             f"Updated billing for {package.tracking_number}",
             metadata={
                 "tracking_number": package.tracking_number,
-                "total_due_usd": float(package.total_due_usd) if package.total_due_usd else None,
+                "total_due_jmd": float(package.total_due_jmd) if package.total_due_jmd else None,
                 "billing_status": package.billing_status,
                 "publish": bool(data.get("publish")),
             },

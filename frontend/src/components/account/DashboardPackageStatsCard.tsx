@@ -45,7 +45,7 @@ function StatCard({
 
 export function DashboardPackageStatsCard() {
   const [stats, setStats] = useState<DashboardPackageStats>({
-    totalDueUsd: 0,
+    totalDueJmd: 0,
     readyPickupDelivery: 0,
     receivedFortLauderdale: 0,
     inTransit: 0,
@@ -57,7 +57,7 @@ export function DashboardPackageStatsCard() {
       .then((packages) => setStats(computeDashboardPackageStats(packages)))
       .catch(() =>
         setStats({
-          totalDueUsd: 0,
+          totalDueJmd: 0,
           readyPickupDelivery: 0,
           receivedFortLauderdale: 0,
           inTransit: 0,
@@ -82,7 +82,7 @@ export function DashboardPackageStatsCard() {
         <StatCard
           icon={DollarSign}
           label="Total due"
-          value={stats.totalDueUsd > 0 ? formatDashboardTotalDue(stats.totalDueUsd) : '$0.00'}
+          value={stats.totalDueJmd > 0 ? formatDashboardTotalDue(stats.totalDueJmd) : 'J$0'}
           sub="Published bills awaiting payment"
           loading={loading}
         />
@@ -90,7 +90,7 @@ export function DashboardPackageStatsCard() {
           icon={PackageCheck}
           label="Ready pickup / delivery"
           value={String(stats.readyPickupDelivery)}
-          sub="Arrived in Kingston or out for delivery"
+          sub="Ready for pickup or delivery"
           loading={loading}
         />
         <StatCard
@@ -104,7 +104,7 @@ export function DashboardPackageStatsCard() {
           icon={Plane}
           label="In transit"
           value={String(stats.inTransit)}
-          sub="Miami to Jamaica"
+          sub="En route to Jamaica"
           loading={loading}
         />
       </div>

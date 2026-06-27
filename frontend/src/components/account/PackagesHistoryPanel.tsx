@@ -50,7 +50,7 @@ export function PackagesHistoryPanel() {
               <tbody>
                 {packages.map((pkg, index) => {
                   const weightLbs = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
-                  const cost = formatPackageCost(pkg)
+                  const cost = formatPackageCost(pkg, { customer: true })
                   return (
                   <tr
                     key={pkg.id}
@@ -72,7 +72,6 @@ export function PackagesHistoryPanel() {
                       {cost ? (
                         <span>
                           {cost}
-                          <span className="ml-1 text-xs text-muted">USD</span>
                           {pkg.billing_status === 'paid' && (
                             <span className="ml-1.5 text-xs font-semibold text-boss-green">Paid</span>
                           )}

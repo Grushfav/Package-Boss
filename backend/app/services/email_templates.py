@@ -222,12 +222,11 @@ def render_invoice_request_html(
 
 
 STATUS_CUSTOMER_MESSAGES: dict[str, str] = {
-    "awaiting_receipt": "We're waiting for your package to arrive at our Miami warehouse.",
-    "received_miami": "Your package has been received at our Miami warehouse.",
-    "processing": "Your package is being processed and prepared for shipment to Kingston.",
-    "in_transit": "Your package is in transit to Kingston, Jamaica.",
-    "arrived_kingston": "Your package has arrived in Kingston and is being prepared for delivery.",
-    "out_for_delivery": "Your package is out for delivery.",
+    "awaiting_receipt": "We're waiting for your package to arrive at our Fort Lauderdale warehouse.",
+    "received": "Your package has been received at our Fort Lauderdale warehouse.",
+    "in_transit": "Your package is in transit to Jamaica.",
+    "customs": "Your package is in customs clearance.",
+    "ready_for_pickup": "Your package is ready for pickup or delivery. Your bill is now available.",
     "delivered": "Your package has been delivered. Thank you for shipping with Package Boss!",
 }
 

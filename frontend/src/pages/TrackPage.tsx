@@ -9,6 +9,8 @@ import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
 import { useAuth } from '../context/AuthContext'
 import { packageNeedsInvoiceUpload } from '../lib/packageBilling'
+import { isCustomerBillVisible } from '../lib/packageStatuses'
+import { formatJmd } from '../lib/money'
 import { getHomeRoute } from '../lib/routing'
 import type { Package } from '../types'
 
@@ -126,22 +128,23 @@ export function TrackPageContent({ embedded = false }: { embedded?: boolean } = 
                   </div>
                 </div>
               )}
-              {pkg.estimated_freight_usd != null && (
+              {isCustomerBillVisible(pkg.status) && pkg.estimated_freight_jmd != null && (
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
                   <Truck className="h-5 w-5 text-muted" />
                   <div>
-                    <p className="text-xs text-muted">Freight estimate</p>
-                    <p className="text-sm font-semibold">${pkg.estimated_freight_usd.toFixed(2)} USD</p>
+                    <p className="text-xs text-muted">Shipping</p>
+                    <p className="text-sm font-semibold">{formatJmd(pkg.estimated_freight_jmd)}</p>
                   </div>
                 </div>
               )}
-              {(pkg.billing_status === 'ready' || pkg.billing_status === 'paid') &&
-                pkg.total_due_usd != null && (
+              {isCustomerBillVisible(pkg.status) &&
+                (pkg.billing_status === 'ready' || pkg.billing_status === 'paid') &&
+                pkg.total_due_jmd != null && (
                   <div className="flex items-center gap-3 rounded-lg border border-boss-green/30 bg-boss-green/5 p-4 sm:col-span-2">
                     <Truck className="h-5 w-5 text-boss-green" />
                     <p className="text-xs text-muted">{pkg.billing_status_label}</p>
                     <p className="text-sm font-bold text-boss-green">
-                      ${pkg.total_due_usd.toFixed(2)} USD
+                      {formatJmd(pkg.total_due_jmd)}
                     </p>
                   </div>
                 )}
@@ -156,10 +159,9 @@ export function TrackPageContent({ embedded = false }: { embedded?: boolean } = 
               </Link>
             )}
 
-            {pkg.billing_status === 'pending' && pkg.estimated_freight_usd != null && (
+            {pkg.status !== 'ready_for_pickup' && pkg.status !== 'delivered' && (
               <p className="mt-4 text-xs text-muted">
-                Freight shown is an estimate only. Final bill may include duties (items over $100
-                USD), handling, and other fees after invoice review.
+                Your bill will be available once your package is ready for pickup or delivery.
               </p>
             )}
           </div>

@@ -45,8 +45,12 @@ export function CustomerQuickSearch() {
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
-  function selectCustomer(c: StaffCustomer) {
-    navigate(`/warehouse/receive?shipping_id=${encodeURIComponent(c.shipping_id)}`)
+  function selectCustomer(c: StaffCustomer, action: 'account' | 'receive' = 'account') {
+    if (action === 'receive') {
+      navigate(`/warehouse/receive?shipping_id=${encodeURIComponent(c.shipping_id)}`)
+    } else {
+      navigate(`/warehouse/customers/${encodeURIComponent(c.shipping_id)}`)
+    }
     setQuery('')
     setResults([])
     setOpen(false)
@@ -72,7 +76,7 @@ export function CustomerQuickSearch() {
             <li key={c.id}>
               <button
                 type="button"
-                onClick={() => selectCustomer(c)}
+                onClick={() => selectCustomer(c, 'account')}
                 className="w-full px-3 py-2 text-left hover:bg-boss-green/10"
               >
                 <p className="text-sm font-medium">{c.full_name}</p>

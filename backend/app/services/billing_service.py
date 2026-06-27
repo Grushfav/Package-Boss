@@ -5,6 +5,7 @@ from app.constants import INVOICE_REQUEST_CHANNELS
 from app.extensions import db
 from app.models.package import Package
 from app.models.user import User
+from app.services.billing_calculations import compute_total_due
 from app.services.delivery_address_service import build_invoice_upload_url, get_delivery_address
 from app.services.email_service import EmailServiceError, send_invoice_request_email
 from app.services.image_upload_service import is_valid_invoice_reference
@@ -18,55 +19,39 @@ def _decimal(value) -> Decimal | None:
     return Decimal(str(value)).quantize(Decimal("0.01"))
 
 
-def compute_total_due(
-    freight: Decimal | None,
-    duties: Decimal | None,
-    handling: Decimal | None,
-    other: Decimal | None,
-) -> Decimal | None:
-    parts = [freight, duties, handling, other]
-    if all(p is None for p in parts):
-        return None
-    total = Decimal("0")
-    for part in parts:
-        if part is not None:
-            total += part
-    return total.quantize(Decimal("0.01"))
-
-
 def update_package_billing(
     package: Package,
     *,
-    estimated_freight_usd: float | None = None,
-    duties_usd: float | None = None,
-    handling_usd: float | None = None,
-    other_fees_usd: float | None = None,
+    estimated_freight_jmd: float | None = None,
+    duties_jmd: float | None = None,
+    handling_jmd: float | None = None,
+    other_fees_jmd: float | None = None,
     declared_value_usd: float | None = None,
     billing_status: str | None = None,
     publish: bool = False,
 ) -> Package:
     from app.constants import BILLING_STATUSES
 
-    if estimated_freight_usd is not None:
-        package.estimated_freight_usd = _decimal(estimated_freight_usd)
-    if duties_usd is not None:
-        package.duties_usd = _decimal(duties_usd)
-    if handling_usd is not None:
-        package.handling_usd = _decimal(handling_usd)
-    if other_fees_usd is not None:
-        package.other_fees_usd = _decimal(other_fees_usd)
+    if estimated_freight_jmd is not None:
+        package.estimated_freight_jmd = _decimal(estimated_freight_jmd)
+    if duties_jmd is not None:
+        package.duties_jmd = _decimal(duties_jmd)
+    if handling_jmd is not None:
+        package.handling_jmd = _decimal(handling_jmd)
+    if other_fees_jmd is not None:
+        package.other_fees_jmd = _decimal(other_fees_jmd)
     if declared_value_usd is not None:
         package.declared_value_usd = _decimal(declared_value_usd)
 
-    package.total_due_usd = compute_total_due(
-        package.estimated_freight_usd,
-        package.duties_usd,
-        package.handling_usd,
-        package.other_fees_usd,
+    package.total_due_jmd = compute_total_due(
+        package.estimated_freight_jmd,
+        package.duties_jmd,
+        package.handling_jmd,
+        package.other_fees_jmd,
     )
 
     if publish:
-        if package.total_due_usd is None:
+        if package.total_due_jmd is None:
             raise ValueError("Set at least freight or fee amounts before publishing a bill")
         package.billing_status = "ready"
     elif billing_status:
@@ -84,6 +69,8 @@ def request_package_invoice(
     channel: str,
     note: str | None = None,
 ) -> dict:
+    from flask import current_app
+
     if channel not in INVOICE_REQUEST_CHANNELS:
         raise ValueError("channel must be email, whatsapp, or both")
 

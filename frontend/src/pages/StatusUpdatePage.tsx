@@ -8,6 +8,8 @@ import { getErrorMessage } from '../api/client'
 
 import {
 
+  bulkRequestPackageInvoices,
+
   bulkUpdatePackageStatus,
 
   fetchWarehousePackages,
@@ -19,6 +21,14 @@ import {
 } from '../api/staff'
 
 import { PackageStaffModal } from '../components/warehouse/PackageStaffModal'
+
+import {
+
+  ReleaseFromCustomsModal,
+
+  formatReleaseSummary,
+
+} from '../components/warehouse/ReleaseFromCustomsModal'
 
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 
@@ -54,7 +64,7 @@ function defaultFromDate(): string {
 
 
 
-type QuickPreset = 'today' | 'ready-flight' | 'arrived-kingston' | 'custom'
+type QuickPreset = 'today' | 'ready-flight' | 'in-customs' | 'custom'
 
 
 
@@ -90,13 +100,13 @@ const PRESETS: {
 
     id: 'ready-flight',
 
-    label: 'Ready for flight',
+    label: 'Depart Fort Lauderdale',
 
     from: () => defaultFromDate(),
 
     to: (today) => today,
 
-    status: 'received_miami',
+    status: 'received',
 
     bulkStatus: 'in_transit',
 
@@ -104,17 +114,15 @@ const PRESETS: {
 
   {
 
-    id: 'arrived-kingston',
+    id: 'in-customs',
 
-    label: 'Arrived Kingston',
+    label: 'In customs',
 
     from: () => defaultFromDate(),
 
     to: (today) => today,
 
-    status: 'arrived_kingston',
-
-    bulkStatus: 'out_for_delivery',
+    status: 'customs',
 
   },
 
@@ -166,6 +174,12 @@ export function StatusUpdatePage() {
 
   const [bulkResult, setBulkResult] = useState<BulkStatusResult | null>(null)
 
+  const [releaseOpen, setReleaseOpen] = useState(false)
+
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
+
+  const [actionSuccess, setActionSuccess] = useState('')
+
 
 
   const [error, setError] = useState('')
@@ -174,7 +188,7 @@ export function StatusUpdatePage() {
 
   const [singleTracking, setSingleTracking] = useState('')
 
-  const [singleStatus, setSingleStatus] = useState('processing')
+  const [singleStatus, setSingleStatus] = useState('in_transit')
 
   const [singleNote, setSingleNote] = useState('')
 
@@ -197,6 +211,26 @@ export function StatusUpdatePage() {
     () => PACKAGE_STATUSES.find((s) => s.value === bulkStatus)?.label ?? bulkStatus,
 
     [bulkStatus],
+
+  )
+
+
+
+  const selectedPackages = useMemo(
+
+    () => packages.filter((pkg) => selectedIds.has(pkg.id)),
+
+    [packages, selectedIds],
+
+  )
+
+
+
+  const selectedCustomsPackages = useMemo(
+
+    () => selectedPackages.filter((pkg) => pkg.status === 'customs'),
+
+    [selectedPackages],
 
   )
 
@@ -239,6 +273,8 @@ export function StatusUpdatePage() {
     setError('')
 
     setBulkResult(null)
+
+    setActionSuccess('')
 
     setLoadLoading(true)
 
@@ -335,6 +371,54 @@ export function StatusUpdatePage() {
       return next
 
     })
+
+  }
+
+
+
+  async function handleBulkInvoiceRequest() {
+
+    if (selectedCustomsPackages.length === 0) return
+
+
+
+    setError('')
+
+    setActionSuccess('')
+
+    setInvoiceLoading(true)
+
+    try {
+
+      const result = await bulkRequestPackageInvoices({
+
+        packageIds: selectedCustomsPackages.map((pkg) => pkg.id),
+
+        channel: 'email',
+
+      })
+
+      setActionSuccess(
+
+        result.sent > 0
+
+          ? `Invoice requested for ${result.sent} package${result.sent === 1 ? '' : 's'}.`
+
+          : 'No invoice requests were sent.',
+
+      )
+
+      await handleLoad()
+
+    } catch (err) {
+
+      setError(getErrorMessage(err))
+
+    } finally {
+
+      setInvoiceLoading(false)
+
+    }
 
   }
 
@@ -778,6 +862,18 @@ export function StatusUpdatePage() {
 
 
 
+      {actionSuccess && (
+
+        <p className="mt-6 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-3 text-sm text-boss-green">
+
+          {actionSuccess}
+
+        </p>
+
+      )}
+
+
+
       {bulkResult && (
 
         <div className="mt-6 rounded-lg border border-border bg-card p-4">
@@ -1000,11 +1096,81 @@ export function StatusUpdatePage() {
 
             </Button>
 
+
+
+            {selectedCustomsPackages.length > 0 && (
+
+              <>
+
+                <Button
+
+                  type="button"
+
+                  variant="outline"
+
+                  disabled={invoiceLoading}
+
+                  onClick={handleBulkInvoiceRequest}
+
+                  className="shrink-0"
+
+                >
+
+                  {invoiceLoading ? 'Sending…' : 'Request invoice'}
+
+                </Button>
+
+                <Button
+
+                  type="button"
+
+                  variant="outline"
+
+                  onClick={() => setReleaseOpen(true)}
+
+                  className="shrink-0"
+
+                >
+
+                  Release &amp; bill
+
+                </Button>
+
+              </>
+
+            )}
+
           </div>
 
         </div>
 
       )}
+
+      {releaseOpen && (
+
+        <ReleaseFromCustomsModal
+
+          packages={selectedCustomsPackages}
+
+          onClose={() => setReleaseOpen(false)}
+
+          onCompleted={(result) => {
+
+            setReleaseOpen(false)
+
+            setActionSuccess(formatReleaseSummary(result))
+
+            handleLoad()
+
+            refreshCounts()
+
+          }}
+
+        />
+
+      )}
+
+
 
       {staffPackage && (
         <PackageStaffModal

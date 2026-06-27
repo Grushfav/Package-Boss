@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
 import {
   fetchCustomerDeliveryAddresses,
+  releasePackagesFromCustoms,
   requestPackageInvoice,
   setPackageDeliveryAddress,
   updatePackageBilling,
 } from '../../api/staff'
+import { formatJmd } from '../../lib/money'
+import { packageHasAdditionalFees } from '../../lib/packageBilling'
+import { RecordPaymentForm } from './RecordPaymentForm'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import type { DeliveryAddress, Package } from '../../types'
@@ -17,19 +21,20 @@ interface PackageStaffModalProps {
 }
 
 export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModalProps) {
-  const [tab, setTab] = useState<'invoice' | 'billing' | 'delivery'>('invoice')
+  const [tab, setTab] = useState<'invoice' | 'billing' | 'payment' | 'delivery'>('invoice')
   const [note, setNote] = useState('')
   const [channel, setChannel] = useState<'email' | 'whatsapp' | 'both'>('email')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([])
   const [billing, setBilling] = useState({
-    estimated_freight_usd: pkg.estimated_freight_usd?.toString() ?? '',
-    duties_usd: pkg.duties_usd?.toString() ?? '',
-    handling_usd: pkg.handling_usd?.toString() ?? '',
-    other_fees_usd: pkg.other_fees_usd?.toString() ?? '',
+    estimated_freight_jmd: pkg.estimated_freight_jmd?.toString() ?? '',
+    duties_jmd: pkg.duties_jmd?.toString() ?? '',
+    handling_jmd: pkg.handling_jmd?.toString() ?? '',
+    other_fees_jmd: pkg.other_fees_jmd?.toString() ?? '',
     declared_value_usd: pkg.declared_value_usd?.toString() ?? '',
   })
+  const [showExtraFees, setShowExtraFees] = useState(packageHasAdditionalFees(pkg))
 
   useEffect(() => {
     if (pkg.customer?.shipping_id) {
@@ -70,10 +75,10 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
     try {
       const parse = (v: string) => (v.trim() ? parseFloat(v) : undefined)
       const updated = await updatePackageBilling(pkg.id, {
-        estimated_freight_usd: parse(billing.estimated_freight_usd),
-        duties_usd: parse(billing.duties_usd),
-        handling_usd: parse(billing.handling_usd),
-        other_fees_usd: parse(billing.other_fees_usd),
+        estimated_freight_jmd: parse(billing.estimated_freight_jmd),
+        duties_jmd: parse(billing.duties_jmd),
+        handling_jmd: parse(billing.handling_jmd),
+        other_fees_jmd: parse(billing.other_fees_jmd),
         declared_value_usd: parse(billing.declared_value_usd),
         publish,
       })
@@ -101,6 +106,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
   const tabs = [
     { id: 'invoice' as const, label: 'Invoice' },
     { id: 'billing' as const, label: 'Billing' },
+    { id: 'payment' as const, label: 'Payment' },
     { id: 'delivery' as const, label: 'Delivery' },
   ]
 
@@ -192,58 +198,144 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
 
         {tab === 'billing' && (
           <div className="mt-4 space-y-3">
-            <p className="text-sm text-muted">
-              Freight can default from weight. Add duties, handling, and other fees before
-              publishing the final bill.
-            </p>
-            <Input
-              label="Freight (USD)"
-              type="number"
-              step="0.01"
-              value={billing.estimated_freight_usd}
-              onChange={(e) => setBilling({ ...billing, estimated_freight_usd: e.target.value })}
-            />
-            <Input
-              label="Duties (USD)"
-              type="number"
-              step="0.01"
-              value={billing.duties_usd}
-              onChange={(e) => setBilling({ ...billing, duties_usd: e.target.value })}
-            />
-            <Input
-              label="Handling (USD)"
-              type="number"
-              step="0.01"
-              value={billing.handling_usd}
-              onChange={(e) => setBilling({ ...billing, handling_usd: e.target.value })}
-            />
-            <Input
-              label="Other fees (USD)"
-              type="number"
-              step="0.01"
-              value={billing.other_fees_usd}
-              onChange={(e) => setBilling({ ...billing, other_fees_usd: e.target.value })}
-            />
-            <Input
-              label="Declared value (USD)"
-              type="number"
-              step="0.01"
-              value={billing.declared_value_usd}
-              onChange={(e) => setBilling({ ...billing, declared_value_usd: e.target.value })}
-            />
-            {pkg.total_due_usd != null && (
-              <p className="text-sm font-semibold">
-                Total: ${pkg.total_due_usd.toFixed(2)} USD ({pkg.billing_status_label})
-              </p>
+            {pkg.status === 'customs' ? (
+              <>
+                <p className="text-sm text-muted">
+                  Release from customs to auto-calculate shipping from weight and publish the bill.
+                  Add optional duties or fees below.
+                </p>
+                <Input
+                  label="Duties (JMD)"
+                  type="number"
+                  step="1"
+                  value={billing.duties_jmd}
+                  onChange={(e) => setBilling({ ...billing, duties_jmd: e.target.value })}
+                />
+                <Input
+                  label="Handling (JMD)"
+                  type="number"
+                  step="1"
+                  value={billing.handling_jmd}
+                  onChange={(e) => setBilling({ ...billing, handling_jmd: e.target.value })}
+                />
+                <Input
+                  label="Other fees (JMD)"
+                  type="number"
+                  step="1"
+                  value={billing.other_fees_jmd}
+                  onChange={(e) => setBilling({ ...billing, other_fees_jmd: e.target.value })}
+                />
+                <Button
+                  onClick={async () => {
+                    setError('')
+                    setLoading(true)
+                    try {
+                      const parse = (v: string) => (v.trim() ? parseFloat(v) : undefined)
+                      const result = await releasePackagesFromCustoms({
+                        items: [
+                          {
+                            package_id: pkg.id,
+                            duties_jmd: parse(billing.duties_jmd),
+                            handling_jmd: parse(billing.handling_jmd),
+                            other_fees_jmd: parse(billing.other_fees_jmd),
+                          },
+                        ],
+                      })
+                      if (result.packages[0]) {
+                        onUpdated(result.packages[0])
+                        setSuccess('Released from customs — bill published')
+                      }
+                    } catch (err) {
+                      setError(getErrorMessage(err))
+                    } finally {
+                      setLoading(false)
+                    }
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? 'Releasing…' : 'Release & publish bill'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted">
+                  Most packages are billed at the shipping rate only. Add extra fees when duties or
+                  handling apply.
+                </p>
+                <Input
+                  label="Shipping (JMD)"
+                  type="number"
+                  step="1"
+                  value={billing.estimated_freight_jmd}
+                  onChange={(e) => setBilling({ ...billing, estimated_freight_jmd: e.target.value })}
+                />
+                {!showExtraFees ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowExtraFees(true)}
+                    className="text-xs font-semibold text-boss-green hover:underline"
+                  >
+                    + Add duties, handling, or other fees
+                  </button>
+                ) : (
+                  <>
+                    <Input
+                      label="Duties (JMD)"
+                      type="number"
+                      step="1"
+                      value={billing.duties_jmd}
+                      onChange={(e) => setBilling({ ...billing, duties_jmd: e.target.value })}
+                    />
+                    <Input
+                      label="Handling (JMD)"
+                      type="number"
+                      step="1"
+                      value={billing.handling_jmd}
+                      onChange={(e) => setBilling({ ...billing, handling_jmd: e.target.value })}
+                    />
+                    <Input
+                      label="Other fees (JMD)"
+                      type="number"
+                      step="1"
+                      value={billing.other_fees_jmd}
+                      onChange={(e) => setBilling({ ...billing, other_fees_jmd: e.target.value })}
+                    />
+                    <Input
+                      label="Declared value (USD, from receipt)"
+                      type="number"
+                      step="0.01"
+                      value={billing.declared_value_usd}
+                      onChange={(e) => setBilling({ ...billing, declared_value_usd: e.target.value })}
+                    />
+                  </>
+                )}
+                {pkg.total_due_jmd != null && (
+                  <p className="text-sm font-semibold">
+                    Total: {formatJmd(pkg.total_due_jmd)} ({pkg.billing_status_label})
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => handleSaveBilling(false)} disabled={loading}>
+                    Save draft
+                  </Button>
+                  <Button onClick={() => handleSaveBilling(true)} disabled={loading}>
+                    Publish bill
+                  </Button>
+                </div>
+              </>
             )}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => handleSaveBilling(false)} disabled={loading}>
-                Save draft
-              </Button>
-              <Button onClick={() => handleSaveBilling(true)} disabled={loading}>
-                Publish bill
-              </Button>
-            </div>
+          </div>
+        )}
+
+        {tab === 'payment' && (
+          <div className="mt-4">
+            <RecordPaymentForm
+              pkg={pkg}
+              onCompleted={(updated, payment) => {
+                onUpdated({ ...updated, payment })
+                setSuccess('Payment recorded — invoice opened for printing')
+              }}
+            />
           </div>
         )}
 

@@ -95,8 +95,8 @@ export function WarehouseHomePage() {
           to="/warehouse/status?preset=ready-flight"
           icon={RefreshCw}
           title="Ready for flight"
-          description="Packages received in Miami waiting to move to in transit."
-          count={counts?.received_miami_count}
+          description="Packages received in Fort Lauderdale waiting to move to in transit."
+          count={counts?.received_count ?? counts?.received_miami_count}
           actionLabel="Bulk update status"
         />
         <InboxCard

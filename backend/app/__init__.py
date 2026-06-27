@@ -24,7 +24,7 @@ from app.routes import (
 from app.seeds.rate_tiers import seed_rate_tiers
 
 _STARTUP_USER_COLUMNS = frozenset({"terms_accepted_at", "whatsapp_opt_in"})
-_STARTUP_PACKAGE_COLUMNS = frozenset({"estimated_freight_usd", "billing_status", "invoice_status"})
+_STARTUP_PACKAGE_COLUMNS = frozenset({"estimated_freight_jmd", "billing_status", "invoice_status"})
 
 
 def _startup_schema_ready(inspector) -> bool:
