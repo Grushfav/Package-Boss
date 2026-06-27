@@ -5,6 +5,7 @@ import time
 from flask import current_app, request
 
 RESET_TTL_SECONDS = 900  # 15 minutes
+INVITE_TTL_SECONDS = 86400  # 24 hours
 RATE_LIMIT_TTL = 3600
 RATE_LIMIT_MAX = 3
 
@@ -16,8 +17,8 @@ def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
-def _store_reset(token_hash: str, user_id: str) -> None:
-    _reset_tokens[token_hash] = (user_id, time.time() + RESET_TTL_SECONDS)
+def _store_reset(token_hash: str, user_id: str, ttl: int = RESET_TTL_SECONDS) -> None:
+    _reset_tokens[token_hash] = (user_id, time.time() + ttl)
 
 
 def _get_reset(token_hash: str) -> str | None:
@@ -36,8 +37,12 @@ def generate_reset_token() -> tuple[str, str]:
     return raw, _hash_token(raw)
 
 
-def store_reset_token(user_id: str, token_hash: str) -> None:
-    _store_reset(token_hash, user_id)
+def store_reset_token(user_id: str, token_hash: str, ttl: int = RESET_TTL_SECONDS) -> None:
+    _store_reset(token_hash, user_id, ttl)
+
+
+def store_invite_token(user_id: str, token_hash: str) -> None:
+    _store_reset(token_hash, user_id, INVITE_TTL_SECONDS)
 
 
 def get_user_id_for_token(raw_token: str) -> str | None:

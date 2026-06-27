@@ -47,7 +47,14 @@ def get_me():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    return jsonify({"user": user.to_dict(include_trn_masked=True)})
+    return jsonify(
+        {
+            "user": user.to_dict(
+                include_trn_masked=user.role == "customer",
+                include_clerk_fields=user.role in ("clerk", "admin"),
+            )
+        }
+    )
 
 
 @me_bp.route("/me", methods=["PATCH"])

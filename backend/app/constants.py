@@ -138,3 +138,45 @@ PAYMENT_METHOD_LABELS = {
 }
 
 INVOICE_REQUEST_CHANNELS = ["email", "whatsapp", "both"]
+
+# Clerk granular permissions (admin assigns; defaults on create)
+CLERK_PERMISSIONS = [
+    "receive",
+    "activity",
+    "directory",
+    "status_transit",
+    "status_customs",
+    "status_pickup",
+    "billing",
+    "invoice_request",
+]
+
+CLERK_PERMISSION_LABELS = {
+    "receive": "Receive packages",
+    "activity": "Activity log",
+    "directory": "Customer directory",
+    "status_transit": "Status: received → in transit (Florida)",
+    "status_customs": "Status: customs updates",
+    "status_pickup": "Status: ready for pickup / delivered",
+    "billing": "Billing & payments",
+    "invoice_request": "Request customer invoices",
+}
+
+DEFAULT_CLERK_PERMISSIONS = ["receive", "activity"]
+
+# Allowed status transitions per permission (admin bypasses)
+STATUS_TRANSITIONS_BY_PERMISSION = {
+    "status_transit": {("received", "in_transit")},
+    "status_customs": {
+        ("in_transit", "customs"),
+        ("customs", "in_transit"),
+        ("received", "customs"),
+    },
+    "status_pickup": {
+        ("customs", "ready_for_pickup"),
+        ("ready_for_pickup", "delivered"),
+        ("in_transit", "ready_for_pickup"),
+    },
+}
+
+INVITE_TOKEN_TTL_SECONDS = 86400  # 24 hours

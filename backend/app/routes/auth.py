@@ -114,12 +114,24 @@ def login():
     if not user or not verify_password(user.password_hash, password):
         return _error("Invalid email or password", 401)
 
+    if not user.is_active:
+        return _error("This account has been deactivated", 403)
+
+    if user.must_set_password:
+        return _error(
+            "Please use the invite link in your email to set your password before logging in.",
+            403,
+        )
+
     access_token = create_access_token(identity=str(user.id))
 
     return jsonify(
         {
             "access_token": access_token,
-            "user": user.to_dict(include_trn_masked=True),
+            "user": user.to_dict(
+                include_trn_masked=user.role == "customer",
+                include_clerk_fields=user.role in ("clerk", "admin"),
+            ),
         }
     )
 
@@ -191,6 +203,7 @@ def reset_password():
         return _error("Invalid or expired reset link", 400)
 
     user.password_hash = hash_password(new_password)
+    user.must_set_password = False
     db.session.commit()
     delete_reset_token(token)
 

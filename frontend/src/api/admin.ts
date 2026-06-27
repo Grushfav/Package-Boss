@@ -1,30 +1,54 @@
 import { api } from './client'
-import type { AdminOverview, AuditLogEntry, User } from '../types'
+import type { AdminOverview, AuditLogEntry, ClerkPermission, User } from '../types'
+
+export interface ClerkPermissionOption {
+  code: ClerkPermission
+  label: string
+}
+
+export async function fetchClerkPermissionOptions(): Promise<ClerkPermissionOption[]> {
+  const { data } = await api.get<{ permissions: ClerkPermissionOption[] }>(
+    '/admin/clerk-permissions',
+  )
+  return data.permissions
+}
 
 export async function fetchClerks(): Promise<User[]> {
   const { data } = await api.get<{ clerks: User[] }>('/admin/clerks')
   return data.clerks
 }
 
-export async function promoteToClerk(email: string): Promise<User> {
-  const { data } = await api.post<{ user: User }>('/admin/clerks', { email })
-  return data.user
-}
-
 export async function createClerk(payload: {
   email: string
   first_name: string
   last_name: string
-  password: string
-  contact_number: string
-  trn: string
-  parish: string
+  contact_number?: string
+  parish?: string
+  permissions?: ClerkPermission[]
 }): Promise<User> {
   const { data } = await api.post<{ user: User }>('/admin/clerks', payload)
   return data.user
 }
 
-export async function demoteClerk(userId: string): Promise<User> {
+export async function updateClerk(
+  userId: string,
+  payload: {
+    permissions?: ClerkPermission[]
+    first_name?: string
+    last_name?: string
+    contact_number?: string
+    parish?: string
+  },
+): Promise<User> {
+  const { data } = await api.patch<{ user: User }>(`/admin/clerks/${userId}`, payload)
+  return data.user
+}
+
+export async function resendClerkInvite(userId: string): Promise<void> {
+  await api.post(`/admin/clerks/${userId}/resend-invite`)
+}
+
+export async function deactivateClerk(userId: string): Promise<User> {
   const { data } = await api.delete<{ user: User }>(`/admin/clerks/${userId}`)
   return data.user
 }

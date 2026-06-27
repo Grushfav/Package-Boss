@@ -346,6 +346,34 @@ def send_password_reset_email(to_email: str, first_name: str, reset_url: str) ->
     )
 
 
+def send_clerk_invite_email(to_email: str, first_name: str, invite_url: str) -> None:
+    subject = "You're invited to Package Boss warehouse"
+    body = (
+        f"Hi {first_name},\n\n"
+        f"An admin created a clerk account for you on Package Boss.\n"
+        f"Set your password using the link below (expires in 24 hours):\n\n"
+        f"{invite_url}\n\n"
+        f"If you weren't expecting this, ignore this email.\n\n"
+        f"— Package Boss"
+    )
+    html_body = render_password_reset_html(
+        first_name,
+        invite_url,
+        logo_url=resolve_logo_url(),
+        heading="Set your clerk password",
+        intro="An admin created a warehouse clerk account for you. Choose a password to get started.",
+        expiry_note="24 hours",
+    )
+    _dispatch_email(
+        to_email,
+        subject,
+        body,
+        html_body=html_body,
+        metadata={"type": "clerk_invite"},
+        async_send=True,
+    )
+
+
 def send_invoice_request_email(
     to_email: str,
     first_name: str,

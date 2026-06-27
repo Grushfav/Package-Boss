@@ -1,8 +1,9 @@
+import secrets
 import uuid
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
-from app.constants import JAMAICA_PARISHES
+from app.constants import CLERK_PERMISSION_LABELS, CLERK_PERMISSIONS, JAMAICA_PARISHES
 from app.extensions import db
 from app.models.audit_log import AuditLog
 from app.models.user import User
@@ -13,16 +14,29 @@ from app.services.admin_stats_service import (
     get_pre_alerts_vs_receives,
     get_weight_distribution,
 )
-from app.services.auth_service import hash_password, normalize_phone, validate_password
-from app.services.shipping_id_service import generate_shipping_id
-from app.services.trn_service import encrypt_trn, hash_trn, normalize_trn
-from app.utils.auth_decorators import admin_required, warehouse_required
+from app.services.auth_service import hash_password, normalize_phone
+from app.services.clerk_permission_service import normalize_clerk_permissions
+from app.services.email_service import EmailServiceError, send_clerk_invite_email
+from app.services.reset_token_service import build_reset_url, generate_reset_token, store_invite_token
+from app.services.staff_id_service import generate_staff_shipping_id
+from app.utils.auth_decorators import admin_required, permission_required
 
 admin_bp = Blueprint("admin", __name__)
 
 
 def _error(message: str, status: int = 400):
     return jsonify({"error": message}), status
+
+
+def _clerk_dict(user: User) -> dict:
+    return user.to_dict(include_clerk_fields=True)
+
+
+def _send_clerk_invite(user: User) -> None:
+    raw_token, token_hash = generate_reset_token()
+    store_invite_token(str(user.id), token_hash)
+    invite_url = build_reset_url(raw_token)
+    send_clerk_invite_email(user.email, user.first_name, invite_url)
 
 
 @admin_bp.route("/admin/stats/overview", methods=["GET"])
@@ -60,7 +74,7 @@ def stats_pre_alerts_vs_receives():
 
 
 @admin_bp.route("/admin/activity", methods=["GET"])
-@warehouse_required()
+@permission_required("activity")
 def list_activity():
     limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
@@ -83,11 +97,28 @@ def list_activity():
     return jsonify({"activity": [log.to_dict() for log in logs], "total": total})
 
 
+@admin_bp.route("/admin/clerk-permissions", methods=["GET"])
+@admin_required()
+def list_clerk_permission_options():
+    return jsonify(
+        {
+            "permissions": [
+                {"code": code, "label": CLERK_PERMISSION_LABELS[code]}
+                for code in CLERK_PERMISSIONS
+            ]
+        }
+    )
+
+
 @admin_bp.route("/admin/clerks", methods=["GET"])
 @admin_required()
 def list_clerks():
-    clerks = User.query.filter_by(role="clerk").order_by(User.created_at.desc()).all()
-    return jsonify({"clerks": [u.to_dict() for u in clerks]})
+    clerks = (
+        User.query.filter_by(role="clerk", is_active=True)
+        .order_by(User.created_at.desc())
+        .all()
+    )
+    return jsonify({"clerks": [_clerk_dict(u) for u in clerks]})
 
 
 @admin_bp.route("/admin/clerks", methods=["POST"])
@@ -96,67 +127,118 @@ def create_clerk():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
 
-    if not email:
-        return _error("Email is required")
-
-    existing = User.query.filter_by(email=email).first()
-
-    # Promote an existing customer to clerk
-    if not data.get("password"):
-        if not existing:
-            return _error("No account found for that email", 404)
-        if existing.role != "customer":
-            return _error(f"User is already a {existing.role}", 409)
-        existing.role = "clerk"
-        db.session.commit()
-        return jsonify({"user": existing.to_dict(), "promoted": True}), 200
-
-    # Create a new clerk account (same fields as customer signup)
-    required = ["first_name", "last_name", "password", "contact_number", "trn", "parish"]
+    required = ["first_name", "last_name", "email"]
     missing = [f for f in required if not data.get(f)]
     if missing:
         return _error(f"Missing required fields: {', '.join(missing)}")
 
-    if existing:
+    if User.query.filter_by(email=email).first():
         return _error("An account with this email already exists", 409)
 
-    parish = data["parish"].strip()
-    if parish not in JAMAICA_PARISHES:
+    contact_number = ""
+    if data.get("contact_number"):
+        try:
+            contact_number = normalize_phone(data["contact_number"])
+        except ValueError as exc:
+            return _error(str(exc))
+
+    parish = (data.get("parish") or "").strip()
+    if parish and parish not in JAMAICA_PARISHES:
         return _error("Invalid parish")
 
-    try:
-        validate_password(data["password"])
-        contact_number = normalize_phone(data["contact_number"])
-        trn_hashed = hash_trn(data["trn"])
-        normalize_trn(data["trn"])
-    except ValueError as exc:
-        return _error(str(exc))
+    permissions = normalize_clerk_permissions(data.get("permissions"))
 
-    if User.query.filter_by(trn_hash=trn_hashed).first():
-        return _error("An account with this TRN already exists", 409)
-
+    unusable_secret = secrets.token_urlsafe(32)
     user = User(
         email=email,
-        password_hash=hash_password(data["password"]),
+        password_hash=hash_password(unusable_secret),
         first_name=data["first_name"].strip(),
         last_name=data["last_name"].strip(),
         contact_number=contact_number,
-        parish=parish,
-        trn_encrypted=encrypt_trn(data["trn"]),
-        trn_hash=trn_hashed,
-        shipping_id=generate_shipping_id(),
+        parish=parish or None,
+        trn_encrypted=None,
+        trn_hash=None,
+        shipping_id=generate_staff_shipping_id(),
         role="clerk",
+        clerk_permissions=permissions,
+        must_set_password=True,
+        is_active=True,
     )
 
     db.session.add(user)
     db.session.commit()
 
-    return jsonify({"user": user.to_dict(), "promoted": False}), 201
+    try:
+        _send_clerk_invite(user)
+    except (RuntimeError, EmailServiceError) as exc:
+        current_app.logger.error("Clerk invite email failed for %s: %s", email, exc)
+        return _error("Clerk created but invite email could not be sent", 503)
+
+    return jsonify({"user": _clerk_dict(user)}), 201
+
+
+@admin_bp.route("/admin/clerks/<user_id>", methods=["PATCH"])
+@admin_required()
+def update_clerk(user_id: str):
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        return _error("Invalid user ID")
+
+    user = User.query.get(uid)
+    if not user or user.role != "clerk":
+        return _error("Clerk not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    if "permissions" in data:
+        user.clerk_permissions = normalize_clerk_permissions(data.get("permissions"))
+
+    if "first_name" in data:
+        user.first_name = (data["first_name"] or "").strip()
+    if "last_name" in data:
+        user.last_name = (data["last_name"] or "").strip()
+    if "contact_number" in data:
+        if data["contact_number"]:
+            try:
+                user.contact_number = normalize_phone(data["contact_number"])
+            except ValueError as exc:
+                return _error(str(exc))
+        else:
+            user.contact_number = ""
+    if "parish" in data:
+        parish = (data.get("parish") or "").strip()
+        if parish and parish not in JAMAICA_PARISHES:
+            return _error("Invalid parish")
+        user.parish = parish or None
+
+    db.session.commit()
+    return jsonify({"user": _clerk_dict(user)})
+
+
+@admin_bp.route("/admin/clerks/<user_id>/resend-invite", methods=["POST"])
+@admin_required()
+def resend_clerk_invite(user_id: str):
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        return _error("Invalid user ID")
+
+    user = User.query.get(uid)
+    if not user or user.role != "clerk" or not user.is_active:
+        return _error("Clerk not found", 404)
+
+    try:
+        _send_clerk_invite(user)
+    except (RuntimeError, EmailServiceError) as exc:
+        current_app.logger.error("Clerk invite resend failed for %s: %s", user.email, exc)
+        return _error("Invite email could not be sent", 503)
+
+    return jsonify({"message": "Invite email sent"})
 
 
 @admin_bp.route("/admin/clerks/<user_id>", methods=["DELETE"])
 @admin_required()
-def remove_clerk(user_id: str):
+def deactivate_clerk(user_id: str):
     try:
         uid = uuid.UUID(user_id)
     except ValueError:
@@ -168,6 +250,6 @@ def remove_clerk(user_id: str):
     if user.role != "clerk":
         return _error("User is not a clerk", 400)
 
-    user.role = "customer"
+    user.is_active = False
     db.session.commit()
-    return jsonify({"user": user.to_dict()})
+    return jsonify({"user": _clerk_dict(user)})

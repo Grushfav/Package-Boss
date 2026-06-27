@@ -48,10 +48,9 @@ from app.services.package_service import (
     update_package_status,
     warehouse_package_to_dict,
 )
-from app.utils.auth_decorators import get_user_from_jwt
-from app.services.trn_service import decrypt_trn, format_trn
+from app.utils.auth_decorators import get_user_from_jwt, permission_required
+from app.services.clerk_permission_service import assert_status_transition_allowed, clerk_has_permission
 from app.services.unidentified_service import customer_query
-from app.utils.auth_decorators import warehouse_required
 
 staff_bp = Blueprint("staff", __name__)
 
@@ -61,27 +60,26 @@ def _customer_dict(user: User) -> dict:
         "id": str(user.id),
         "full_name": user.full_name,
         "email": user.email,
-        "contact_number": user.contact_number,
-        "parish": user.parish,
+        "contact_number": user.contact_number or "",
+        "parish": user.parish or "",
         "shipping_id": user.shipping_id,
-        "trn": format_trn(decrypt_trn(user.trn_encrypted)),
     }
 
 
 @staff_bp.route("/shippers", methods=["GET"])
-@warehouse_required()
+@permission_required("receive")
 def list_shippers():
     return jsonify({"shippers": SHIPPERS})
 
 
 @staff_bp.route("/staff/warehouse/summary", methods=["GET"])
-@warehouse_required()
+@permission_required("receive", "activity", "status_transit", "status_customs", "status_pickup", "billing", "invoice_request", "directory")
 def warehouse_summary():
     return jsonify(get_warehouse_summary())
 
 
 @staff_bp.route("/warehouse/customers", methods=["GET"])
-@warehouse_required()
+@permission_required("directory")
 def list_customers():
     q = (request.args.get("q") or "").strip()
     limit = request.args.get("limit", 50, type=int)
@@ -116,7 +114,7 @@ def list_customers():
 
 
 @staff_bp.route("/warehouse/customers/search", methods=["GET"])
-@warehouse_required()
+@permission_required("receive", "directory")
 def search_customers():
     q = (request.args.get("q") or "").strip()
     if len(q) < 2:
@@ -145,7 +143,7 @@ def search_customers():
 
 
 @staff_bp.route("/staff/customers/<shipping_id>", methods=["GET"])
-@warehouse_required()
+@permission_required("receive", "directory")
 def lookup_customer(shipping_id: str):
     shipping_id = shipping_id.strip().upper()
     user = customer_query().filter_by(shipping_id=shipping_id).first()
@@ -156,7 +154,7 @@ def lookup_customer(shipping_id: str):
 
 
 @staff_bp.route("/staff/customers/<shipping_id>/account", methods=["GET"])
-@warehouse_required()
+@permission_required("directory", "billing")
 def customer_account(shipping_id: str):
     shipping_id = shipping_id.strip().upper()
     user = customer_query().filter_by(shipping_id=shipping_id).first()
@@ -164,27 +162,31 @@ def customer_account(shipping_id: str):
         return jsonify({"error": "Customer not found"}), 404
 
     packages = list_customer_packages(user)
-    checkouts = list_customer_checkouts(user)
-    summary = compute_customer_billing_summary(packages)
+    actor = get_user_from_jwt()
+    show_billing = actor and clerk_has_permission(actor, "billing")
 
     package_rows = []
     for pkg in packages:
         row = warehouse_package_to_dict(pkg)
-        row["payment"] = package_payment_summary(pkg)
+        if show_billing:
+            row["payment"] = package_payment_summary(pkg)
         package_rows.append(row)
 
-    return jsonify(
-        {
-            "customer": _customer_dict(user),
-            "packages": package_rows,
-            "checkouts": [c.to_dict(include_items=True) for c in checkouts],
-            "summary": summary,
-        }
-    )
+    payload = {
+        "customer": _customer_dict(user),
+        "packages": package_rows,
+    }
+    if show_billing:
+        checkouts = list_customer_checkouts(user)
+        summary = compute_customer_billing_summary(packages)
+        payload["checkouts"] = [c.to_dict(include_items=True) for c in checkouts]
+        payload["summary"] = summary
+
+    return jsonify(payload)
 
 
 @staff_bp.route("/staff/packages/release-from-customs", methods=["POST"])
-@warehouse_required()
+@permission_required("status_customs", "billing")
 def release_from_customs():
     data = request.get_json(silent=True) or {}
     items = data.get("items") or []
@@ -221,7 +223,7 @@ def release_from_customs():
 
 
 @staff_bp.route("/staff/packages/bulk-request-invoice", methods=["POST"])
-@warehouse_required()
+@permission_required("invoice_request")
 def bulk_request_invoice():
     data = request.get_json(silent=True) or {}
     package_ids = data.get("package_ids") or []
@@ -257,7 +259,7 @@ def bulk_request_invoice():
 
 
 @staff_bp.route("/staff/customers/<shipping_id>/checkouts", methods=["POST"])
-@warehouse_required()
+@permission_required("billing")
 def customer_checkout(shipping_id: str):
     shipping_id = shipping_id.strip().upper()
     user = customer_query().filter_by(shipping_id=shipping_id).first()
@@ -308,7 +310,7 @@ def customer_checkout(shipping_id: str):
 
 
 @staff_bp.route("/staff/checkouts/<checkout_id>/bill-invoice", methods=["GET"])
-@warehouse_required()
+@permission_required("billing")
 def checkout_bill_invoice(checkout_id: str):
     import uuid as uuid_lib
 
@@ -328,7 +330,7 @@ def checkout_bill_invoice(checkout_id: str):
 
 
 @staff_bp.route("/staff/packages/<package_id>/payments", methods=["POST"])
-@warehouse_required()
+@permission_required("billing")
 def record_payment(package_id: str):
     import uuid as uuid_lib
 
@@ -382,7 +384,7 @@ def record_payment(package_id: str):
 
 
 @staff_bp.route("/staff/packages/<package_id>/bill-invoice", methods=["GET"])
-@warehouse_required()
+@permission_required("billing")
 def package_bill_invoice(package_id: str):
     import uuid as uuid_lib
 
@@ -413,7 +415,7 @@ def package_bill_invoice(package_id: str):
 
 
 @staff_bp.route("/staff/packages/receive", methods=["POST"])
-@warehouse_required()
+@permission_required("receive")
 def receive_package_endpoint():
     data = request.get_json(silent=True) or {}
     shipping_id = (data.get("shipping_id") or "").strip().upper()
@@ -479,7 +481,7 @@ def receive_package_endpoint():
 
 
 @staff_bp.route("/staff/packages/receive-unidentified", methods=["POST"])
-@warehouse_required()
+@permission_required("receive")
 def receive_unidentified_endpoint():
     data = request.get_json(silent=True) or {}
     weight_raw = data.get("actual_weight_lbs")
@@ -535,7 +537,7 @@ def receive_unidentified_endpoint():
 
 
 @staff_bp.route("/staff/packages/unidentified", methods=["GET"])
-@warehouse_required()
+@permission_required("receive")
 def list_unidentified():
     limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
@@ -552,7 +554,7 @@ def list_unidentified():
 
 
 @staff_bp.route("/staff/packages/<package_id>/assign", methods=["POST"])
-@warehouse_required()
+@permission_required("receive")
 def assign_unidentified(package_id: str):
     import uuid as uuid_lib
 
@@ -601,7 +603,7 @@ def assign_unidentified(package_id: str):
 
 
 @staff_bp.route("/staff/packages", methods=["GET"])
-@warehouse_required()
+@permission_required("status_transit", "status_customs", "status_pickup", "billing", "receive")
 def list_packages():
     from_date = (request.args.get("from") or "").strip()
     to_date = (request.args.get("to") or "").strip()
@@ -631,7 +633,7 @@ def list_packages():
 
 
 @staff_bp.route("/staff/packages/print-queue", methods=["GET"])
-@warehouse_required()
+@permission_required("receive")
 def get_print_queue():
     days = request.args.get("days", 7, type=int)
     limit = request.args.get("limit", 100, type=int)
@@ -650,7 +652,7 @@ def get_print_queue():
 
 
 @staff_bp.route("/staff/packages/mark-printed", methods=["PATCH"])
-@warehouse_required()
+@permission_required("receive")
 def mark_printed():
     data = request.get_json(silent=True) or {}
     package_ids = data.get("package_ids") or []
@@ -671,7 +673,7 @@ def mark_printed():
 
 
 @staff_bp.route("/staff/packages/bulk-status", methods=["PATCH"])
-@warehouse_required()
+@permission_required("status_transit", "status_customs", "status_pickup")
 def bulk_update_status():
     data = request.get_json(silent=True) or {}
     status = (data.get("status") or "").strip()
@@ -693,12 +695,28 @@ def bulk_update_status():
     if len(package_ids) > 500:
         return jsonify({"error": "Cannot update more than 500 packages at once"}), 400
 
+    actor = get_user_from_jwt()
+    if actor and actor.role == "clerk":
+        import uuid as uuid_lib
+
+        for raw_id in package_ids:
+            try:
+                pid = uuid_lib.UUID(str(raw_id))
+            except ValueError:
+                continue
+            package = Package.query.get(pid)
+            if not package:
+                continue
+            try:
+                assert_status_transition_allowed(actor, package.status, status)
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 403
+
     try:
         updated, failed = bulk_update_package_status(package_ids, status, note)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    actor = get_user_from_jwt()
     if actor:
         for package in updated:
             log_package_action(
@@ -724,7 +742,7 @@ def bulk_update_status():
 
 
 @staff_bp.route("/staff/packages/<tracking_number>/status", methods=["PATCH"])
-@warehouse_required()
+@permission_required("status_transit", "status_customs", "status_pickup")
 def update_status(tracking_number: str):
     data = request.get_json(silent=True) or {}
     status = (data.get("status") or "").strip()
@@ -749,9 +767,15 @@ def update_status(tracking_number: str):
         ), 400
 
     old_status = package.status
+    actor = get_user_from_jwt()
+    if actor:
+        try:
+            assert_status_transition_allowed(actor, old_status, status)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 403
+
     package = update_package_status(package, status, data.get("note"))
 
-    actor = get_user_from_jwt()
     if actor:
         log_package_action(
             actor,
@@ -770,7 +794,7 @@ def update_status(tracking_number: str):
 
 
 @staff_bp.route("/staff/customers/<shipping_id>/delivery-addresses", methods=["GET"])
-@warehouse_required()
+@permission_required("billing", "directory")
 def list_customer_delivery_addresses(shipping_id: str):
     shipping_id = shipping_id.strip().upper()
     user = customer_query().filter_by(shipping_id=shipping_id).first()
@@ -782,7 +806,7 @@ def list_customer_delivery_addresses(shipping_id: str):
 
 
 @staff_bp.route("/staff/packages/<package_id>/request-invoice", methods=["POST"])
-@warehouse_required()
+@permission_required("invoice_request")
 def request_invoice(package_id: str):
     import uuid as uuid_lib
 
@@ -823,7 +847,7 @@ def request_invoice(package_id: str):
 
 
 @staff_bp.route("/staff/packages/<package_id>/billing", methods=["PATCH"])
-@warehouse_required()
+@permission_required("billing")
 def update_billing(package_id: str):
     import uuid as uuid_lib
 
@@ -871,7 +895,7 @@ def update_billing(package_id: str):
 
 
 @staff_bp.route("/staff/packages/<package_id>/delivery-address", methods=["PATCH"])
-@warehouse_required()
+@permission_required("billing")
 def set_package_delivery_address(package_id: str):
     import uuid as uuid_lib
 

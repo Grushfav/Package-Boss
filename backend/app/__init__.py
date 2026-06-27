@@ -76,6 +76,11 @@ def create_app(config_class=Config):
         from app import models  # noqa: F401
 
         inspector = inspect(db.engine)
+
+        from app.db_schema import ensure_schema
+
+        ensure_schema(app)
+
         if _startup_schema_ready(inspector):
             seed_rate_tiers()
             ensure_unidentified_holder()
@@ -101,6 +106,9 @@ def _promote_role_emails(app):
     if clerk_email:
         user = User.query.filter_by(email=clerk_email).first()
         if user and user.role == "customer":
+            from app.services.clerk_permission_service import normalize_clerk_permissions
+
             user.role = "clerk"
+            user.clerk_permissions = normalize_clerk_permissions(user.clerk_permissions)
             db.session.commit()
             app.logger.info("Promoted %s to clerk role", clerk_email)

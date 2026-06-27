@@ -157,25 +157,36 @@ def render_info_box(content_html: str) -> str:
       </table>"""
 
 
-def render_password_reset_html(first_name: str, reset_url: str, logo_url: str | None = None) -> str:
+def render_password_reset_html(
+    first_name: str,
+    reset_url: str,
+    logo_url: str | None = None,
+    *,
+    heading: str = "Reset your password",
+    intro: str | None = None,
+    button_label: str = "Reset password",
+    expiry_note: str = "15 minutes",
+) -> str:
     safe_name = _esc(first_name)
+    intro_text = intro or (
+        "We received a request to reset your password. Click the button below to choose a new one."
+    )
     body = f"""
       <p style="margin:0 0 12px;">Hi {safe_name},</p>
       <p style="margin:0 0 12px;">
-        We received a request to reset your password. Click the button below to choose a new one.
-        This link expires in <strong>15 minutes</strong>.
+        {intro_text}
+        This link expires in <strong>{_esc(expiry_note)}</strong>.
       </p>
       <p style="margin:0;font-size:13px;color:{TEXT_MUTED};">
-        If you didn't request a password reset, you can safely ignore this email — your password
-        won't change.
+        If you weren't expecting this email, you can safely ignore it.
       </p>"""
     return render_layout(
-        preheader="Reset your Package Boss password (expires in 15 minutes)",
-        title="Reset your password",
+        preheader=f"{heading} (expires in {expiry_note})",
+        title=heading,
         body_html=body,
         logo_url=logo_url,
         cta_url=reset_url,
-        cta_label="Reset password",
+        cta_label=button_label,
     )
 
 

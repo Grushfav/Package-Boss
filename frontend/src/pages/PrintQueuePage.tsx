@@ -21,7 +21,6 @@ function labelCustomer(pkg: Package): StaffCustomer | null {
     parish: pkg.customer.parish ?? '',
     email: '',
     contact_number: '',
-    trn: '',
   }
 }
 

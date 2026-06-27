@@ -1,3 +1,13 @@
+export type ClerkPermission =
+  | 'receive'
+  | 'activity'
+  | 'directory'
+  | 'status_transit'
+  | 'status_customs'
+  | 'status_pickup'
+  | 'billing'
+  | 'invoice_request'
+
 export interface User {
   id: string
   email: string
@@ -8,6 +18,10 @@ export interface User {
   parish: string
   shipping_id: string
   role?: 'customer' | 'clerk' | 'admin'
+  permissions?: ClerkPermission[]
+  clerk_permissions?: ClerkPermission[]
+  must_set_password?: boolean
+  is_active?: boolean
   trn_masked?: string
   trn_on_file?: boolean
   whatsapp_opt_in?: boolean
@@ -211,7 +225,6 @@ export interface StaffCustomer {
   contact_number: string
   parish: string
   shipping_id: string
-  trn: string
 }
 
 export interface PresignResponse {

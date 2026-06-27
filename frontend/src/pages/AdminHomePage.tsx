@@ -89,20 +89,41 @@ export function AdminHomePage() {
         </div>
       )}
 
-      <div className="mt-8 rounded-2xl border border-border bg-card p-6">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
-          Packages received over time (30d)
-        </h2>
-        <div className="mt-4 h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={timeline}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-              <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-              <Tooltip labelFormatter={(l) => String(l)} />
-              <Line type="monotone" dataKey="count" stroke="#22c55e" strokeWidth={2} dot={false} name="Received" />
-            </LineChart>
-          </ResponsiveContainer>
+      <div className="mt-8 grid gap-8 lg:grid-cols-2">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+            Packages received over time (30d)
+          </h2>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={timeline}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip labelFormatter={(l) => String(l)} />
+                <Line type="monotone" dataKey="count" stroke="#22c55e" strokeWidth={2} dot={false} name="Received" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+            Pre-alerts vs packages received (30d)
+          </h2>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={compare}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fontSize: 10 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip labelFormatter={(l) => String(l)} />
+                <Legend />
+                <Bar dataKey="pre_alerts" fill="#eab308" name="Pre-alerts" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="received" fill="#22c55e" name="Received" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
@@ -136,25 +157,6 @@ export function AdminHomePage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      </div>
-
-      <div className="mt-8 rounded-2xl border border-border bg-card p-6">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
-          Pre-alerts vs packages received (30d)
-        </h2>
-        <div className="mt-4 h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={compare}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-              <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fontSize: 10 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-              <Tooltip labelFormatter={(l) => String(l)} />
-              <Legend />
-              <Bar dataKey="pre_alerts" fill="#eab308" name="Pre-alerts" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="received" fill="#22c55e" name="Received" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 

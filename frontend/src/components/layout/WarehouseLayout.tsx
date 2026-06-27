@@ -9,6 +9,9 @@ import {
   Users,
 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { clerkHasAnyPermission, clerkHasPermission } from '../../lib/clerkPermissions'
+import type { ClerkPermission } from '../../types'
 import { WarehouseCountsProvider, useWarehouseCounts } from '../../context/WarehouseCountsContext'
 import { CommandPalette, openCommandPalette } from '../warehouse/CommandPalette'
 import { CustomerQuickSearch } from '../warehouse/CustomerQuickSearch'
@@ -31,26 +34,53 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 function WarehouseShell() {
   const { counts } = useWarehouseCounts()
+  const { user } = useAuth()
+  const perms = user?.permissions || user?.clerk_permissions
+  const role = user?.role
 
-  const navItems = [
-    { to: '/warehouse', end: true, icon: LayoutDashboard, label: 'Inbox' },
-    { to: '/warehouse/receive', icon: PackagePlus, label: 'Receive' },
+  const navItems: {
+    to: string
+    end?: boolean
+    icon: typeof LayoutDashboard
+    label: string
+    badge?: number
+    permission: ClerkPermission | ClerkPermission[]
+  }[] = [
+    { to: '/warehouse', end: true, icon: LayoutDashboard, label: 'Inbox', permission: 'receive' },
+    { to: '/warehouse/receive', icon: PackagePlus, label: 'Receive', permission: 'receive' },
     {
       to: '/warehouse/print-queue',
       icon: Printer,
       label: 'Print queue',
       badge: counts?.print_queue_pending,
+      permission: 'receive',
     },
     {
       to: '/warehouse/unidentified',
       icon: PackageSearch,
       label: 'Unidentified',
       badge: counts?.unidentified_count,
+      permission: 'receive',
     },
-    { to: '/warehouse/status', icon: RefreshCw, label: 'Status' },
-    { to: '/warehouse/customers', icon: Users, label: 'Directory' },
-    { to: '/warehouse/activity', icon: Activity, label: 'Activity' },
+    {
+      to: '/warehouse/status',
+      icon: RefreshCw,
+      label: 'Status',
+      permission: ['status_transit', 'status_customs', 'status_pickup'],
+    },
+    { to: '/warehouse/customers', icon: Users, label: 'Directory', permission: 'directory' },
+    { to: '/warehouse/activity', icon: Activity, label: 'Activity', permission: 'activity' },
   ]
+
+  const visibleNav = navItems.filter((item) =>
+    Array.isArray(item.permission)
+      ? clerkHasAnyPermission(perms, item.permission, role)
+      : clerkHasPermission(perms, item.permission, role),
+  )
+
+  const showQuickSearch =
+    clerkHasPermission(perms, 'directory', role) ||
+    clerkHasPermission(perms, 'receive', role)
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
@@ -59,7 +89,7 @@ function WarehouseShell() {
           Warehouse
         </p>
         <nav className="flex flex-col gap-1">
-          {navItems.map((item) => (
+          {visibleNav.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navClass}>
               <item.icon className="h-4 w-4 shrink-0" strokeWidth={2} />
               <span>{item.label}</span>
@@ -71,7 +101,7 @@ function WarehouseShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-          <CustomerQuickSearch />
+          {showQuickSearch && <CustomerQuickSearch />}
           <button
             type="button"
             onClick={openCommandPalette}
@@ -94,7 +124,7 @@ function WarehouseShell() {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-border bg-background/95 backdrop-blur md:hidden">
-        {navItems.slice(0, 5).map((item) => (
+        {visibleNav.slice(0, 5).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
