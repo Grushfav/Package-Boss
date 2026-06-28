@@ -52,3 +52,11 @@ export function packageHasAdditionalFees(pkg: Package): boolean {
 export function packageEligibleForPayment(pkg: Package): boolean {
   return pkg.status === 'ready_for_pickup' && pkg.billing_status === 'ready'
 }
+
+export function packageEligibleForDelivery(pkg: Package): boolean {
+  return pkg.status === 'ready_for_pickup' && pkg.billing_status === 'paid'
+}
+
+export function packagePaymentConfirmed(pkg: Package): boolean {
+  return pkg.billing_status === 'paid'
+}

@@ -3,11 +3,8 @@ import {
   BellRing,
   DollarSign,
   LayoutDashboard,
-  MapPin,
   Package,
-  PackageSearch,
   User,
-  UserCheck,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
@@ -57,15 +54,7 @@ export function CustomerDashboardLayout() {
 
   const navItems = [
     { to: '/dashboard', end: true, icon: LayoutDashboard, label: 'Dashboard', shortLabel: 'Home' },
-    { to: '/dashboard/track', icon: PackageSearch, label: 'Tracking', shortLabel: 'Track' },
     { to: '/dashboard/profile', icon: User, label: 'Profile', shortLabel: 'Profile' },
-    { to: '/dashboard/delivery-address', icon: MapPin, label: 'Delivery address', shortLabel: 'Delivery' },
-    {
-      to: '/dashboard/authorized-pickups',
-      icon: UserCheck,
-      label: 'Authorized pickups',
-      shortLabel: 'Pickup',
-    },
     {
       to: '/dashboard/pre-alerts',
       icon: Bell,

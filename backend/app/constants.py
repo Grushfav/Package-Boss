@@ -18,9 +18,8 @@ JAMAICA_PARISHES = [
 UNIDENTIFIED_HOLDER_EMAIL = "unidentified@package-boss.internal"
 UNIDENTIFIED_HOLDER_SHIPPING_ID = "BOSS-00000"
 
-PACKAGE_STATUSES = [
-    "unidentified",
-    "awaiting_receipt",
+# Clerk workflow — linear: received → in_transit → customs → ready_for_pickup → delivered
+WORKFLOW_STATUSES = [
     "received",
     "in_transit",
     "customs",
@@ -28,16 +27,27 @@ PACKAGE_STATUSES = [
     "delivered",
 ]
 
-# Shipment statuses clerks can set (excludes unidentified queue state)
-UPDATABLE_STATUSES = [s for s in PACKAGE_STATUSES if s != "unidentified"]
+WORKFLOW_TRANSITIONS = {
+    ("received", "in_transit"),
+    ("in_transit", "customs"),
+    ("ready_for_pickup", "delivered"),
+}
+
+PACKAGE_STATUSES = [
+    "unidentified",
+    "awaiting_receipt",
+    *WORKFLOW_STATUSES,
+]
+
+UPDATABLE_STATUSES = list(WORKFLOW_STATUSES)
 
 STATUS_LABELS = {
     "unidentified": "Unidentified — Awaiting Owner",
     "awaiting_receipt": "Awaiting Receipt",
-    "received": "Received — Fort Lauderdale",
+    "received": "Received",
     "in_transit": "In Transit",
     "customs": "Customs",
-    "ready_for_pickup": "Ready for Pickup / Delivery",
+    "ready_for_pickup": "Ready for Pickup",
     "delivered": "Delivered",
 }
 
@@ -167,16 +177,8 @@ DEFAULT_CLERK_PERMISSIONS = ["receive", "activity"]
 # Allowed status transitions per permission (admin bypasses)
 STATUS_TRANSITIONS_BY_PERMISSION = {
     "status_transit": {("received", "in_transit")},
-    "status_customs": {
-        ("in_transit", "customs"),
-        ("customs", "in_transit"),
-        ("received", "customs"),
-    },
-    "status_pickup": {
-        ("customs", "ready_for_pickup"),
-        ("ready_for_pickup", "delivered"),
-        ("in_transit", "ready_for_pickup"),
-    },
+    "status_customs": {("in_transit", "customs")},
+    "status_pickup": {("ready_for_pickup", "delivered")},
 }
 
 INVITE_TOKEN_TTL_SECONDS = 86400  # 24 hours

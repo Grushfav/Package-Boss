@@ -113,11 +113,11 @@ def list_clerk_permission_options():
 @admin_bp.route("/admin/clerks", methods=["GET"])
 @admin_required()
 def list_clerks():
-    clerks = (
-        User.query.filter_by(role="clerk", is_active=True)
-        .order_by(User.created_at.desc())
-        .all()
-    )
+    include_suspended = request.args.get("include_suspended", "true").lower() in ("1", "true", "yes")
+    query = User.query.filter_by(role="clerk")
+    if not include_suspended:
+        query = query.filter_by(is_active=True)
+    clerks = query.order_by(User.is_active.desc(), User.created_at.desc()).all()
     return jsonify({"clerks": [_clerk_dict(u) for u in clerks]})
 
 
@@ -211,6 +211,9 @@ def update_clerk(user_id: str):
             return _error("Invalid parish")
         user.parish = parish or None
 
+    if "is_active" in data:
+        user.is_active = bool(data.get("is_active"))
+
     db.session.commit()
     return jsonify({"user": _clerk_dict(user)})
 
@@ -234,6 +237,23 @@ def resend_clerk_invite(user_id: str):
         return _error("Invite email could not be sent", 503)
 
     return jsonify({"message": "Invite email sent"})
+
+
+@admin_bp.route("/admin/clerks/<user_id>/reactivate", methods=["POST"])
+@admin_required()
+def reactivate_clerk(user_id: str):
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        return _error("Invalid user ID")
+
+    user = User.query.get(uid)
+    if not user or user.role != "clerk":
+        return _error("Clerk not found", 404)
+
+    user.is_active = True
+    db.session.commit()
+    return jsonify({"user": _clerk_dict(user)})
 
 
 @admin_bp.route("/admin/clerks/<user_id>", methods=["DELETE"])

@@ -92,10 +92,10 @@ export function WarehouseHomePage() {
           actionLabel={counts?.unidentified_count ? 'Assign owners' : 'View queue'}
         />
         <InboxCard
-          to="/warehouse/status?preset=ready-flight"
+          to="/warehouse/status?preset=received"
           icon={RefreshCw}
-          title="Ready for flight"
-          description="Packages received in Fort Lauderdale waiting to move to in transit."
+          title="Received"
+          description="Packages received and waiting to go in transit."
           count={counts?.received_count ?? counts?.received_miami_count}
           actionLabel="Bulk update status"
         />

@@ -9,6 +9,7 @@ export interface WarehouseSummary {
   received_count?: number
   packages_today: number
   pending_pre_alerts: number
+  status_counts?: Record<string, number>
 }
 
 export async function fetchWarehouseSummary(): Promise<WarehouseSummary> {
@@ -145,6 +146,13 @@ export async function fetchPrintQueue(
     { params: options },
   )
   return data
+}
+
+export async function fetchPackageByTracking(trackingNumber: string): Promise<Package> {
+  const { data } = await api.get<{ package: Package }>(
+    `/staff/packages/lookup/${encodeURIComponent(trackingNumber.trim().toUpperCase())}`,
+  )
+  return data.package
 }
 
 export async function fetchWarehousePackages(options: {

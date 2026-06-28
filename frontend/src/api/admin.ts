@@ -53,6 +53,15 @@ export async function deactivateClerk(userId: string): Promise<User> {
   return data.user
 }
 
+export async function suspendClerk(userId: string): Promise<User> {
+  return deactivateClerk(userId)
+}
+
+export async function reactivateClerk(userId: string): Promise<User> {
+  const { data } = await api.post<{ user: User }>(`/admin/clerks/${userId}/reactivate`)
+  return data.user
+}
+
 export async function fetchAdminOverview(): Promise<AdminOverview> {
   const { data } = await api.get<AdminOverview>('/admin/stats/overview')
   return data

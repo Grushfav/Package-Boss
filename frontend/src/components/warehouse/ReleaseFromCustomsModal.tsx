@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
+import { estimateRate } from '../../api/rates'
 import { releasePackagesFromCustoms, type ReleaseFromCustomsResult } from '../../api/staff'
 import { formatJmd } from '../../lib/money'
 import { Button } from '../ui/Button'
@@ -30,6 +31,14 @@ function parseOptionalJmd(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+function rowTotalJmd(freightJmd: number | null, fees: FeeFields): number | null {
+  if (freightJmd == null) return null
+  const duties = parseOptionalJmd(fees.duties_jmd) ?? 0
+  const handling = parseOptionalJmd(fees.handling_jmd) ?? 0
+  const other = parseOptionalJmd(fees.other_fees_jmd) ?? 0
+  return freightJmd + duties + handling + other
+}
+
 export function ReleaseFromCustomsModal({
   packages,
   onClose,
@@ -38,13 +47,70 @@ export function ReleaseFromCustomsModal({
   const [feesById, setFeesById] = useState<Record<string, FeeFields>>(() =>
     Object.fromEntries(packages.map((pkg) => [pkg.id, emptyFees()])),
   )
+  const [freightById, setFreightById] = useState<Record<string, number | null>>({})
   const [loading, setLoading] = useState(false)
+  const [estimating, setEstimating] = useState(false)
   const [error, setError] = useState('')
 
   const customsPackages = useMemo(
     () => packages.filter((pkg) => pkg.status === 'customs'),
     [packages],
   )
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadEstimates() {
+      setEstimating(true)
+      const next: Record<string, number | null> = {}
+
+      await Promise.all(
+        customsPackages.map(async (pkg) => {
+          if (pkg.estimated_freight_jmd != null && pkg.estimated_freight_jmd > 0) {
+            next[pkg.id] = pkg.estimated_freight_jmd
+            return
+          }
+          const weight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
+          if (weight == null) {
+            next[pkg.id] = null
+            return
+          }
+          try {
+            const quote = await estimateRate(weight)
+            next[pkg.id] = quote.cost_jmd
+          } catch {
+            next[pkg.id] = null
+          }
+        }),
+      )
+
+      if (!cancelled) {
+        setFreightById(next)
+        setEstimating(false)
+      }
+    }
+
+    if (customsPackages.length > 0) {
+      loadEstimates()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [customsPackages])
+
+  const previewTotal = useMemo(() => {
+    let total = 0
+    let hasAny = false
+    for (const pkg of customsPackages) {
+      const rowTotal = rowTotalJmd(freightById[pkg.id] ?? null, feesById[pkg.id] ?? emptyFees())
+      if (rowTotal != null) {
+        total += rowTotal
+        hasAny = true
+      }
+    }
+    return hasAny ? total : null
+  }, [customsPackages, feesById, freightById])
 
   function updateFees(id: string, patch: Partial<FeeFields>) {
     setFeesById((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
@@ -100,6 +166,12 @@ export function ReleaseFromCustomsModal({
               Shipping is calculated from weight. Add optional duties or fees, then publish bills and
               mark packages ready for pickup.
             </p>
+            {previewTotal != null && (
+              <p className="mt-2 text-sm font-semibold text-boss-green">
+                Estimated total: {formatJmd(previewTotal)}
+                {estimating ? ' (calculating…)' : ''}
+              </p>
+            )}
           </div>
           <button type="button" onClick={onClose} className="text-muted hover:text-foreground">
             ✕
@@ -110,6 +182,8 @@ export function ReleaseFromCustomsModal({
           {customsPackages.map((pkg) => {
             const fees = feesById[pkg.id] ?? emptyFees()
             const weight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
+            const freight = freightById[pkg.id] ?? null
+            const rowTotal = rowTotalJmd(freight, fees)
             return (
               <div key={pkg.id} className="rounded-xl border border-border p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -121,7 +195,15 @@ export function ReleaseFromCustomsModal({
                       </p>
                     )}
                   </div>
-                  <p className="text-xs text-muted">{weight != null ? `${weight} lbs` : 'No weight'}</p>
+                  <div className="text-right text-xs text-muted">
+                    <p>{weight != null ? `${weight} lbs` : 'No weight'}</p>
+                    <p className="mt-0.5 font-semibold text-foreground">
+                      {freight != null ? `Shipping ${formatJmd(freight)}` : estimating ? '…' : '—'}
+                    </p>
+                    {rowTotal != null && (
+                      <p className="mt-0.5 font-bold text-boss-green">Total {formatJmd(rowTotal)}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <Input
@@ -164,7 +246,7 @@ export function ReleaseFromCustomsModal({
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || estimating}>
               {loading
                 ? 'Releasing…'
                 : `Release ${customsPackages.length} package${customsPackages.length === 1 ? '' : 's'}`}

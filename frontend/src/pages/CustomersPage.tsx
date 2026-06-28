@@ -83,6 +83,7 @@ export function CustomersPage() {
                 <th className="px-4 py-3">BOSS ID</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Parish</th>
                 <th className="px-4 py-3 hidden md:table-cell">Contact</th>
+                <th className="px-4 py-3 text-center">Active pkgs</th>
                 <th className="px-4 py-3 text-right">Action</th>
               </tr>
             </thead>
@@ -138,6 +139,9 @@ function CustomerRow({ customer }: { customer: StaffCustomer }) {
       <td className="px-4 py-3 hidden md:table-cell">
         <p>{customer.email}</p>
         <p className="text-xs text-muted">{customer.contact_number}</p>
+      </td>
+      <td className="px-4 py-3 text-center font-semibold tabular-nums">
+        {customer.active_package_count ?? 0}
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex flex-wrap justify-end gap-2">

@@ -51,6 +51,11 @@ def update_package_billing(
     )
 
     if publish:
+        if package.status != "ready_for_pickup":
+            raise ValueError(
+                "Bills publish when a package is marked ready for pickup. "
+                "For packages in customs, use Release & bill."
+            )
         if package.total_due_jmd is None:
             raise ValueError("Set at least freight or fee amounts before publishing a bill")
         package.billing_status = "ready"

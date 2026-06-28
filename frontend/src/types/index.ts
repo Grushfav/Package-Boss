@@ -225,6 +225,7 @@ export interface StaffCustomer {
   contact_number: string
   parish: string
   shipping_id: string
+  active_package_count?: number
 }
 
 export interface PresignResponse {

@@ -11,9 +11,6 @@ import { AdminLayout } from './components/layout/AdminLayout'
 import { WarehouseLayout } from './components/layout/WarehouseLayout'
 import { CustomerDashboardLayout } from './components/layout/CustomerDashboardLayout'
 import { DashboardHomePage } from './pages/dashboard/DashboardHomePage'
-import { DashboardTrackPage } from './pages/dashboard/DashboardTrackPage'
-import { DashboardAddressPage } from './pages/dashboard/DashboardAddressPage'
-import { DashboardAuthorizedPickupsPage } from './pages/dashboard/DashboardAuthorizedPickupsPage'
 import { DashboardPackagesPage } from './pages/dashboard/DashboardPackagesPage'
 import { DashboardNotificationsPage } from './pages/dashboard/DashboardNotificationsPage'
 import { DashboardPreAlertsPage } from './pages/dashboard/DashboardPreAlertsPage'
@@ -59,10 +56,10 @@ function App() {
               <Route element={<RequireAuth />}>
                 <Route path="/dashboard" element={<CustomerDashboardLayout />}>
                   <Route index element={<DashboardHomePage />} />
-                  <Route path="track" element={<DashboardTrackPage />} />
                   <Route path="profile" element={<DashboardProfilePage />} />
-                  <Route path="delivery-address" element={<DashboardAddressPage />} />
-                  <Route path="authorized-pickups" element={<DashboardAuthorizedPickupsPage />} />
+                  <Route path="delivery-address" element={<Navigate to="/dashboard/profile" replace />} />
+                  <Route path="authorized-pickups" element={<Navigate to="/dashboard/profile" replace />} />
+                  <Route path="track" element={<Navigate to="/track" replace />} />
                   <Route path="pre-alerts" element={<DashboardPreAlertsPage />} />
                   <Route path="packages" element={<DashboardPackagesPage />} />
                   <Route path="rates" element={<DashboardRatesPage />} />

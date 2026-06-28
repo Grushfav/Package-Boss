@@ -234,7 +234,7 @@ def render_invoice_request_html(
 
 STATUS_CUSTOMER_MESSAGES: dict[str, str] = {
     "awaiting_receipt": "We're waiting for your package to arrive at our Fort Lauderdale warehouse.",
-    "received": "Your package has been received at our Fort Lauderdale warehouse.",
+    "received": "Your package has been received at our warehouse.",
     "in_transit": "Your package is in transit to Jamaica.",
     "customs": "Your package is in customs clearance.",
     "ready_for_pickup": "Your package is ready for pickup or delivery. Your bill is now available.",

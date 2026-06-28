@@ -256,11 +256,10 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
                   {loading ? 'Releasing…' : 'Release & publish bill'}
                 </Button>
               </>
-            ) : (
+            ) : pkg.status === 'ready_for_pickup' ? (
               <>
                 <p className="text-sm text-muted">
-                  Most packages are billed at the shipping rate only. Add extra fees when duties or
-                  handling apply.
+                  Adjust amounts if needed after release. Republish to update the customer bill.
                 </p>
                 <Input
                   label="Shipping (JMD)"
@@ -318,10 +317,22 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
                   <Button variant="outline" onClick={() => handleSaveBilling(false)} disabled={loading}>
                     Save draft
                   </Button>
-                  <Button onClick={() => handleSaveBilling(true)} disabled={loading}>
-                    Publish bill
-                  </Button>
+                  {pkg.billing_status !== 'paid' && (
+                    <Button onClick={() => handleSaveBilling(true)} disabled={loading}>
+                      Update bill
+                    </Button>
+                  )}
                 </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted">
+                  The bill is published automatically when this package is released from customs and
+                  marked ready for pickup.
+                </p>
+                {pkg.billing_status_label && (
+                  <p className="text-xs text-muted">Current billing: {pkg.billing_status_label}</p>
+                )}
               </>
             )}
           </div>

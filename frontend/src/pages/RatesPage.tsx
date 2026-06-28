@@ -3,7 +3,6 @@ import { Navigate } from 'react-router-dom'
 import { fetchRates } from '../api/rates'
 import { getErrorMessage } from '../api/client'
 import { ShippingEstimator } from '../components/landing/ShippingEstimator'
-import { ShippingFrequencyCard } from '../components/landing/ShippingFrequencyCard'
 import { useAuth } from '../context/AuthContext'
 import { getHomeRoute } from '../lib/routing'
 
@@ -62,11 +61,7 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
           </>
         )}
 
-        <div className={`mx-auto max-w-sm ${embedded ? 'mt-4' : 'mt-8'}`}>
-          <ShippingFrequencyCard />
-        </div>
-
-        <div className="mt-8">
+        <div className={embedded ? 'mt-4' : 'mt-8'}>
           <ShippingEstimator />
         </div>
 

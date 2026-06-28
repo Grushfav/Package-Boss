@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, Response
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from app.constants import SHIPPER_CODES, SHIPPERS, STATUS_LABELS, UPDATABLE_STATUSES
 from app.models.package import Package
@@ -55,8 +55,8 @@ from app.services.unidentified_service import customer_query
 staff_bp = Blueprint("staff", __name__)
 
 
-def _customer_dict(user: User) -> dict:
-    return {
+def _customer_dict(user: User, *, active_package_count: int | None = None) -> dict:
+    data = {
         "id": str(user.id),
         "full_name": user.full_name,
         "email": user.email,
@@ -64,6 +64,21 @@ def _customer_dict(user: User) -> dict:
         "parish": user.parish or "",
         "shipping_id": user.shipping_id,
     }
+    if active_package_count is not None:
+        data["active_package_count"] = active_package_count
+    return data
+
+
+def _active_package_counts(user_ids: list) -> dict:
+    if not user_ids:
+        return {}
+    rows = (
+        Package.query.with_entities(Package.customer_id, func.count(Package.id))
+        .filter(Package.customer_id.in_(user_ids), Package.status != "delivered")
+        .group_by(Package.customer_id)
+        .all()
+    )
+    return {customer_id: count for customer_id, count in rows}
 
 
 @staff_bp.route("/shippers", methods=["GET"])
@@ -110,7 +125,15 @@ def list_customers():
         .all()
     )
 
-    return jsonify({"customers": [_customer_dict(u) for u in users], "total": total})
+    counts = _active_package_counts([u.id for u in users])
+    return jsonify(
+        {
+            "customers": [
+                _customer_dict(u, active_package_count=counts.get(u.id, 0)) for u in users
+            ],
+            "total": total,
+        }
+    )
 
 
 @staff_bp.route("/warehouse/customers/search", methods=["GET"])
@@ -630,6 +653,16 @@ def list_packages():
             "total": total,
         }
     )
+
+
+@staff_bp.route("/staff/packages/lookup/<tracking_number>", methods=["GET"])
+@permission_required("status_transit", "status_customs", "status_pickup", "billing", "receive")
+def lookup_package_by_tracking(tracking_number: str):
+    tracking_number = tracking_number.strip().upper()
+    package = Package.query.filter_by(tracking_number=tracking_number).first()
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+    return jsonify({"package": warehouse_package_to_dict(package)})
 
 
 @staff_bp.route("/staff/packages/print-queue", methods=["GET"])

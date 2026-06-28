@@ -24,8 +24,39 @@ def generate_tracking_number() -> str:
 
 
 def add_package_event(package: Package, status: str, note: str | None = None) -> None:
+    from app.constants import STATUS_LABELS, WORKFLOW_TRANSITIONS
+
     previous_status = package.status
     had_events = bool(package.events)
+
+    if previous_status != status:
+        if status == "ready_for_pickup" and previous_status == "customs":
+            pass
+        elif (previous_status, status) not in WORKFLOW_TRANSITIONS:
+            raise ValueError(
+                f"Cannot change {package.tracking_number} from "
+                f"{STATUS_LABELS.get(previous_status, previous_status)} to "
+                f"{STATUS_LABELS.get(status, status)}. Use the next step in the workflow."
+            )
+
+    if status == "ready_for_pickup" and previous_status != "ready_for_pickup":
+        if package.billing_status != "paid":
+            if previous_status == "customs":
+                if package.billing_status != "ready":
+                    raise ValueError(
+                        f"{package.tracking_number} must be released from customs "
+                        "so the bill is published before marking ready for pickup"
+                    )
+            else:
+                from app.services.billing_calculations import publish_ready_for_pickup_bill
+
+                publish_ready_for_pickup_bill(package)
+
+    if status == "delivered" and previous_status != "delivered":
+        if package.billing_status != "paid":
+            raise ValueError(
+                f"{package.tracking_number} cannot be delivered until payment is confirmed"
+            )
 
     event = PackageEvent(package_id=package.id, status=status, note=note)
     db.session.add(event)
@@ -366,6 +397,7 @@ def get_tracking_timeline(package: Package) -> list[dict]:
 
 
 def get_warehouse_summary() -> dict:
+    from app.constants import WORKFLOW_STATUSES
     from app.models.pre_alert import PreAlert
 
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -376,11 +408,16 @@ def get_warehouse_summary() -> dict:
         Package.received_at >= print_cutoff,
     ).count()
 
+    status_counts = {
+        status: Package.query.filter_by(status=status).count() for status in WORKFLOW_STATUSES
+    }
+
     return {
         "print_queue_pending": print_queue_pending,
         "unidentified_count": Package.query.filter_by(status="unidentified").count(),
-        "received_count": Package.query.filter_by(status="received").count(),
-        "received_miami_count": Package.query.filter_by(status="received").count(),
+        "received_count": status_counts["received"],
+        "received_miami_count": status_counts["received"],
         "packages_today": Package.query.filter(Package.received_at >= today_start).count(),
         "pending_pre_alerts": PreAlert.query.filter_by(status="pending").count(),
+        "status_counts": status_counts,
     }
