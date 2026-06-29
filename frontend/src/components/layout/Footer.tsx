@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { SocialLinks } from '../landing/SocialLinks'
 
 export function Footer() {
   return (
@@ -13,13 +14,14 @@ export function Footer() {
             Package Boss Shipping &amp; Logistics — international air freight and package shipping
             from Fort Lauderdale to Jamaica.
           </p>
+          <SocialLinks className="mt-6" />
         </div>
 
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-widest text-boss-gold">Warehouse</h4>
           <p className="mt-3 text-sm text-muted">
-            9999 North America Way<br />
-            Fort Lauderdale, FL 33312<br />
+            2201 SW 59th Terrace <br />
+            West Park, FL 33023<br />
             United States
           </p>
         </div>
