@@ -35,9 +35,7 @@ export function LandingPage() {
             Always put your BOSS ID on address line 2 when shopping online.
           </p>
           <Link to="/signup" className="mt-8 inline-block">
-            <Button className="!bg-boss-gold !text-boss-black hover:!bg-yellow-400">
-              Claim My Address Now
-            </Button>
+            <Button>Claim My Address Now</Button>
           </Link>
         </div>
       </section>

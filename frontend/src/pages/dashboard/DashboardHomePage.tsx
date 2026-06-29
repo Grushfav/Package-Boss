@@ -26,9 +26,7 @@ export function DashboardHomePage() {
           <span className="font-semibold text-boss-green">{SHIPPING_FREQUENCY_SHORT}</span>.
         </p>
       </div>
-
-      <DashboardPackageStatsCard />
-
+      
       <div className="rounded-2xl border border-boss-green/30 bg-card p-6 shadow-sm">
         <p className="text-xs font-medium uppercase tracking-wider text-muted">Your BOSS ID</p>
         <p className="mt-2 font-mono text-3xl font-black text-boss-green">{user?.shipping_id}</p>
@@ -39,8 +37,12 @@ export function DashboardHomePage() {
           {copiedId ? 'Copied!' : 'Copy BOSS ID'}
         </Button>
       </div>
-
       <FortLauderdaleShippingAddressCard />
+
+      
+      
+      <DashboardPackageStatsCard />
+
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Link

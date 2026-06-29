@@ -1,10 +1,10 @@
 import type { Package } from '../types'
 
 export interface DashboardPackageStats {
-  totalDueJmd: number
   readyPickupDelivery: number
   receivedFortLauderdale: number
   inTransit: number
+  totalDueJmd: number
 }
 
 const FORT_LAUDERDALE_STATUSES = new Set(['received'])
