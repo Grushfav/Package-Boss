@@ -21,7 +21,7 @@ def list_rates():
             "quote_note": QUOTE_MESSAGE,
             "rounding_note": "All weights are rounded up to the nearest whole pound before rating.",
             "formula_note": (
-                f"$4.00 for the first lb, plus $2.50 per additional lb (up to {MAX_AUTO_RATE_LBS} lbs). "
+                f"Published tier rates by billable weight (1–{MAX_AUTO_RATE_LBS} lbs). "
                 f"JMD shown at {JMD_PER_USD} JMD = 1 USD."
             ),
             "billing_disclaimer": (

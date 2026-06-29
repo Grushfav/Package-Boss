@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DashboardPackageStatsCard } from '../../components/account/DashboardPackageStatsCard'
-import { MiamiShippingAddressCard } from '../../components/account/MiamiShippingAddressCard'
+import { FortLauderdaleShippingAddressCard } from '../../components/account/FortLauderdaleShippingAddressCard'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from '../../components/ui/Button'
 import { SHIPPING_FREQUENCY_SHORT } from '../../content/marketing'
@@ -22,7 +22,7 @@ export function DashboardHomePage() {
       <div>
         <h2 className="text-lg font-bold uppercase tracking-wide">Dashboard</h2>
         <p className="mt-2 text-sm text-muted">
-          Welcome back, {user?.first_name}. Packages ship from Miami to Jamaica{' '}
+          Welcome back, {user?.first_name}. Packages ship from Fort Lauderdale to Jamaica{' '}
           <span className="font-semibold text-boss-green">{SHIPPING_FREQUENCY_SHORT}</span>.
         </p>
       </div>
@@ -40,7 +40,7 @@ export function DashboardHomePage() {
         </Button>
       </div>
 
-      <MiamiShippingAddressCard />
+      <FortLauderdaleShippingAddressCard />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Link

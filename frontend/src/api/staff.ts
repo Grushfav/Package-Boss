@@ -1,12 +1,11 @@
 import { api } from './client'
 import { presignFilePayload } from '../lib/normalizeUploadFile'
-import type { Package, PresignResponse, Shipper, StaffCustomer } from '../types'
+import type { Package, PresignResponse, Shipper, StaffCustomer, PreAlert } from '../types'
 
 export interface WarehouseSummary {
   print_queue_pending: number
   unidentified_count: number
-  received_miami_count: number
-  received_count?: number
+  received_count: number
   packages_today: number
   pending_pre_alerts: number
   status_counts?: Record<string, number>
@@ -53,6 +52,22 @@ export async function lookupCustomer(shippingId: string): Promise<StaffCustomer>
   return data.customer
 }
 
+export interface PreAlertLookupMatch {
+  pre_alert: PreAlert
+  customer: StaffCustomer
+  match_score: number
+}
+
+export async function lookupPreAlertByTracking(
+  carrierTracking: string,
+): Promise<PreAlertLookupMatch[]> {
+  const { data } = await api.get<{ matches: PreAlertLookupMatch[] }>(
+    '/staff/pre-alerts/lookup',
+    { params: { carrier_tracking: carrierTracking.trim() } },
+  )
+  return data.matches
+}
+
 export async function presignUpload(
   shippingId: string,
   filename: string,
@@ -84,9 +99,12 @@ export async function receivePackage(payload: {
   carrier_tracking?: string
   photo_keys?: string[]
   note?: string
-}): Promise<Package> {
-  const { data } = await api.post<{ package: Package }>('/staff/packages/receive', payload)
-  return data.package
+}): Promise<{ package: Package; pre_alert_matched?: PreAlert }> {
+  const { data } = await api.post<{ package: Package; pre_alert_matched?: PreAlert }>(
+    '/staff/packages/receive',
+    payload,
+  )
+  return data
 }
 
 export async function receiveUnidentifiedPackage(payload: {
@@ -119,12 +137,12 @@ export async function assignUnidentifiedPackage(
   packageId: string,
   shippingId: string,
   note?: string,
-): Promise<Package> {
-  const { data } = await api.post<{ package: Package }>(
+): Promise<{ package: Package; pre_alert_matched?: PreAlert }> {
+  const { data } = await api.post<{ package: Package; pre_alert_matched?: PreAlert }>(
     `/staff/packages/${encodeURIComponent(packageId)}/assign`,
     { shipping_id: shippingId, note },
   )
-  return data.package
+  return data
 }
 
 export async function markLabelsPrinted(

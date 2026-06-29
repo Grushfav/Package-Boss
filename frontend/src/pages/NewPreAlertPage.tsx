@@ -5,7 +5,7 @@ import { getErrorMessage } from '../api/client'
 import { createPreAlert } from '../api/preAlerts'
 import { useAuth } from '../context/AuthContext'
 import { getHomeRoute } from '../lib/routing'
-import { uploadInvoiceToR2 } from '../lib/uploadInvoice'
+import { uploadInvoice } from '../lib/uploadInvoice'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
@@ -36,7 +36,7 @@ export function NewPreAlertPage() {
     try {
       let invoiceKey: string | undefined
       if (invoiceFile && !skipInvoice) {
-        invoiceKey = await uploadInvoiceToR2(invoiceFile)
+        invoiceKey = await uploadInvoice(invoiceFile)
       }
 
       await createPreAlert({
@@ -70,7 +70,7 @@ export function NewPreAlertPage() {
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <p className="text-sm text-muted">
-          Tell us a package is on its way to your Miami address. Upload your invoice or receipt
+          Tell us a package is on its way to your Fort Lauderdale address. Upload your invoice or receipt
           so we can process it faster when it arrives.
         </p>
 
@@ -130,7 +130,7 @@ export function NewPreAlertPage() {
                   if (e.target.checked) setInvoiceFile(null)
                 }}
               />
-              Skip invoice for now (requires file storage in production)
+              Skip invoice for now (requires image upload worker in production)
             </label>
           </div>
 

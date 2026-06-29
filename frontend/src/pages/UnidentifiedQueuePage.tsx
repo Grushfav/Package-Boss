@@ -26,6 +26,7 @@ export function UnidentifiedQueuePage() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [assignLoading, setAssignLoading] = useState(false)
   const [assignNote, setAssignNote] = useState('')
+  const [assignSuccess, setAssignSuccess] = useState('')
 
   function loadQueue() {
     setLoading(true)
@@ -67,12 +68,26 @@ export function UnidentifiedQueuePage() {
 
     setAssignLoading(true)
     setError('')
+    setAssignSuccess('')
     try {
-      await assignUnidentifiedPackage(selected.id, customer.shipping_id, assignNote || undefined)
+      const { pre_alert_matched } = await assignUnidentifiedPackage(
+        selected.id,
+        customer.shipping_id,
+        assignNote || undefined,
+      )
       setSelected(null)
       setSearchQuery('')
       setSearchResults([])
       setAssignNote('')
+      if (pre_alert_matched) {
+        setAssignSuccess(
+          `Assigned and matched pre-alert ${pre_alert_matched.carrier_tracking}${
+            pre_alert_matched.invoice_url ? ' (invoice attached)' : ''
+          }.`,
+        )
+      } else {
+        setAssignSuccess(`Package assigned to ${customer.shipping_id}.`)
+      }
       loadQueue()
       refreshCounts()
     } catch (err) {
@@ -219,6 +234,10 @@ export function UnidentifiedQueuePage() {
             </ul>
           )}
         </div>
+      )}
+
+      {assignSuccess && (
+        <p className="mt-4 rounded-lg bg-boss-green/10 px-4 py-3 text-sm text-boss-green">{assignSuccess}</p>
       )}
 
       {error && (

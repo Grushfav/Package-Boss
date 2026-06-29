@@ -1,15 +1,16 @@
 import { Scale } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { estimateRate } from '../../api/rates'
+import { estimateRate, fetchRates } from '../../api/rates'
 import { getErrorMessage } from '../../api/client'
 import { Button } from '../ui/Button'
 import { IconBadge } from '../ui/IconBadge'
 import { Input } from '../ui/Input'
 
-const MAX_AUTO_LBS = 30
+const DEFAULT_MAX_AUTO_LBS = 50
 
 export function ShippingEstimator() {
+  const [maxAutoLbs, setMaxAutoLbs] = useState(DEFAULT_MAX_AUTO_LBS)
   const [weight, setWeight] = useState('1.0')
   const [estimate, setEstimate] = useState<{
     cost_usd: number
@@ -31,7 +32,7 @@ export function ShippingEstimator() {
     setLoading(true)
     try {
       const w = parseFloat(weight)
-      if (w > MAX_AUTO_LBS) {
+      if (w > maxAutoLbs) {
         setRequiresQuote(true)
         return
       }
@@ -48,6 +49,12 @@ export function ShippingEstimator() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchRates()
+      .then((data) => setMaxAutoLbs(data.max_auto_rate_lbs))
+      .catch(() => setMaxAutoLbs(DEFAULT_MAX_AUTO_LBS))
+  }, [])
 
   useEffect(() => {
     calculate()
@@ -68,7 +75,7 @@ export function ShippingEstimator() {
             type="number"
             min="0.1"
             step="0.1"
-            max={MAX_AUTO_LBS}
+            max={maxAutoLbs}
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
           />
@@ -85,7 +92,7 @@ export function ShippingEstimator() {
             <>
               <p className="mt-3 text-lg font-bold text-amber-400">Custom quote required</p>
               <p className="mt-2 text-sm text-muted">
-                Packages over {MAX_AUTO_LBS} lbs need a quote from Package Boss Shipping &amp;
+                Packages over {maxAutoLbs} lbs need a quote from Package Boss Shipping &amp;
                 Logistics.
               </p>
               <a

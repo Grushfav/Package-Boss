@@ -97,7 +97,7 @@ export function DashboardPackageStatsCard() {
           icon={MapPin}
           label="Received"
           value={String(stats.receivedFortLauderdale)}
-          sub="At our warehouse"
+          sub="At our Fort Lauderdale warehouse"
           loading={loading}
         />
         <StatCard

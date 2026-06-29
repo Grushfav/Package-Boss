@@ -252,7 +252,7 @@ def send_welcome_email(
     body = (
         f"Hi {first_name},\n\n"
         f"Welcome to Package Boss! Your shipping ID is {shipping_id}.\n\n"
-        f"Miami warehouse address:\n{formatted_address}\n\n"
+        f"Fort Lauderdale warehouse address:\n{formatted_address}\n\n"
         f"Dashboard: {dashboard_url}\n\n"
         f"— Package Boss"
     )

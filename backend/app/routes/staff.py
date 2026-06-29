@@ -34,7 +34,6 @@ from app.services.payment_service import (
     record_package_payment,
     record_payment_checkout,
 )
-from app.services.delivery_address_service import list_delivery_addresses
 from app.services.package_service import (
     assign_unidentified_package,
     bulk_update_package_status,
@@ -48,6 +47,7 @@ from app.services.package_service import (
     update_package_status,
     warehouse_package_to_dict,
 )
+from app.services.pre_alert_service import find_pending_pre_alerts_by_tracking
 from app.utils.auth_decorators import get_user_from_jwt, permission_required
 from app.services.clerk_permission_service import assert_status_transition_allowed, clerk_has_permission
 from app.services.unidentified_service import customer_query
@@ -174,6 +174,30 @@ def lookup_customer(shipping_id: str):
         return jsonify({"error": "Customer not found"}), 404
 
     return jsonify({"customer": _customer_dict(user)})
+
+
+@staff_bp.route("/staff/pre-alerts/lookup", methods=["GET"])
+@permission_required("receive")
+def lookup_pre_alert_by_tracking():
+    tracking = (request.args.get("carrier_tracking") or "").strip()
+    if not tracking:
+        return jsonify({"error": "carrier_tracking is required"}), 400
+
+    scored = find_pending_pre_alerts_by_tracking(tracking)
+    matches = []
+    for pre_alert, score in scored:
+        customer = pre_alert.customer
+        if not customer:
+            continue
+        matches.append(
+            {
+                "pre_alert": pre_alert.to_dict(),
+                "customer": _customer_dict(customer),
+                "match_score": score,
+            }
+        )
+
+    return jsonify({"matches": matches})
 
 
 @staff_bp.route("/staff/customers/<shipping_id>/account", methods=["GET"])
@@ -468,7 +492,7 @@ def receive_package_endpoint():
         return jsonify({"error": "photo_keys must be an array"}), 400
 
     try:
-        package = receive_package(
+        package, matched_pre_alert = receive_package(
             customer=customer,
             actual_weight_lbs=weight,
             carrier_tracking=data.get("carrier_tracking"),
@@ -495,12 +519,16 @@ def receive_package_endpoint():
                 "estimated_freight_jmd": float(package.estimated_freight_jmd)
                 if package.estimated_freight_jmd
                 else None,
+                "pre_alert_matched": matched_pre_alert is not None,
             },
         )
 
     pkg_data = package.to_dict(include_events=True, include_photos=True)
     pkg_data["customer"] = _customer_dict(customer)
-    return jsonify({"package": pkg_data}), 201
+    response = {"package": pkg_data}
+    if matched_pre_alert:
+        response["pre_alert_matched"] = matched_pre_alert.to_dict()
+    return jsonify(response), 201
 
 
 @staff_bp.route("/staff/packages/receive-unidentified", methods=["POST"])
@@ -601,7 +629,7 @@ def assign_unidentified(package_id: str):
         return jsonify({"error": "Customer not found"}), 404
 
     try:
-        package = assign_unidentified_package(package, customer, data.get("note"))
+        package, matched_pre_alert = assign_unidentified_package(package, customer, data.get("note"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -617,12 +645,16 @@ def assign_unidentified(package_id: str):
                 "shipping_id": customer.shipping_id,
                 "label_name": package.label_name,
                 "label_boss_id": package.label_boss_id,
+                "pre_alert_matched": matched_pre_alert is not None,
             },
         )
 
     pkg_data = package.to_dict(include_events=True, include_photos=True)
     pkg_data["customer"] = _customer_dict(customer)
-    return jsonify({"package": pkg_data})
+    response = {"package": pkg_data}
+    if matched_pre_alert:
+        response["pre_alert_matched"] = matched_pre_alert.to_dict()
+    return jsonify(response)
 
 
 @staff_bp.route("/staff/packages", methods=["GET"])

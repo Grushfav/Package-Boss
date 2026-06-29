@@ -115,7 +115,7 @@ export function TrackPageContent({ embedded = false }: { embedded?: boolean } = 
                 <div>
                   <p className="text-xs text-muted">Route</p>
                   <p className="text-sm font-semibold">
-                    {pkg.origin || 'Miami, FL'} → {pkg.destination || 'Kingston, Jamaica'}
+                    {pkg.origin || 'Fort Lauderdale, FL'} → {pkg.destination || 'Kingston, Jamaica'}
                   </p>
                 </div>
               </div>

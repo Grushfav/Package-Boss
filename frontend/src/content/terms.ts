@@ -50,7 +50,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
     title: '6. Shipping Charges',
     paragraphs: [
       'Shipping charges are based on the actual or volumetric weight of the shipment, whichever is greater.',
-      'Published rates apply up to 30 lbs billable weight at $4.00 USD for the first pound plus $2.50 USD per additional pound (JMD displayed at 160 JMD = 1 USD). Packages over 30 lbs require a custom quote.',
+      'Published rates apply up to 50 lbs billable weight using our tier rate table (JMD displayed at 160 JMD = 1 USD). Packages over 50 lbs require a custom quote.',
       'Charges may include freight, customs duties and taxes, storage, special handling, insurance, delivery fees, and processing fees.',
       'All fees must be paid in full before packages are released or delivered. Package Boss Shipping & Logistics reserves the right to revise rates without prior notice.',
     ],

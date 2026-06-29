@@ -23,7 +23,7 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
   const [formulaNote, setFormulaNote] = useState('')
   const [quoteNote, setQuoteNote] = useState('')
   const [jmdPerUsd, setJmdPerUsd] = useState(160)
-  const [maxLbs, setMaxLbs] = useState(30)
+  const [maxLbs, setMaxLbs] = useState(50)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -49,14 +49,14 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
             <h1 className="text-3xl font-black uppercase">
               Package <span className="italic text-boss-green">Rates</span>
             </h1>
-            <p className="mt-2 text-muted">Miami → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)</p>
+            <p className="mt-2 text-muted">Fort Lauderdale → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)</p>
           </>
         )}
         {embedded && (
           <>
             <h2 className="text-lg font-bold uppercase tracking-wide">Rates</h2>
             <p className="mt-2 text-sm text-muted">
-              Miami → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)
+              Fort Lauderdale → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)
             </p>
           </>
         )}

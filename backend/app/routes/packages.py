@@ -13,7 +13,6 @@ from app.services.image_upload_service import (
     is_storage_configured,
     parse_presign_fields,
 )
-from app.services.r2_service import build_package_invoice_object_key
 
 packages_bp = Blueprint("packages", __name__)
 
@@ -98,17 +97,12 @@ def presign_package_invoice(package_id: str):
     if content_type not in ALLOWED_INVOICE_TYPES:
         return jsonify({"error": "Only JPEG, PNG, WebP, and PDF files are allowed"}), 400
 
-    object_key = build_package_invoice_object_key(
-        user.shipping_id, package.tracking_number, filename
-    )
-
     try:
         return jsonify(
             create_upload_presign(
                 content_type=content_type,
                 content_length=content_length,
                 prefix="invoices",
-                r2_object_key=object_key,
             )
         )
     except ImageUploadError as exc:

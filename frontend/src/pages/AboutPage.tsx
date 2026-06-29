@@ -10,7 +10,7 @@ export function AboutPage() {
         <p className="text-xs font-semibold uppercase tracking-widest text-boss-green">About Us</p>
         <h1 className="mt-2 text-3xl font-black uppercase md:text-4xl">
           Your trusted partner{' '}
-          <span className="italic text-boss-green">US ↔ Jamaica</span>
+          <span className="italic text-boss-green">US → Jamaica</span>
         </h1>
 
         <div className="mx-auto mt-10 max-w-sm">
@@ -29,7 +29,7 @@ export function AboutPage() {
 
         <div className="mt-12 flex flex-wrap gap-4">
           <Link to="/signup">
-            <Button>Get your Miami address</Button>
+            <Button>Get your Fort Lauderdale address</Button>
           </Link>
           <Link to="/services">
             <Button variant="outline">View our services</Button>

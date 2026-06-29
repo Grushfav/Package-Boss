@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { TAGLINE } from '../../content/marketing'
 import { Button } from '../ui/Button'
+import { SocialLinks } from './SocialLinks'
 
 export function Hero() {
   return (
@@ -21,12 +22,14 @@ export function Hero() {
 
       <div className="mt-8 flex flex-wrap gap-4">
         <Link to="/signup">
-          <Button>Get Your Miami Address →</Button>
+          <Button>Get Your Fort Lauderdale Address →</Button>
         </Link>
         <Link to="/rates">
           <Button variant="outline">View Rates</Button>
         </Link>
       </div>
+
+      <SocialLinks className="mt-8" />
     </div>
   )
 }

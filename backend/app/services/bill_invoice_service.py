@@ -106,7 +106,7 @@ def render_checkout_invoice_html(
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
       <div>
         <p style="margin:0;font-size:22px;font-weight:800;color:#22c55e;letter-spacing:0.04em;">PACKAGE BOSS</p>
-        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">Miami / Fort Lauderdale → Kingston</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">Fort Lauderdale → Kingston</p>
       </div>
       <div style="text-align:right;">
         <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Invoice</p>
@@ -185,7 +185,7 @@ def render_bill_invoice_html(
     <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;">
       <div>
         <p style="margin:0;font-size:22px;font-weight:800;color:#22c55e;">PACKAGE BOSS</p>
-        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">Miami / Fort Lauderdale → Kingston</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">Fort Lauderdale → Kingston</p>
       </div>
       <div style="text-align:right;">
         <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Bill preview</p>

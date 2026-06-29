@@ -83,6 +83,10 @@ def is_image_upload_configured() -> bool:
     return bool(worker_base_url() and worker_api_key())
 
 
+def is_storage_configured() -> bool:
+    return is_image_upload_configured()
+
+
 def key_from_public_url(public_url: str) -> str:
     return urlparse(public_url).path.lstrip("/")
 
@@ -93,15 +97,10 @@ def resolve_stored_url(stored: str | None) -> str | None:
         return None
     if stored.startswith(("http://", "https://")):
         return stored
-    from app.services.r2_service import get_public_url
-
-    return get_public_url(stored)
-
-
-def is_storage_configured() -> bool:
-    from app.services.r2_service import is_r2_configured
-
-    return is_image_upload_configured() or is_r2_configured()
+    public_base = (current_app.config.get("STORAGE_PUBLIC_URL") or "").strip().rstrip("/")
+    if public_base:
+        return f"{public_base}/{stored.lstrip('/')}"
+    return None
 
 
 def create_upload_presign(
@@ -109,28 +108,13 @@ def create_upload_presign(
     content_type: str,
     content_length: int,
     prefix: str,
-    r2_object_key: str | None = None,
 ) -> dict:
-    """Worker-first presign; falls back to Cloudflare R2 when configured."""
-    if is_image_upload_configured():
-        return create_presigned_upload(
-            content_type=content_type,
-            content_length=content_length,
-            prefix=prefix,
-        )
-
-    from app.services.r2_service import generate_presigned_upload, get_public_url, is_r2_configured
-
-    if is_r2_configured() and r2_object_key:
-        upload_url = generate_presigned_upload(r2_object_key, content_type)
-        return {
-            "upload_url": upload_url,
-            "upload_headers": {"Content-Type": content_type},
-            "object_key": r2_object_key,
-            "public_url": get_public_url(r2_object_key),
-        }
-
-    raise ImageUploadError("File storage is not configured")
+    """Presigned PUT URL from the image upload worker."""
+    return create_presigned_upload(
+        content_type=content_type,
+        content_length=content_length,
+        prefix=prefix,
+    )
 
 
 def create_presigned_upload(

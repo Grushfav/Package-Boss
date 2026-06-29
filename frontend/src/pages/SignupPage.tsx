@@ -57,7 +57,7 @@ export function SignupPage() {
           Join <span className="italic text-boss-green">Package Boss</span>
         </h1>
         <p className="mt-2 text-sm text-muted">
-          Create your account and get your Miami shipping address instantly.
+          Create your account and get your Fort Lauderdale shipping address instantly.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">

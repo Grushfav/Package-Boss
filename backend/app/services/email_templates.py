@@ -128,7 +128,7 @@ def render_layout(
             <td style="padding:8px 32px 28px;">
               <hr style="border:none;border-top:1px solid {BORDER};margin:16px 0;" />
               <p style="margin:0;font-size:13px;line-height:1.5;color:{TEXT_MUTED};">
-                Miami → Kingston freight forwarding<br />
+                Fort Lauderdale → Kingston freight forwarding<br />
                 <strong style="color:{TEXT_PRIMARY};">{_esc(BRAND_NAME)} Shipping &amp; Logistics</strong>
               </p>
               {footer_extra}
@@ -257,7 +257,7 @@ def render_welcome_html(
         f'<span style="font-size:12px;color:{TEXT_MUTED};">Your BOSS shipping ID</span><br />'
         f'<span style="font-family:ui-monospace,Consolas,monospace;font-size:18px;'
         f'font-weight:700;color:{BRAND_GREEN_DARK};">{safe_id}</span><br /><br />'
-        f'<span style="font-size:12px;color:{TEXT_MUTED};">Miami warehouse address</span><br />'
+        f'<span style="font-size:12px;color:{TEXT_MUTED};">Fort Lauderdale warehouse address</span><br />'
         f'<span style="font-size:14px;line-height:1.5;">{address_lines}</span>'
     )
     body = f"""

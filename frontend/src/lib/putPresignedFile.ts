@@ -21,7 +21,7 @@ function normalizePresign(presign: PresignResponse & Record<string, unknown>): P
   }
 }
 
-/** Step B — PUT file via backend proxy (avoids B2/R2 CORS in the browser). */
+/** Step B — PUT file via backend proxy (avoids B2 CORS in the browser). */
 export async function putPresignedFile(
   file: File,
   presign: PresignResponse,

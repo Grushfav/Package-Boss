@@ -16,15 +16,11 @@ from app.services.image_upload_service import (
     parse_content_length,
     parse_presign_fields,
 )
-from app.services.r2_service import build_object_key, build_unidentified_object_key
 from app.utils.auth_decorators import jwt_required, staff_required
 
 uploads_bp = Blueprint("uploads", __name__)
 
-_ALLOWED_UPLOAD_HOST_SUFFIXES = (
-    ".backblazeb2.com",
-    ".r2.cloudflarestorage.com",
-)
+_ALLOWED_UPLOAD_HOST_SUFFIXES = (".backblazeb2.com",)
 
 
 def _is_allowed_upload_url(url: str) -> bool:
@@ -71,7 +67,7 @@ def proxy_upload_url():
 @uploads_bp.route("/uploads/put", methods=["POST"])
 @jwt_required()
 def proxy_presigned_put():
-    """Proxy file PUT to B2/R2 so browsers are not blocked by storage CORS."""
+    """Proxy file PUT to B2 so browsers are not blocked by storage CORS."""
     if not is_storage_configured():
         return jsonify({"error": "File storage is not configured"}), 503
 
@@ -113,10 +109,6 @@ def proxy_presigned_put():
     except ImageUploadError as exc:
         return _presign_error(exc, status=502)
 
-    if not public_url and object_key:
-        from app.services.r2_service import get_public_url
-
-        public_url = get_public_url(object_key) or ""
     if not object_key and public_url:
         object_key = key_from_public_url(public_url)
 
@@ -154,7 +146,6 @@ def presign_upload():
             content_type=content_type,
             content_length=content_length,
             prefix="packages",
-            r2_object_key=build_object_key(shipping_id, filename),
         )
     except ImageUploadError as exc:
         return _presign_error(exc)
@@ -171,7 +162,7 @@ def presign_unidentified_upload():
 
     data = request.get_json(silent=True) or {}
     try:
-        filename, content_type, content_length = parse_presign_fields(
+        _, content_type, content_length = parse_presign_fields(
             data,
             default_filename="photo.jpg",
             default_content_type="image/jpeg",
@@ -188,7 +179,6 @@ def presign_unidentified_upload():
                 content_type=content_type,
                 content_length=content_length,
                 prefix="packages",
-                r2_object_key=build_unidentified_object_key(filename),
             )
         )
     except ImageUploadError as exc:

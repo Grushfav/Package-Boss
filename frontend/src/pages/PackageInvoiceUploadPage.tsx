@@ -6,7 +6,7 @@ import { fetchMyPackage, submitPackageInvoice } from '../api/packages'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
-import { uploadPackageInvoiceToR2 } from '../lib/uploadPackageInvoice'
+import { uploadPackageInvoice } from '../lib/uploadPackageInvoice'
 import type { Package } from '../types'
 
 export function PackageInvoiceUploadPage() {
@@ -34,7 +34,7 @@ export function PackageInvoiceUploadPage() {
     try {
       let invoiceKey: string | undefined
       if (invoiceFile && !skipUpload) {
-        invoiceKey = await uploadPackageInvoiceToR2(packageId, invoiceFile)
+        invoiceKey = await uploadPackageInvoice(packageId, invoiceFile)
       }
       if (!invoiceKey) {
         setError('Please select an invoice file to upload')

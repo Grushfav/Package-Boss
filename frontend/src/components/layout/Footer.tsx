@@ -11,7 +11,7 @@ export function Footer() {
           </p>
           <p className="mt-3 text-sm text-muted">
             Package Boss Shipping &amp; Logistics — international air freight and package shipping
-            from Miami to Jamaica.
+            from Fort Lauderdale to Jamaica.
           </p>
         </div>
 
@@ -19,7 +19,7 @@ export function Footer() {
           <h4 className="text-xs font-semibold uppercase tracking-widest text-boss-gold">Warehouse</h4>
           <p className="mt-3 text-sm text-muted">
             9999 North America Way<br />
-            Miami, FL 33132<br />
+            Fort Lauderdale, FL 33312<br />
             United States
           </p>
         </div>

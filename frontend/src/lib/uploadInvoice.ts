@@ -2,7 +2,7 @@ import { presignInvoiceUpload } from '../api/preAlerts'
 import { normalizeUploadFile } from './normalizeUploadFile'
 import { putPresignedFile } from './putPresignedFile'
 
-export async function uploadInvoiceToR2(file: File): Promise<string> {
+export async function uploadInvoice(file: File): Promise<string> {
   const meta = normalizeUploadFile(file)
   const presign = await presignInvoiceUpload(
     meta.filename,

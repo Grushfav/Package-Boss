@@ -1,6 +1,6 @@
 # Package Boss
 
-Miami → Kingston logistics platform. Customers sign up, receive a unique `BOSS-XXXXX` shipping ID, and use a Miami warehouse address for US online shopping.
+Fort Lauderdale → Kingston logistics platform. Customers sign up, receive a unique `BOSS-XXXXX` shipping ID, and use a Fort Lauderdale warehouse address for US online shopping.
 
 ## Stack
 
@@ -82,7 +82,7 @@ App: http://localhost:5173
 | POST | `/api/auth/register` | Create account + BOSS ID |
 | POST | `/api/auth/login` | Email + password login |
 | GET | `/api/me` | Current user (JWT) |
-| GET | `/api/me/shipping-address` | Miami address with BOSS ID |
+| GET | `/api/me/shipping-address` | Fort Lauderdale address with BOSS ID |
 | GET | `/api/rates` | Tiered USD rate table |
 | GET | `/api/rates/estimate?weight_lbs=7.3` | Shipping cost (ceil rounding) |
 | POST | `/api/auth/forgot-password` | Send password reset email |
@@ -124,7 +124,7 @@ Package-Boss/
 
 - Public package tracking at `/track` with status timeline
 - Customer dashboard package list (`GET /api/me/packages`)
-- Staff receive flow at `/staff/receive` (BOSS ID lookup, weight, R2 photos)
+- Staff receive flow at `/staff/receive` (BOSS ID lookup, weight, optional photos via upload worker)
 - PWA install prompt + offline BOSS address cache on dashboard
 
 ### Phase 3 API endpoints
@@ -141,7 +141,7 @@ Package-Boss/
 | PATCH | `/api/staff/packages/bulk-status` | Staff | Bulk update shipment status |
 | GET | `/api/staff/packages/print-queue` | Staff | Unprinted labels queue |
 | PATCH | `/api/staff/packages/mark-printed` | Staff | Mark labels as printed |
-| POST | `/api/uploads/presign` | Clerk | R2 presigned upload URL |
+| POST | `/api/uploads/presign` | Clerk | B2 presigned upload URL (via worker) |
 | GET | `/api/admin/clerks` | Admin | List clerks |
 | POST | `/api/admin/clerks` | Admin | Promote customer or create clerk |
 | DELETE | `/api/admin/clerks/<user_id>` | Admin | Demote clerk to customer |
@@ -183,19 +183,26 @@ Packages with no matching BOSS ID or customer name are received into a clerk que
 | POST | `/api/staff/packages/receive-unidentified` | Clerk | Receive without matched owner |
 | GET | `/api/staff/packages/unidentified` | Clerk | List queue |
 | POST | `/api/staff/packages/<id>/assign` | Clerk | Assign package to customer |
-| POST | `/api/uploads/presign-unidentified` | Clerk | R2 photo upload for unidentified packages |
+| POST | `/api/uploads/presign-unidentified` | Clerk | B2 photo upload for unidentified packages |
 
 ### Print queue
 
 When receival volume is high, clerks can **Queue & receive next** instead of printing immediately. Unprinted packages appear at `/warehouse/print-queue` (shared across all clerks, last 7 days). Labels do not show shipping price.
 
-### R2 photo uploads (optional)
+### File uploads (image upload worker)
 
-Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, and `R2_PUBLIC_URL` in `.env`. Without R2, receive still works — photos are simply skipped.
+Photos and invoices upload to **Backblaze B2** through the image-upload Cloudflare Worker. Set in `.env`:
+
+- `IMAGE_UPLOAD_WORKER_URL` — worker base URL (e.g. `https://image-upload-server.example.workers.dev`)
+- `IMAGE_UPLOAD_API_KEY` — bearer token the worker expects
+
+Optional: `STORAGE_PUBLIC_URL` if you store bare object keys instead of full B2 URLs.
+
+Without the worker configured, receive still works — photos/invoices are simply skipped.
 
 ## Phase 4 (complete)
 
-- Customer pre-alerts with carrier tracking + invoice upload (R2)
+- Customer pre-alerts with carrier tracking + invoice upload (B2 via worker)
 - Dashboard pre-alert list with cancel for pending items
 - `/pre-alerts/new` submission form
 
@@ -205,7 +212,7 @@ Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, an
 | POST | `/api/me/pre-alerts` | Customer | Create pre-alert |
 | GET | `/api/me/pre-alerts/<id>` | Customer | Pre-alert detail |
 | DELETE | `/api/me/pre-alerts/<id>` | Customer | Cancel pending pre-alert |
-| POST | `/api/me/uploads/invoice/presign` | Customer | R2 presigned invoice URL |
+| POST | `/api/me/uploads/invoice/presign` | Customer | B2 presigned invoice URL (via worker) |
 
 ## Phase 5 (complete)
 
@@ -237,6 +244,6 @@ Run commands from `backend/` with `FLASK_APP=wsgi:app` (or use `backend/.flasken
 
 ### Official rates & terms
 
-- **Rates:** `$4.00` for the first lb + `$2.50` per additional lb, billable weight rounded up (1–30 lbs). JMD shown at **160 JMD = 1 USD**. Over 30 lbs → custom quote.
+- **Rates:** Tier table for **1–50 lbs** billable weight (see `frontend/Revised Rates.xlsx`). JMD shown at **160 JMD = 1 USD**. Over 50 lbs → custom quote.
 - **Terms:** `/terms` — Package Boss Shipping & Logistics, effective **June 21, 2026**. Signup requires acceptance (`terms_accepted_at` on user).
 - **Migration:** `flask db upgrade` applies `c3d4e5f6a7b8` (adds `terms_accepted_at`).

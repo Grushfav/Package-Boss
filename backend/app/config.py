@@ -24,11 +24,23 @@ class Config:
     TRN_ENCRYPTION_KEY = os.environ.get("TRN_ENCRYPTION_KEY", "")
     TRN_PEPPER = os.environ.get("TRN_PEPPER", "")
 
-    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
-    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+
+    @staticmethod
+    def _build_cors_origins() -> list[str]:
+        frontend = os.environ.get("FRONTEND_URL", "http://localhost:5173").strip().rstrip("/")
+        raw = os.environ.get("CORS_ORIGINS", "").strip()
+        if not raw:
+            raw = frontend
+        origins = {origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()}
+        if frontend:
+            origins.add(frontend)
+        return sorted(origins)
+
+    CORS_ORIGINS = _build_cors_origins()
 
     WAREHOUSE_LINE1 = os.environ.get("WAREHOUSE_LINE1", "9999 North America Way")
-    WAREHOUSE_CITY = os.environ.get("WAREHOUSE_CITY", "Miami")
+    WAREHOUSE_CITY = os.environ.get("WAREHOUSE_CITY", "Fort Lauderdale")
     WAREHOUSE_STATE = os.environ.get("WAREHOUSE_STATE", "FL")
     WAREHOUSE_ZIP = os.environ.get("WAREHOUSE_ZIP", "33132")
     WAREHOUSE_COUNTRY = os.environ.get("WAREHOUSE_COUNTRY", "US")
@@ -44,13 +56,10 @@ class Config:
     EMAIL_LOGO_URL = os.environ.get("EMAIL_LOGO_URL", "").strip()
     WHATSAPP_PROVIDER = os.environ.get("WHATSAPP_PROVIDER", "console")
 
+    # Optional base URL when DB stores object keys instead of full B2 URLs
+    STORAGE_PUBLIC_URL = os.environ.get("STORAGE_PUBLIC_URL", "").strip().rstrip("/")
+
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
     CLERK_EMAIL = os.environ.get("CLERK_EMAIL", "").strip().lower()
     # Legacy alias — treated as CLERK_EMAIL if CLERK_EMAIL is unset
     STAFF_EMAIL = os.environ.get("STAFF_EMAIL", "").strip().lower()
-
-    R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID", "")
-    R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "")
-    R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "")
-    R2_BUCKET = os.environ.get("R2_BUCKET", "package-boss-uploads")
-    R2_PUBLIC_URL = os.environ.get("R2_PUBLIC_URL", "")

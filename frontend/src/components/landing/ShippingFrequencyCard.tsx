@@ -1,7 +1,7 @@
 import { Clock, Plane, Zap } from 'lucide-react'
 
 const SHORT_LINE =
-  'Your packages spend less time in Miami and more time on the way to yaad.'
+  'Your packages spend less time in Fort Lauderdale and more time on the way to yaad.'
 
 interface ShippingFrequencyCardProps {
   className?: string
@@ -32,7 +32,7 @@ export function ShippingFrequencyCard({
             Shipping schedule
           </span>
           <span className="text-[10px] font-semibold uppercase tracking-widest text-white/50">
-            Florida → JA
+            Fort Lauderdale → JA
           </span>
         </div>
 
@@ -55,7 +55,7 @@ export function ShippingFrequencyCard({
         </div>
 
         <p className="mt-3 text-base font-semibold leading-snug text-white md:text-lg">
-          Flights from Miami to Jamaica, every week.
+          Flights from Fort Lauderdale to Jamaica, every week.
         </p>
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm md:p-4">
@@ -64,15 +64,13 @@ export function ShippingFrequencyCard({
               <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
                 From
               </p>
-              <p className="mt-0.5 truncate text-xs font-bold text-white md:text-sm">Miami, FL</p>
+              <p className="mt-0.5 truncate text-xs font-bold text-white md:text-sm">Fort Lauderdale, FL</p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1 px-0.5">
-              <span className="h-1 w-4 bg-gradient-to-r from-transparent to-boss-green sm:w-6" />
+            <div className="flex shrink-0 items-center px-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-boss-green/20 ring-1 ring-boss-green/50">
                 <Plane className="h-3.5 w-3.5 text-boss-green" strokeWidth={2.25} />
               </span>
-              <span className="h-1 w-4 bg-gradient-to-l from-transparent to-boss-gold sm:w-6" />
             </div>
 
             <div className="min-w-0 flex-1 text-center">
@@ -91,7 +89,7 @@ export function ShippingFrequencyCard({
             <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-boss-gold" strokeWidth={2} />
             <div>
               <p className="text-[11px] font-bold text-white">Less waiting</p>
-              <p className="mt-0.5 text-[10px] leading-snug text-white/55">No long Miami holds</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-white/55">No long Florida holds</p>
             </div>
           </div>
           <div className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 p-2.5">

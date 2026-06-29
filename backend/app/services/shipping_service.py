@@ -1,13 +1,23 @@
 from decimal import Decimal, ROUND_CEILING
 
-BASE_RATE_USD = Decimal("4.00")
-RATE_INCREMENT_USD = Decimal("2.50")
-JMD_PER_USD = 160
-MAX_AUTO_RATE_LBS = 30
-QUOTE_MESSAGE = (
-    f"Packages over {MAX_AUTO_RATE_LBS} lbs require a custom quote. "
-    "Please contact Package Boss Shipping & Logistics."
+from app.data.revised_rate_table import (
+    JMD_PER_USD,
+    MAX_AUTO_RATE_LBS,
+    QUOTE_MESSAGE,
+    REVISED_RATE_USD_BY_LBS,
 )
+
+__all__ = [
+    "JMD_PER_USD",
+    "MAX_AUTO_RATE_LBS",
+    "QUOTE_MESSAGE",
+    "billable_weight_lbs",
+    "usd_for_billable_lbs",
+    "jmd_for_usd",
+    "tier_label_for_billable",
+    "build_rate_table",
+    "calculate_shipping_cost",
+]
 
 
 def billable_weight_lbs(actual_weight: Decimal | float) -> int:
@@ -22,7 +32,7 @@ def usd_for_billable_lbs(billable: int) -> Decimal:
         raise ValueError("Weight must be positive")
     if billable > MAX_AUTO_RATE_LBS:
         raise ValueError(QUOTE_MESSAGE)
-    return BASE_RATE_USD + Decimal(billable - 1) * RATE_INCREMENT_USD
+    return REVISED_RATE_USD_BY_LBS[billable]
 
 
 def jmd_for_usd(usd: Decimal) -> int:
@@ -64,7 +74,7 @@ def calculate_shipping_cost(actual_weight_lbs: Decimal | float) -> dict:
         "cost_usd": float(cost),
         "cost_jmd": cost_jmd,
         "tier_label": tier_label_for_billable(billable),
-        "route": "Miami → Kingston",
+        "route": "Fort Lauderdale → Kingston",
         "currency": "JMD",
         "jmd_per_usd": JMD_PER_USD,
         "rounding_note": "Weights are rounded up to the nearest whole pound.",

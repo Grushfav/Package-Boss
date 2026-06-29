@@ -165,7 +165,7 @@ CLERK_PERMISSION_LABELS = {
     "receive": "Receive packages",
     "activity": "Activity log",
     "directory": "Customer directory",
-    "status_transit": "Status: received → in transit (Florida)",
+    "status_transit": "Status: received → in transit (Fort Lauderdale)",
     "status_customs": "Status: customs updates",
     "status_pickup": "Status: ready for pickup / delivered",
     "billing": "Billing & payments",

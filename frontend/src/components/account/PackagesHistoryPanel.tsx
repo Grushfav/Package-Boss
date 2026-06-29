@@ -19,7 +19,7 @@ export function PackagesHistoryPanel() {
         <div>
           <h2 className="text-lg font-bold uppercase tracking-wide">Packages</h2>
           <p className="mt-2 text-sm text-muted">
-            Shipments received at our Miami warehouse and their status in Jamaica.
+            Shipments received at our Fort Lauderdale warehouse and their status in Jamaica.
           </p>
         </div>
         <Link to="/dashboard/track" className="text-sm text-boss-green hover:underline">
@@ -29,7 +29,7 @@ export function PackagesHistoryPanel() {
 
       {packages.length === 0 ? (
         <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
-          No packages yet. Once your shipment is received at the Miami warehouse, it will appear
+          No packages yet. Once your shipment is received at the Fort Lauderdale warehouse, it will appear
           here.
         </p>
       ) : (

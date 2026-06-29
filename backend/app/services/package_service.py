@@ -7,8 +7,10 @@ from flask import current_app
 from app.constants import UNIDENTIFIED_HOLDER_SHIPPING_ID
 from app.extensions import db
 from app.models.package import Package, PackageEvent, PackagePhoto
+from app.models.pre_alert import PreAlert
 from app.models.user import User
 from app.services.image_upload_service import is_valid_photo_reference
+from app.services.pre_alert_service import match_pre_alert_on_receive, normalize_carrier_tracking
 from app.services.shipping_service import calculate_shipping_cost
 
 
@@ -110,14 +112,17 @@ def receive_package(
     shipper: str | None = None,
     photo_keys: list[str] | None = None,
     note: str | None = None,
-) -> Package:
+) -> tuple[Package, PreAlert | None]:
     quote = calculate_shipping_cost(actual_weight_lbs)
     tracking_number = generate_tracking_number()
+    normalized_carrier = normalize_carrier_tracking(carrier_tracking) if carrier_tracking else None
+    if normalized_carrier == "":
+        normalized_carrier = None
 
     package = Package(
         tracking_number=tracking_number,
         customer_id=customer.id,
-        carrier_tracking=(carrier_tracking or "").strip() or None,
+        carrier_tracking=normalized_carrier,
         shipper=(shipper or "").strip().lower() or None,
         actual_weight_lbs=quote["actual_weight_lbs"],
         billable_weight_lbs=quote["billable_weight_lbs"],
@@ -141,8 +146,18 @@ def receive_package(
         if is_valid_photo_reference(key, shipping_id=customer.shipping_id):
             db.session.add(PackagePhoto(package_id=package.id, r2_object_key=key))
 
+    matched_pre_alert = match_pre_alert_on_receive(package)
+    if matched_pre_alert:
+        db.session.add(
+            PackageEvent(
+                package_id=package.id,
+                status=package.status,
+                note=f"Matched customer pre-alert ({matched_pre_alert.carrier_tracking})",
+            )
+        )
+
     db.session.commit()
-    return package
+    return package, matched_pre_alert
 
 
 def receive_unidentified_package(
@@ -163,7 +178,11 @@ def receive_unidentified_package(
     normalized_label_name = (label_name or "").strip() or None
     normalized_label_boss_id = (label_boss_id or "").strip().upper() or None
 
-    if not normalized_label_name and not normalized_label_boss_id and not (carrier_tracking or "").strip():
+    normalized_carrier = normalize_carrier_tracking(carrier_tracking) if carrier_tracking else None
+    if normalized_carrier == "":
+        normalized_carrier = None
+
+    if not normalized_label_name and not normalized_label_boss_id and not normalized_carrier:
         raise ValueError(
             "Provide a label name, BOSS ID from the label, or carrier tracking to identify the package"
         )
@@ -171,7 +190,7 @@ def receive_unidentified_package(
     package = Package(
         tracking_number=tracking_number,
         customer_id=holder.id,
-        carrier_tracking=(carrier_tracking or "").strip() or None,
+        carrier_tracking=normalized_carrier,
         label_name=normalized_label_name,
         label_boss_id=normalized_label_boss_id,
         shipper=(shipper or "").strip().lower() or None,
@@ -208,7 +227,9 @@ def receive_unidentified_package(
     return package
 
 
-def assign_unidentified_package(package: Package, customer: User, note: str | None = None) -> Package:
+def assign_unidentified_package(
+    package: Package, customer: User, note: str | None = None
+) -> tuple[Package, PreAlert | None]:
     if package.status != "unidentified":
         raise ValueError("Only unidentified packages can be assigned to a customer")
 
@@ -218,8 +239,19 @@ def assign_unidentified_package(package: Package, customer: User, note: str | No
         "received",
         note or f"Assigned to {customer.shipping_id} ({customer.full_name})",
     )
+
+    matched_pre_alert = match_pre_alert_on_receive(package)
+    if matched_pre_alert:
+        db.session.add(
+            PackageEvent(
+                package_id=package.id,
+                status=package.status,
+                note=f"Matched customer pre-alert ({matched_pre_alert.carrier_tracking})",
+            )
+        )
+
     db.session.commit()
-    return package
+    return package, matched_pre_alert
 
 
 def list_unidentified_packages(limit: int = 50, offset: int = 0) -> tuple[list[Package], int]:
@@ -416,7 +448,6 @@ def get_warehouse_summary() -> dict:
         "print_queue_pending": print_queue_pending,
         "unidentified_count": Package.query.filter_by(status="unidentified").count(),
         "received_count": status_counts["received"],
-        "received_miami_count": status_counts["received"],
         "packages_today": Package.query.filter(Package.received_at >= today_start).count(),
         "pending_pre_alerts": PreAlert.query.filter_by(status="pending").count(),
         "status_counts": status_counts,

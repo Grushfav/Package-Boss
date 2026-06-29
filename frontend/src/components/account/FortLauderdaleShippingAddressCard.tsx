@@ -5,7 +5,7 @@ import { cacheShippingAddress, getCachedShippingAddress } from '../../lib/offlin
 import { Button } from '../ui/Button'
 import type { ShippingAddress } from '../../types'
 
-export function MiamiShippingAddressCard() {
+export function FortLauderdaleShippingAddressCard() {
   const [address, setAddress] = useState<ShippingAddress | null>(null)
   const [copied, setCopied] = useState(false)
   const [offline, setOffline] = useState(!navigator.onLine)
@@ -63,7 +63,7 @@ export function MiamiShippingAddressCard() {
     <div className="rounded-2xl border border-boss-green/30 bg-card p-6 shadow-sm sm:p-8">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-lg font-bold uppercase tracking-wide text-black dark:text-white">
-          Miami Shipping Address
+          Fort Lauderdale Shipping Address
         </h2>
         {usingCache && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
@@ -85,7 +85,7 @@ export function MiamiShippingAddressCard() {
       ) : (
         <p className="mt-6 text-muted">
           {offline
-            ? 'No cached address available. Connect to load your Miami address.'
+            ? 'No cached address available. Connect to load your Fort Lauderdale address.'
             : 'Loading address...'}
         </p>
       )}

@@ -96,7 +96,7 @@ export function WarehouseHomePage() {
           icon={RefreshCw}
           title="Received"
           description="Packages received and waiting to go in transit."
-          count={counts?.received_count ?? counts?.received_miami_count}
+          count={counts?.received_count}
           actionLabel="Bulk update status"
         />
         <InboxCard

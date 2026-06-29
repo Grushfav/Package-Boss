@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, current_app, jsonify
 
 from app.models.package import Package
 from app.services.package_service import get_tracking_timeline
@@ -17,6 +17,6 @@ def track_package(tracking_number: str):
     data = package.to_dict(include_events=True, include_photos=True)
     data["timeline"] = get_tracking_timeline(package)
     data["destination"] = "Kingston, Jamaica"
-    data["origin"] = "Miami, FL"
+    data["origin"] = f"{current_app.config['WAREHOUSE_CITY']}, {current_app.config['WAREHOUSE_STATE']}"
 
     return jsonify({"package": data})

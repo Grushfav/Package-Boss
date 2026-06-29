@@ -17,7 +17,7 @@ export function ServicesPage() {
           How we <span className="italic text-boss-green">ship it</span>
         </h1>
         <p className="mt-4 max-w-2xl text-muted">
-          From Miami receival to yaad — {SHIPPING_FREQUENCY_SHORT} from our Florida warehouse, plus
+          From Fort Lauderdale receival to yaad — {SHIPPING_FREQUENCY_SHORT} from our Florida warehouse, plus
           tracking, notifications, and flexible delivery across Jamaica.
         </p>
 
@@ -54,7 +54,7 @@ export function ServicesPage() {
           <ul className="mt-4 space-y-2 text-sm text-muted">
             <li>
               <span className="font-semibold text-foreground">Flights:</span>{' '}
-              {SHIPPING_FREQUENCY_SHORT} from Miami
+              {SHIPPING_FREQUENCY_SHORT} from Fort Lauderdale
             </li>
             <li>
               <span className="font-semibold text-foreground">Delivery:</span> {DELIVERY_AREAS} on

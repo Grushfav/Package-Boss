@@ -11,10 +11,12 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
-import { fetchShippers, lookupCustomer, markLabelsPrinted, receivePackage, receiveUnidentifiedPackage, searchCustomers } from '../api/staff'
+import { fetchShippers, lookupCustomer, lookupPreAlertByTracking, markLabelsPrinted, receivePackage, receiveUnidentifiedPackage, searchCustomers } from '../api/staff'
+import type { PreAlertLookupMatch } from '../api/staff'
+import type { PreAlert } from '../types'
 import { markPrintedAfterPrint, ShippingLabel } from '../components/warehouse/ShippingLabel'
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
-import { uploadPhotoToR2, uploadUnidentifiedPhotoToR2 } from '../lib/uploadToR2'
+import { uploadPhoto, uploadUnidentifiedPhoto } from '../lib/uploadPhoto'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
@@ -72,6 +74,10 @@ export function ReceivePage() {
   const [error, setError] = useState('')
   const [submitLoading, setSubmitLoading] = useState(false)
   const [completedPackage, setCompletedPackage] = useState<Package | null>(null)
+  const [matchedPreAlert, setMatchedPreAlert] = useState<PreAlert | null>(null)
+  const [suggestedPreAlert, setSuggestedPreAlert] = useState<PreAlert | null>(null)
+  const [preAlertMatches, setPreAlertMatches] = useState<PreAlertLookupMatch[]>([])
+  const [preAlertLookupLoading, setPreAlertLookupLoading] = useState(false)
 
   useEffect(() => {
     fetchShippers().then(setShippers).catch(() => {})
@@ -158,15 +164,71 @@ export function ReceivePage() {
     setShowUnidentifiedSection(false)
     setError('')
     setCompletedPackage(null)
+    setMatchedPreAlert(null)
+    setSuggestedPreAlert(null)
+    setPreAlertMatches([])
+    setPreAlertLookupLoading(false)
   }
 
-  function startFromScan() {
+  function applyPreAlertMatches(matches: PreAlertLookupMatch[]) {
+    if (matches.length === 0) {
+      setSuggestedPreAlert(null)
+      setPreAlertMatches([])
+      return
+    }
+
+    const uniqueCustomers = new Map<string, PreAlertLookupMatch>()
+    for (const match of matches) {
+      const existing = uniqueCustomers.get(match.customer.id)
+      if (!existing || match.match_score > existing.match_score) {
+        uniqueCustomers.set(match.customer.id, match)
+      }
+    }
+
+    const options = Array.from(uniqueCustomers.values())
+    if (options.length === 1) {
+      setCustomer(options[0].customer)
+      setSuggestedPreAlert(options[0].pre_alert)
+      setPreAlertMatches([])
+      setShowUnidentifiedSection(false)
+      return
+    }
+
+    setSuggestedPreAlert(null)
+    setPreAlertMatches(options)
+  }
+
+  async function resolvePreAlertForTracking(tracking: string) {
+    const normalized = tracking.trim()
+    if (normalized.length < 8) {
+      setSuggestedPreAlert(null)
+      setPreAlertMatches([])
+      return
+    }
+
+    setPreAlertLookupLoading(true)
+    try {
+      const matches = await lookupPreAlertByTracking(normalized)
+      applyPreAlertMatches(matches)
+    } catch {
+      setSuggestedPreAlert(null)
+      setPreAlertMatches([])
+    } finally {
+      setPreAlertLookupLoading(false)
+    }
+  }
+
+  async function startFromScan() {
     const tracking = scanValue.trim()
     if (!tracking) return
-    setCarrierTracking(tracking.toUpperCase())
+    const upper = tracking.toUpperCase()
+    setCarrierTracking(upper)
     setCustomer(null)
+    setSuggestedPreAlert(null)
+    setPreAlertMatches([])
     setStep('receiving')
     setError('')
+    await resolvePreAlertForTracking(upper)
   }
 
   function handleScanKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -223,11 +285,11 @@ export function ReceivePage() {
     try {
       const photoKeys: string[] = []
       if (photoFile) {
-        const key = await uploadPhotoToR2(photoFile, customer.shipping_id)
+        const key = await uploadPhoto(photoFile, customer.shipping_id)
         photoKeys.push(key)
       }
 
-      const result = await receivePackage({
+      const { package: pkg, pre_alert_matched } = await receivePackage({
         shipping_id: customer.shipping_id,
         actual_weight_lbs: parseFloat(weight),
         shipper,
@@ -236,8 +298,9 @@ export function ReceivePage() {
         note: note || undefined,
       })
 
-      setCompletedPackage(result)
-      setCustomer(result.customer || customer)
+      setCompletedPackage(pkg)
+      setMatchedPreAlert(pre_alert_matched ?? null)
+      setCustomer(pkg.customer || customer)
       setStep('complete')
       refreshCounts()
     } catch (err) {
@@ -270,7 +333,7 @@ export function ReceivePage() {
     try {
       const photoKeys: string[] = []
       if (photoFile) {
-        const key = await uploadUnidentifiedPhotoToR2(photoFile)
+        const key = await uploadUnidentifiedPhoto(photoFile)
         photoKeys.push(key)
       }
 
@@ -457,6 +520,8 @@ export function ReceivePage() {
                   type="button"
                   onClick={() => {
                     setCustomer(null)
+                    setSuggestedPreAlert(null)
+                    setPreAlertMatches([])
                     setShowUnidentifiedSection(false)
                   }}
                   className="text-xs text-muted hover:text-foreground"
@@ -467,6 +532,41 @@ export function ReceivePage() {
             ) : (
               <div className="mt-4">
                 <p className="text-sm text-muted">Find customer to attach this package.</p>
+                {preAlertLookupLoading && (
+                  <p className="mt-2 text-sm text-boss-green">Looking up pre-alerts…</p>
+                )}
+                {!preAlertLookupLoading && preAlertMatches.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-boss-green/30 bg-boss-green/5 p-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-boss-green">
+                      Pre-alert matches
+                    </p>
+                    <p className="mt-1 text-sm text-muted">
+                      Multiple customers pre-alerted this tracking — select the correct one.
+                    </p>
+                    <ul className="mt-3 space-y-2">
+                      {preAlertMatches.map((match) => (
+                        <li key={match.pre_alert.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomer(match.customer)
+                              setSuggestedPreAlert(match.pre_alert)
+                              setPreAlertMatches([])
+                              setShowUnidentifiedSection(false)
+                            }}
+                            className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-green/40"
+                          >
+                            <p className="font-semibold">{match.customer.full_name}</p>
+                            <p className="text-sm text-muted">
+                              {match.customer.shipping_id} · pre-alert {match.pre_alert.carrier_tracking}
+                              {match.pre_alert.invoice_url ? ' · invoice on file' : ''}
+                            </p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                   <Input
                     label="Customer search"
@@ -506,6 +606,12 @@ export function ReceivePage() {
             {carrierTracking && (
               <p className="mt-3 font-mono text-sm">
                 <span className="text-muted">Carrier:</span> {carrierTracking}
+              </p>
+            )}
+            {suggestedPreAlert && customer && (
+              <p className="mt-2 text-sm text-boss-green">
+                Pre-alert matched for {customer.shipping_id}
+                {suggestedPreAlert.invoice_url ? ' · invoice will attach on receival' : ''}
               </p>
             )}
           </div>
@@ -564,6 +670,11 @@ export function ReceivePage() {
                 placeholder="USPS / UPS / FedEx number"
                 value={carrierTracking}
                 onChange={(e) => setCarrierTracking(e.target.value.toUpperCase())}
+                onBlur={() => {
+                  if (!customer && carrierTracking.trim()) {
+                    void resolvePreAlertForTracking(carrierTracking)
+                  }
+                }}
               />
             )}
 
@@ -683,6 +794,12 @@ export function ReceivePage() {
               {completedPackage.is_unidentified ? 'Added to unidentified queue' : 'Receival complete'}
             </p>
             <p className="mt-1 font-mono text-lg">{completedPackage.tracking_number}</p>
+            {matchedPreAlert && (
+              <p className="mt-2 text-sm text-boss-green">
+                Pre-alert matched ({matchedPreAlert.carrier_tracking})
+                {matchedPreAlert.invoice_url ? ' · invoice attached' : ''}
+              </p>
+            )}
           </div>
 
           <ShippingLabel pkg={completedPackage} customer={customer} />

@@ -1,13 +1,23 @@
-from decimal import Decimal
-
+from app.data.revised_rate_table import MAX_AUTO_RATE_LBS, REVISED_RATE_USD_BY_LBS
 from app.extensions import db
 from app.models.shipping_rate_tier import ShippingRateTier
-from app.services.shipping_service import usd_for_billable_lbs
 
-RATE_TIER_SEED = [
-    (f"{lbs} lb" if lbs == 1 else f"{lbs} lbs", lbs, lbs, "flat", usd_for_billable_lbs(lbs), None)
-    for lbs in range(1, 31)
-]
+
+def _build_rate_tier_seed():
+    return [
+        (
+            f"{lbs} lb" if lbs == 1 else f"{lbs} lbs",
+            lbs,
+            lbs,
+            "flat",
+            REVISED_RATE_USD_BY_LBS[lbs],
+            None,
+        )
+        for lbs in range(1, MAX_AUTO_RATE_LBS + 1)
+    ]
+
+
+RATE_TIER_SEED = _build_rate_tier_seed()
 
 
 def seed_rate_tiers():

@@ -34,7 +34,7 @@ export function ShippingLabel({ pkg, customer, className = '' }: ShippingLabelPr
           alt="Package Boss"
           className="mx-auto h-[1.35in] max-w-full w-auto object-contain print:h-[1.35in] print:max-w-full"
         />
-        <p className="mt-1 text-xs uppercase tracking-widest text-gray-600">Miami → Kingston</p>
+        <p className="mt-1 text-xs uppercase tracking-widest text-gray-600">Fort Lauderdale → Kingston</p>
       </div>
 
       <div className="my-4 flex justify-center">
@@ -85,7 +85,7 @@ export function ShippingLabel({ pkg, customer, className = '' }: ShippingLabelPr
       </div>
 
       <p className="mt-4 text-center text-[10px] uppercase tracking-wider text-gray-500">
-        Received Miami · {new Date(pkg.received_at || pkg.created_at).toLocaleDateString()}
+        Received Fort Lauderdale · {new Date(pkg.received_at || pkg.created_at).toLocaleDateString()}
       </p>
     </div>
   )

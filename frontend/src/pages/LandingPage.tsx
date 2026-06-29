@@ -24,13 +24,14 @@ export function LandingPage() {
 
       <AboutPreview />
 
-      <section className="border-t border-border px-4 py-16">
+  
+      <WhyBossRules /> <section className="border-t border-border px-4 py-16">
         <div className="mx-auto max-w-6xl rounded-2xl border border-border bg-card p-8 text-center shadow-sm md:p-12">
           <h2 className="text-2xl font-black uppercase md:text-3xl">
             Ready to ship like a <span className="italic text-boss-green">Boss?</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-muted">
-            Sign up today and get your dedicated Miami warehouse address instantly.
+            Sign up today and get your dedicated Fort Lauderdale warehouse address instantly.
             Always put your BOSS ID on address line 2 when shopping online.
           </p>
           <Link to="/signup" className="mt-8 inline-block">
@@ -41,7 +42,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <WhyBossRules />
+
     </>
   )
 }
