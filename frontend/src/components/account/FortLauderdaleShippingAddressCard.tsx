@@ -77,7 +77,7 @@ export function FortLauderdaleShippingAddressCard() {
       </p>
 
       {address ? (
-        <div className="mt-6 rounded-lg border-[3px] border-dashed border-boss-green/55 bg-background p-6">
+        <div className="mt-6 rounded-lg border-[3px] border-dashed border-boss-gold/55 bg-background p-6">
           <pre className="whitespace-pre-wrap font-mono text-base leading-relaxed text-black dark:text-white sm:text-lg">
             {address.formatted}
           </pre>

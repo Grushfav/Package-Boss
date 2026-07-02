@@ -84,7 +84,7 @@ export function ShippingEstimator() {
           </Button>
         </div>
 
-        <div className="flex flex-col justify-center rounded-xl border border-boss-green/20 bg-accent-subtle p-6 text-center">
+        <div className="flex flex-col justify-center rounded-xl border border-boss-gold/35 bg-boss-gold/10 p-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted">
             Estimated Freight
           </p>

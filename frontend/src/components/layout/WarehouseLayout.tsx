@@ -46,7 +46,7 @@ function WarehouseShell() {
     badge?: number
     permission: ClerkPermission | ClerkPermission[]
   }[] = [
-    { to: '/warehouse', end: true, icon: LayoutDashboard, label: 'Inbox', permission: 'receive' },
+    { to: '/warehouse', end: true, icon: LayoutDashboard, label: 'Floor', permission: 'receive' },
     { to: '/warehouse/receive', icon: PackagePlus, label: 'Receive', permission: 'receive' },
     {
       to: '/warehouse/print-queue',

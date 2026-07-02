@@ -61,7 +61,7 @@ export function WarehouseHomePage() {
         <div className="flex items-center gap-2.5">
           <IconBadge icon={Warehouse} size="sm" />
           <div>
-            <h1 className="text-2xl font-black uppercase">Operations inbox</h1>
+            <h1 className="text-2xl font-black uppercase">Floor</h1>
             <p className="text-sm text-muted">What needs attention right now</p>
           </div>
         </div>

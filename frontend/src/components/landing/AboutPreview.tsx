@@ -9,12 +9,12 @@ export function AboutPreview() {
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-start lg:gap-12">
         <div>
           <h2 className="text-2xl font-black uppercase md:text-3xl">
-            About <span className="italic text-boss-green">Package Boss</span>
+            About <span className="italic text-boss-gold">Package Boss</span>
           </h2>
           <p className="mt-4 text-sm leading-relaxed text-muted md:text-base">
             {ABOUT_PARAGRAPHS[0]}
           </p>
-          <blockquote className="mt-5 border-l-4 border-boss-gold pl-4 text-sm font-semibold italic text-boss-green md:text-base">
+          <blockquote className="mt-5 border-l-4 border-boss-gold pl-4 text-sm font-semibold italic text-boss-gold md:text-base">
             {TAGLINE}
           </blockquote>
           <p className="mt-5 text-sm leading-relaxed text-muted">{ABOUT_PARAGRAPHS[1]}</p>

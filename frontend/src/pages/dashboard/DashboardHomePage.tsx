@@ -29,7 +29,7 @@ export function DashboardHomePage() {
       
       <div className="rounded-2xl border border-boss-green/30 bg-card p-6 shadow-sm">
         <p className="text-xs font-medium uppercase tracking-wider text-muted">Your BOSS ID</p>
-        <p className="mt-2 font-mono text-3xl font-black text-boss-green">{user?.shipping_id}</p>
+        <p className="mt-2 font-mono text-3xl font-black text-boss-gold">{user?.shipping_id}</p>
         <p className="mt-2 text-sm text-muted">
           Put this on address line 2 whenever you shop online in the US.
         </p>

@@ -26,7 +26,7 @@ function NavBadge({ count }: { count: number }) {
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
     isActive
-      ? 'bg-boss-green/15 text-boss-green'
+      ? 'bg-boss-gold/15 text-boss-gold'
       : 'text-muted hover:bg-card hover:text-foreground'
   }`
 
@@ -110,7 +110,7 @@ export function CustomerDashboardLayout() {
             end={item.end}
             className={({ isActive }) =>
               `relative flex min-w-[4.25rem] shrink-0 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-semibold ${
-                isActive ? 'text-boss-green' : 'text-muted'
+                isActive ? 'text-boss-gold' : 'text-muted'
               }`
             }
           >

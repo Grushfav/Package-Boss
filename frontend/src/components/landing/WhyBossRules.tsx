@@ -22,9 +22,9 @@ export function WhyBossRules() {
           <div>
             <h2 className="text-2xl font-black uppercase md:text-3xl">
               <span className="border-b-4 border-boss-gold pb-1">Our</span>{' '}
-              <span className="italic text-boss-green">Services</span>
+              <span className="italic text-boss-gold">Services</span>
             </h2>
-            <Link to="/services" className="mt-2 inline-block text-sm text-boss-green hover:underline">
+            <Link to="/services" className="mt-2 inline-block text-sm text-boss-gold hover:underline">
               View all services →
             </Link>
           </div>

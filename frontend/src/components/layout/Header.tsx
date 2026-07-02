@@ -16,7 +16,7 @@ export function Header() {
     <header className="border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link to={isAuthenticated && isCustomer ? '/dashboard' : '/'} className="flex items-center gap-2.5">
-          <img src="/logo.svg" alt="" className="h-[3.375rem] w-auto" aria-hidden />
+          <img src="/logo.svg" alt="" className="h-[4.22rem] w-auto" aria-hidden />
           <span className="text-xl font-black italic tracking-tight">
             <span className="text-foreground">PACKAGE </span>
             <span className="text-boss-gold">BOSS</span>
