@@ -2,8 +2,6 @@ import re
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-PHONE_PATTERN = re.compile(r"^\+?1?876\d{7}$|^\d{10}$")
-
 
 def hash_password(password: str) -> str:
     return generate_password_hash(password)
@@ -14,14 +12,13 @@ def verify_password(password_hash: str, password: str) -> bool:
 
 
 def normalize_phone(value: str) -> str:
-    digits = re.sub(r"\D", "", value)
-    if digits.startswith("1876") and len(digits) == 11:
-        return f"+{digits}"
-    if digits.startswith("876") and len(digits) == 10:
-        return f"+1{digits}"
-    if len(digits) == 10:
-        return f"+1{digits}"
-    raise ValueError("Contact number must be a valid Jamaica number (876)")
+    raw = (value or "").strip()
+    if not raw:
+        raise ValueError("Contact number is required")
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) < 7 or len(digits) > 15:
+        raise ValueError("Contact number must be 7–15 digits (include country code)")
+    return f"+{digits}"
 
 
 def validate_password(password: str) -> None:

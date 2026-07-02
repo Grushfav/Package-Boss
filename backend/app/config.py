@@ -21,9 +21,6 @@ class Config:
 
     BOSS_ID_SEQ_START = int(os.environ.get("BOSS_ID_SEQ_START", "90001"))
 
-    TRN_ENCRYPTION_KEY = os.environ.get("TRN_ENCRYPTION_KEY", "")
-    TRN_PEPPER = os.environ.get("TRN_PEPPER", "")
-
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
     @staticmethod
@@ -39,10 +36,10 @@ class Config:
 
     CORS_ORIGINS = _build_cors_origins()
 
-    WAREHOUSE_LINE1 = os.environ.get("WAREHOUSE_LINE1", "9999 North America Way")
-    WAREHOUSE_CITY = os.environ.get("WAREHOUSE_CITY", "Fort Lauderdale")
+    WAREHOUSE_LINE1 = os.environ.get("WAREHOUSE_LINE1", "2201 SW 59th Terrace")
+    WAREHOUSE_CITY = os.environ.get("WAREHOUSE_CITY", "West Park")
     WAREHOUSE_STATE = os.environ.get("WAREHOUSE_STATE", "FL")
-    WAREHOUSE_ZIP = os.environ.get("WAREHOUSE_ZIP", "33132")
+    WAREHOUSE_ZIP = os.environ.get("WAREHOUSE_ZIP", " 33023")
     WAREHOUSE_COUNTRY = os.environ.get("WAREHOUSE_COUNTRY", "US")
 
     EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "console")

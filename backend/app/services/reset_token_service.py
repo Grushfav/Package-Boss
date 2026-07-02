@@ -2,15 +2,12 @@ import hashlib
 import secrets
 import time
 
-from flask import current_app, request
+from flask import current_app
 
 RESET_TTL_SECONDS = 900  # 15 minutes
 INVITE_TTL_SECONDS = 86400  # 24 hours
-RATE_LIMIT_TTL = 3600
-RATE_LIMIT_MAX = 3
 
 _reset_tokens: dict[str, tuple[str, float]] = {}
-_rate_limits: dict[str, tuple[int, float]] = {}
 
 
 def _hash_token(raw_token: str) -> str:
@@ -51,19 +48,6 @@ def get_user_id_for_token(raw_token: str) -> str | None:
 
 def delete_reset_token(raw_token: str) -> None:
     _reset_tokens.pop(_hash_token(raw_token), None)
-
-
-def check_rate_limit(email: str) -> None:
-    now = time.time()
-    ip = request.remote_addr or "unknown"
-    for key in (f"reset_attempts:email:{email}", f"reset_attempts:ip:{ip}"):
-        count, expires = _rate_limits.get(key, (0, now + RATE_LIMIT_TTL))
-        if now > expires:
-            count, expires = 0, now + RATE_LIMIT_TTL
-        count += 1
-        _rate_limits[key] = (count, expires)
-        if count > RATE_LIMIT_MAX:
-            raise ValueError("Too many reset attempts. Try again later.")
 
 
 def build_reset_url(raw_token: str) -> str:

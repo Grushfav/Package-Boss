@@ -92,6 +92,28 @@ export async function presignUnidentifiedUpload(
   return data
 }
 
+export async function fetchMyRecentReceives(
+  limit = 3,
+): Promise<ClerkRecentReceive[]> {
+  const { data } = await api.get<{ receives: ClerkRecentReceive[] }>(
+    '/staff/packages/my-recent-receives',
+    { params: { limit } },
+  )
+  return data.receives
+}
+
+export interface ClerkRecentReceive {
+  received_at: string
+  action: string
+  tracking_number?: string | null
+  shipping_id?: string | null
+  customer_name?: string | null
+  billable_weight_lbs?: number | null
+  is_unidentified?: boolean
+  label_name?: string | null
+  package_id?: string | null
+}
+
 export async function receivePackage(payload: {
   shipping_id: string
   actual_weight_lbs: number
@@ -157,11 +179,18 @@ export async function markLabelsPrinted(
 }
 
 export async function fetchPrintQueue(
-  options: { days?: number; limit?: number; offset?: number } = {},
+  options: { days?: number; limit?: number; offset?: number; pending_only?: boolean } = {},
 ): Promise<{ packages: Package[]; total: number }> {
   const { data } = await api.get<{ packages: Package[]; total: number }>(
     '/staff/packages/print-queue',
-    { params: options },
+    {
+      params: {
+        days: options.days,
+        limit: options.limit,
+        offset: options.offset,
+        pending_only: options.pending_only ?? true,
+      },
+    },
   )
   return data
 }

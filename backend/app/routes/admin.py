@@ -17,9 +17,10 @@ from app.services.admin_stats_service import (
 from app.services.auth_service import hash_password, normalize_phone
 from app.services.clerk_permission_service import normalize_clerk_permissions
 from app.services.email_service import EmailServiceError, send_clerk_invite_email
+from app.services.rate_limit_service import RateLimitExceeded, assert_clerk_invite_resend_allowed
 from app.services.reset_token_service import build_reset_url, generate_reset_token, store_invite_token
 from app.services.staff_id_service import generate_staff_shipping_id
-from app.utils.auth_decorators import admin_required, permission_required
+from app.utils.auth_decorators import admin_required, get_user_from_jwt, permission_required
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -156,8 +157,7 @@ def create_clerk():
         last_name=data["last_name"].strip(),
         contact_number=contact_number,
         parish=parish or None,
-        trn_encrypted=None,
-        trn_hash=None,
+        trn=None,
         shipping_id=generate_staff_shipping_id(),
         role="clerk",
         clerk_permissions=permissions,
@@ -221,6 +221,15 @@ def update_clerk(user_id: str):
 @admin_bp.route("/admin/clerks/<user_id>/resend-invite", methods=["POST"])
 @admin_required()
 def resend_clerk_invite(user_id: str):
+    admin = get_user_from_jwt()
+    if not admin:
+        return _error("Admin access required", 403)
+
+    try:
+        assert_clerk_invite_resend_allowed(str(admin.id))
+    except RateLimitExceeded as exc:
+        return _error(str(exc), 429)
+
     try:
         uid = uuid.UUID(user_id)
     except ValueError:

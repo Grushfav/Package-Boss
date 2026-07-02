@@ -22,7 +22,7 @@ export function DashboardHomePage() {
       <div>
         <h2 className="text-lg font-bold uppercase tracking-wide">Dashboard</h2>
         <p className="mt-2 text-sm text-muted">
-          Welcome back, {user?.first_name}. Packages ship from Fort Lauderdale to Jamaica{' '}
+          Welcome, {user?.first_name}. Packages ship from Fort Lauderdale to Jamaica{' '}
           <span className="font-semibold text-boss-green">{SHIPPING_FREQUENCY_SHORT}</span>.
         </p>
       </div>

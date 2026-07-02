@@ -6,28 +6,33 @@ interface ShippingLabelProps {
   pkg: Package
   customer?: StaffCustomer | null
   className?: string
+  preview?: boolean
 }
 
-export function ShippingLabel({ pkg, customer, className = '' }: ShippingLabelProps) {
+export function ShippingLabel({ pkg, customer, className = '', preview = false }: ShippingLabelProps) {
   const barcodeRef = useRef<SVGSVGElement>(null)
 
   useEffect(() => {
-    if (barcodeRef.current && pkg.tracking_number) {
-      JsBarcode(barcodeRef.current, pkg.tracking_number, {
-        format: 'CODE128',
-        width: 2,
-        height: 56,
-        displayValue: true,
-        fontSize: 14,
-        margin: 8,
-      })
-    }
-  }, [pkg.tracking_number])
+    if (preview || !barcodeRef.current || !pkg.tracking_number) return
+    JsBarcode(barcodeRef.current, pkg.tracking_number, {
+      format: 'CODE128',
+      width: 2,
+      height: 56,
+      displayValue: true,
+      fontSize: 14,
+      margin: 8,
+    })
+  }, [pkg.tracking_number, preview])
 
   return (
     <div
       className={`shipping-label mx-auto w-full max-w-md border-2 border-black bg-white p-6 text-black ${className}`}
     >
+      {preview && (
+        <p className="mb-3 rounded border border-amber-400 bg-amber-50 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider text-amber-800">
+          Label preview — confirm receival to assign tracking
+        </p>
+      )}
       <div className="border-b-2 border-black pb-3 text-center">
         <img
           src="/logo-bw.svg"
@@ -38,10 +43,18 @@ export function ShippingLabel({ pkg, customer, className = '' }: ShippingLabelPr
       </div>
 
       <div className="my-4 flex justify-center">
-        <svg ref={barcodeRef} />
+        {preview ? (
+          <div className="flex h-[72px] w-full max-w-xs items-center justify-center border border-dashed border-gray-400 bg-gray-50 px-4 text-center text-xs uppercase tracking-wider text-gray-500">
+            Barcode on confirm
+          </div>
+        ) : (
+          <svg ref={barcodeRef} />
+        )}
       </div>
 
-      <p className="text-center font-mono text-xl font-bold">{pkg.tracking_number}</p>
+      <p className="text-center font-mono text-xl font-bold">
+        {preview ? 'Tracking assigned on confirm' : pkg.tracking_number}
+      </p>
 
       <div className="mt-4 space-y-1 border-t border-black pt-4 text-sm">
         <p className="text-xs font-bold uppercase tracking-wider">Ship To</p>

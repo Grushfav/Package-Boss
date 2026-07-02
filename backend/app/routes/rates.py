@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 
+from app.services.rate_limit_service import RateLimitExceeded, assert_rates_estimate_allowed
 from app.services.shipping_service import (
     JMD_PER_USD,
     MAX_AUTO_RATE_LBS,
@@ -35,6 +36,11 @@ def list_rates():
 
 @rates_bp.route("/rates/estimate", methods=["GET"])
 def estimate_rate():
+    try:
+        assert_rates_estimate_allowed()
+    except RateLimitExceeded as exc:
+        return jsonify({"error": str(exc)}), 429
+
     weight_raw = request.args.get("weight_lbs")
     if weight_raw is None:
         return jsonify({"error": "weight_lbs query parameter is required"}), 400

@@ -1,6 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { canAccessWarehouse, isAdmin } from '../../lib/roles'
 import { Button } from '../ui/Button'
 import { ThemeToggle } from '../ui/ThemeToggle'
 
@@ -12,7 +11,6 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export function Header() {
   const { isAuthenticated, user, logout, homeRoute } = useAuth()
   const isCustomer = !user?.role || user.role === 'customer'
-  const showPublicNav = !isAuthenticated || !isCustomer
 
   return (
     <header className="border-b border-border bg-background/90 backdrop-blur">
@@ -25,22 +23,14 @@ export function Header() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          {showPublicNav && (
-            <>
-              <NavLink to="/about" className={navClass}>About</NavLink>
-              <NavLink to="/services" className={navClass}>Services</NavLink>
-              <NavLink to="/track" className={navClass}>Tracking</NavLink>
-              <NavLink to="/rates" className={navClass}>Rates</NavLink>
-            </>
-          )}
-          {isAuthenticated && canAccessWarehouse(user?.role) && (
-            <NavLink to="/warehouse" className={navClass}>Warehouse</NavLink>
-          )}
-          {isAuthenticated && isAdmin(user?.role) && (
-            <NavLink to="/admin" className={navClass}>Admin</NavLink>
-          )}
-        </nav>
+        {!isAuthenticated && (
+          <nav className="hidden items-center gap-8 md:flex">
+            <NavLink to="/about" className={navClass}>About</NavLink>
+            <NavLink to="/services" className={navClass}>Services</NavLink>
+            <NavLink to="/track" className={navClass}>Tracking</NavLink>
+            <NavLink to="/rates" className={navClass}>Rates</NavLink>
+          </nav>
+        )}
 
         <div className="flex items-center gap-3">
           <ThemeToggle />

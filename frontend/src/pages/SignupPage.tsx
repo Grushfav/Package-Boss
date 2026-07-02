@@ -98,18 +98,18 @@ export function SignupPage() {
           <Input
             label="Contact Number"
             type="tel"
-            placeholder="8765551234"
+            placeholder="+18765551234 or +19545551234"
             value={form.contact_number}
             onChange={(e) => update('contact_number', e.target.value)}
             required
           />
+          <p className="text-xs text-muted">Include country code (e.g. +1 for US/Jamaica).</p>
 
           <Input
-            label="TRN (9 digits)"
+            label="TRN (optional, 9 digits)"
             placeholder="123456789"
             value={form.trn}
             onChange={(e) => update('trn', e.target.value)}
-            required
             maxLength={11}
           />
 
@@ -141,6 +141,14 @@ export function SignupPage() {
               I agree to the{' '}
               <Link to="/terms" target="_blank" className="text-boss-green hover:underline">
                 Terms and Conditions
+              </Link>
+              ,{' '}
+              <Link to="/privacy" target="_blank" className="text-boss-green hover:underline">
+                Privacy Policy
+              </Link>
+              , and{' '}
+              <Link to="/data-protection" target="_blank" className="text-boss-green hover:underline">
+                Data Protection Policy
               </Link>{' '}
               of Package Boss Shipping &amp; Logistics (effective June 21, 2026).
             </span>

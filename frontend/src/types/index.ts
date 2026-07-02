@@ -22,8 +22,7 @@ export interface User {
   clerk_permissions?: ClerkPermission[]
   must_set_password?: boolean
   is_active?: boolean
-  trn_masked?: string
-  trn_on_file?: boolean
+  trn?: string
   whatsapp_opt_in?: boolean
   created_at: string
 }
@@ -84,7 +83,7 @@ export interface RegisterPayload {
   email: string
   password: string
   contact_number: string
-  trn: string
+  trn?: string
   parish: string
   accept_terms: boolean
 }

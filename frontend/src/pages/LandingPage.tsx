@@ -28,7 +28,7 @@ export function LandingPage() {
       <WhyBossRules /> <section className="border-t border-border px-4 py-16">
         <div className="mx-auto max-w-6xl rounded-2xl border border-border bg-card p-8 text-center shadow-sm md:p-12">
           <h2 className="text-2xl font-black uppercase md:text-3xl">
-            Ready to ship like a <span className="italic text-boss-green">Boss?</span>
+            Ready to ship like a <span className="italic text-boss-gold">Boss?</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-muted">
             Sign up today and get your dedicated Fort Lauderdale warehouse address instantly.

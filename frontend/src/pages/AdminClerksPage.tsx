@@ -186,7 +186,8 @@ export function AdminClerksPage() {
                 required
               />
               <Input
-                label="Contact (876, optional)"
+                label="Phone (optional, include country code)"
+                placeholder="+18765551234"
                 value={form.contact_number}
                 onChange={(e) => setForm({ ...form, contact_number: e.target.value })}
               />

@@ -1,6 +1,51 @@
+import os
+
 from sqlalchemy import inspect, text
 
 from app.extensions import db
+
+
+def _decrypt_trn(encrypted: str) -> str | None:
+    key = os.environ.get("TRN_ENCRYPTION_KEY", "").strip()
+    if not key or not encrypted:
+        return None
+    try:
+        from cryptography.fernet import Fernet
+
+        fernet = Fernet(key.encode() if isinstance(key, str) else key)
+        return fernet.decrypt(encrypted.encode("utf-8")).decode("utf-8")
+    except Exception:
+        return None
+
+
+def _migrate_trn_columns(app, columns: set[str]) -> None:
+    if "trn" not in columns:
+        db.session.execute(text("ALTER TABLE users ADD COLUMN trn VARCHAR(11)"))
+        db.session.commit()
+        app.logger.info("Added missing users.trn column")
+        columns.add("trn")
+
+    if "trn_encrypted" not in columns:
+        return
+
+    rows = db.session.execute(
+        text("SELECT id, trn_encrypted FROM users WHERE trn_encrypted IS NOT NULL")
+    ).fetchall()
+    for row in rows:
+        plain = _decrypt_trn(row.trn_encrypted)
+        if plain:
+            db.session.execute(
+                text("UPDATE users SET trn = :trn WHERE id = :id"),
+                {"trn": plain, "id": row.id},
+            )
+    db.session.commit()
+
+    if db.engine.dialect.name == "postgresql":
+        db.session.execute(text("DROP INDEX IF EXISTS ix_users_trn_hash"))
+    db.session.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS trn_hash"))
+    db.session.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS trn_encrypted"))
+    db.session.commit()
+    app.logger.info("Migrated users TRN to plain-text column")
 
 
 def ensure_schema(app) -> None:
@@ -38,11 +83,11 @@ def ensure_schema(app) -> None:
                 app.logger.info("Added missing users.%s column", col_name)
                 columns.add(col_name)
 
-        # Allow nullable TRN/parish for staff accounts
         if db.engine.dialect.name == "postgresql":
-            for col in ("trn_encrypted", "trn_hash", "parish"):
-                db.session.execute(text(f"ALTER TABLE users ALTER COLUMN {col} DROP NOT NULL"))
+            db.session.execute(text("ALTER TABLE users ALTER COLUMN parish DROP NOT NULL"))
             db.session.commit()
+
+        _migrate_trn_columns(app, columns)
 
     if "packages" in inspector.get_table_names():
         pkg_columns = {col["name"] for col in inspector.get_columns("packages")}

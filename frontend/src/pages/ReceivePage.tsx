@@ -1,6 +1,7 @@
 import {
   Barcode,
   Camera,
+  Clock,
   PackagePlus,
   Printer,
   RotateCcw,
@@ -8,23 +9,32 @@ import {
   UserCheck,
   Zap,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
-import { fetchShippers, lookupCustomer, lookupPreAlertByTracking, markLabelsPrinted, receivePackage, receiveUnidentifiedPackage, searchCustomers } from '../api/staff'
+import {
+  fetchMyRecentReceives,
+  fetchShippers,
+  lookupCustomer,
+  lookupPreAlertByTracking,
+  markLabelsPrinted,
+  receivePackage,
+  receiveUnidentifiedPackage,
+  searchCustomers,
+  type ClerkRecentReceive,
+} from '../api/staff'
 import type { PreAlertLookupMatch } from '../api/staff'
 import type { PreAlert } from '../types'
 import { markPrintedAfterPrint, ShippingLabel } from '../components/warehouse/ShippingLabel'
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { uploadPhoto, uploadUnidentifiedPhoto } from '../lib/uploadPhoto'
+import { MAX_AUTO_RATE_LBS, MAX_RECEIVE_LBS } from '../lib/warehouseConstants'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
 import type { Package, Shipper, StaffCustomer } from '../types'
 
-type ReceiveStep = 'idle' | 'receiving' | 'complete'
-
-const MAX_RECEIVE_LBS = 30
+type ReceiveStep = 'idle' | 'receiving' | 'preview' | 'complete'
 
 const RUSH_MODE_KEY = 'boss:warehouse:rush-mode'
 const LAST_SHIPPER_KEY = 'boss:warehouse:last-shipper'
@@ -72,16 +82,33 @@ export function ReceivePage() {
   const [showUnidentifiedSection, setShowUnidentifiedSection] = useState(false)
 
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [submitLoading, setSubmitLoading] = useState(false)
   const [completedPackage, setCompletedPackage] = useState<Package | null>(null)
   const [matchedPreAlert, setMatchedPreAlert] = useState<PreAlert | null>(null)
   const [suggestedPreAlert, setSuggestedPreAlert] = useState<PreAlert | null>(null)
   const [preAlertMatches, setPreAlertMatches] = useState<PreAlertLookupMatch[]>([])
   const [preAlertLookupLoading, setPreAlertLookupLoading] = useState(false)
+  const [recentReceives, setRecentReceives] = useState<ClerkRecentReceive[]>([])
+  const [recentLoading, setRecentLoading] = useState(false)
+  const [previewUnidentified, setPreviewUnidentified] = useState(false)
+
+  const loadRecentReceives = useCallback(async () => {
+    setRecentLoading(true)
+    try {
+      const rows = await fetchMyRecentReceives(3)
+      setRecentReceives(rows)
+    } catch {
+      setRecentReceives([])
+    } finally {
+      setRecentLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     fetchShippers().then(setShippers).catch(() => {})
-  }, [])
+    loadRecentReceives()
+  }, [loadRecentReceives])
 
   useEffect(() => {
     const shippingId = searchParams.get('shipping_id')?.trim().toUpperCase()
@@ -163,11 +190,13 @@ export function ReceivePage() {
     setPhotoFile(null)
     setShowUnidentifiedSection(false)
     setError('')
+    setSuccess('')
     setCompletedPackage(null)
     setMatchedPreAlert(null)
     setSuggestedPreAlert(null)
     setPreAlertMatches([])
     setPreAlertLookupLoading(false)
+    setPreviewUnidentified(false)
   }
 
   function applyPreAlertMatches(matches: PreAlertLookupMatch[]) {
@@ -228,6 +257,7 @@ export function ReceivePage() {
     setPreAlertMatches([])
     setStep('receiving')
     setError('')
+    setSuccess('')
     await resolvePreAlertForTracking(upper)
   }
 
@@ -243,6 +273,7 @@ export function ReceivePage() {
     setShowUnidentifiedSection(false)
     setStep('receiving')
     setError('')
+    setSuccess('')
   }
 
   async function handleSearch() {
@@ -265,92 +296,173 @@ export function ReceivePage() {
     }
   }
 
+  function parseWeightLbs(): number | null {
+    const lbs = parseFloat(weight)
+    if (!weight || Number.isNaN(lbs) || lbs <= 0) return null
+    return lbs
+  }
+
+  function validateWeight(lbs: number): string | null {
+    if (lbs > MAX_RECEIVE_LBS) {
+      return `Packages over ${MAX_RECEIVE_LBS} lbs cannot be received here. Contact support@packageboss.com.`
+    }
+    return null
+  }
+
+  function billableWeight(lbs: number): number {
+    return Math.ceil(lbs)
+  }
+
+  function buildPreviewPackage(unidentified: boolean): Package {
+    const lbs = parseWeightLbs() ?? 0
+    const shipperLabel = shippers.find((s) => s.code === shipper)?.label ?? shipper
+    return {
+      id: 'preview',
+      tracking_number: '',
+      status: unidentified ? 'unidentified' : 'received',
+      status_label: unidentified ? 'Unidentified' : 'Received',
+      carrier_tracking: carrierTracking.trim() || undefined,
+      label_name: labelName.trim() || undefined,
+      label_boss_id: labelBossId.trim() || undefined,
+      is_unidentified: unidentified,
+      shipper,
+      shipper_label: shipperLabel,
+      actual_weight_lbs: lbs,
+      billable_weight_lbs: billableWeight(lbs),
+      received_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  function previewCustomer(unidentified: boolean): StaffCustomer | null {
+    if (unidentified) return null
+    return customer
+  }
+
+  function validateReceiveReady(unidentified: boolean): boolean {
+    const lbs = parseWeightLbs()
+    if (lbs == null) {
+      setError('Enter a valid weight in lbs.')
+      return false
+    }
+    const weightError = validateWeight(lbs)
+    if (weightError) {
+      setError(weightError)
+      return false
+    }
+    if (!unidentified && !customer) {
+      setError('Select a customer before completing receival.')
+      return false
+    }
+    if (unidentified) {
+      const hasLabelInfo =
+        labelName.trim() || labelBossId.trim() || carrierTracking.trim()
+      if (!hasLabelInfo) {
+        setError('Enter the name on the label, BOSS ID from the label, or carrier tracking.')
+        return false
+      }
+    }
+    if (!shipper) {
+      setError('Select a shipper.')
+      return false
+    }
+    setError('')
+    setSuccess('')
+    setPreviewUnidentified(unidentified)
+    return true
+  }
+
+  function goToPreview(unidentified: boolean) {
+    if (!validateReceiveReady(unidentified)) return
+    setStep('preview')
+  }
+
+  function handleCompleteDirectly() {
+    const unidentified = showUnidentifiedSection && !customer
+    if (!validateReceiveReady(unidentified)) return
+    void handleConfirmReceive({ skipLabelView: true })
+  }
+
   async function handleReceive(e: React.FormEvent) {
     e.preventDefault()
-    if (!customer) {
-      setError('Select a customer before completing receival.')
-      return
-    }
-    const lbs = parseFloat(weight)
-    if (lbs > MAX_RECEIVE_LBS) {
-      setError(
-        `Packages over ${MAX_RECEIVE_LBS} lbs require a custom quote. Email support@packageboss.com.`,
-      )
-      return
-    }
-
-    setError('')
-    setSubmitLoading(true)
-
-    try {
-      const photoKeys: string[] = []
-      if (photoFile) {
-        const key = await uploadPhoto(photoFile, customer.shipping_id)
-        photoKeys.push(key)
-      }
-
-      const { package: pkg, pre_alert_matched } = await receivePackage({
-        shipping_id: customer.shipping_id,
-        actual_weight_lbs: parseFloat(weight),
-        shipper,
-        carrier_tracking: carrierTracking.trim() || undefined,
-        photo_keys: photoKeys,
-        note: note || undefined,
-      })
-
-      setCompletedPackage(pkg)
-      setMatchedPreAlert(pre_alert_matched ?? null)
-      setCustomer(pkg.customer || customer)
-      setStep('complete')
-      refreshCounts()
-    } catch (err) {
-      setError(getErrorMessage(err))
-    } finally {
-      setSubmitLoading(false)
-    }
+    goToPreview(false)
   }
 
   async function handleReceiveUnidentified(e: React.FormEvent) {
     e.preventDefault()
+    goToPreview(true)
+  }
 
-    const hasLabelInfo =
-      labelName.trim() || labelBossId.trim() || carrierTracking.trim()
-    if (!hasLabelInfo) {
-      setError('Enter the name on the label, BOSS ID from the label, or carrier tracking.')
+  async function handleConfirmReceive(options: { skipLabelView?: boolean } = {}) {
+    const { skipLabelView = false } = options
+    const lbs = parseWeightLbs()
+    if (lbs == null) {
+      setError('Enter a valid weight in lbs.')
       return
     }
-    const lbs = parseFloat(weight)
-    if (lbs > MAX_RECEIVE_LBS) {
-      setError(
-        `Packages over ${MAX_RECEIVE_LBS} lbs require a custom quote. Email support@packageboss.com.`,
-      )
+    const weightError = validateWeight(lbs)
+    if (weightError) {
+      setError(weightError)
       return
     }
 
     setError('')
+    setSuccess('')
     setSubmitLoading(true)
 
     try {
       const photoKeys: string[] = []
       if (photoFile) {
-        const key = await uploadUnidentifiedPhoto(photoFile)
+        const key = previewUnidentified
+          ? await uploadUnidentifiedPhoto(photoFile)
+          : await uploadPhoto(photoFile, customer!.shipping_id)
         photoKeys.push(key)
       }
 
-      const result = await receiveUnidentifiedPackage({
-        actual_weight_lbs: parseFloat(weight),
-        shipper,
-        carrier_tracking: carrierTracking.trim() || undefined,
-        label_name: labelName.trim() || undefined,
-        label_boss_id: labelBossId.trim() || undefined,
-        photo_keys: photoKeys,
-        note: note || undefined,
-      })
+      let savedPackage: Package
+      if (previewUnidentified) {
+        savedPackage = await receiveUnidentifiedPackage({
+          actual_weight_lbs: lbs,
+          shipper,
+          carrier_tracking: carrierTracking.trim() || undefined,
+          label_name: labelName.trim() || undefined,
+          label_boss_id: labelBossId.trim() || undefined,
+          photo_keys: photoKeys,
+          note: note || undefined,
+        })
+      } else {
+        const { package: pkg, pre_alert_matched } = await receivePackage({
+          shipping_id: customer!.shipping_id,
+          actual_weight_lbs: lbs,
+          shipper,
+          carrier_tracking: carrierTracking.trim() || undefined,
+          photo_keys: photoKeys,
+          note: note || undefined,
+        })
+        savedPackage = pkg
+        setMatchedPreAlert(pre_alert_matched ?? null)
+        setCustomer(pkg.customer || customer)
+      }
 
-      setCompletedPackage(result)
-      setCustomer(null)
-      setStep('complete')
       refreshCounts()
+      loadRecentReceives()
+
+      if (skipLabelView) {
+        const tracking = savedPackage.tracking_number
+        const summary = savedPackage.is_unidentified
+          ? `Unidentified package ${tracking} queued.`
+          : `Receival complete — ${tracking}. Label added to print queue.`
+        resetAll()
+        setSuccess(summary)
+        scanInputRef.current?.focus()
+        return
+      }
+
+      setCompletedPackage(savedPackage)
+      if (previewUnidentified) {
+        setCustomer(null)
+      }
+      setStep('complete')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -358,15 +470,17 @@ export function ReceivePage() {
     }
   }
 
-  const canComplete = Boolean(
-    customer && shipper && weight && parseFloat(weight) <= MAX_RECEIVE_LBS,
-  )
-  const canCompleteUnidentified = Boolean(
-    shipper &&
-      weight &&
-      parseFloat(weight) <= MAX_RECEIVE_LBS &&
+  const lbs = parseWeightLbs()
+  const canPreviewCustomer = Boolean(customer && shipper && lbs != null && lbs <= MAX_RECEIVE_LBS)
+  const canPreviewUnidentified = Boolean(
+    showUnidentifiedSection &&
+      shipper &&
+      lbs != null &&
+      lbs <= MAX_RECEIVE_LBS &&
       (labelName.trim() || labelBossId.trim() || carrierTracking.trim()),
   )
+  const requiresCustomQuote =
+    lbs != null && billableWeight(lbs) > MAX_AUTO_RATE_LBS && lbs <= MAX_RECEIVE_LBS
 
   function handlePrintNow() {
     if (!completedPackage) return
@@ -400,8 +514,60 @@ export function ReceivePage() {
         </button>
       </div>
 
+      {success && (
+        <p className="mb-4 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-3 text-sm text-boss-green">
+          {success}
+        </p>
+      )}
+
+      {error && step !== 'complete' && (
+        <p className="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
+      )}
+
       {step === 'idle' && (
         <div className="space-y-6">
+          {(recentLoading || recentReceives.length > 0) && (
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
+                <Clock className="h-4 w-4" />
+                Your last 3 receivals today
+              </h2>
+              {recentLoading ? (
+                <p className="mt-3 text-sm text-muted">Loading…</p>
+              ) : recentReceives.length === 0 ? (
+                <p className="mt-3 text-sm text-muted">No packages received yet today.</p>
+              ) : (
+                <ul className="mt-4 space-y-2">
+                  {recentReceives.map((row) => (
+                    <li
+                      key={`${row.package_id}-${row.received_at}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-mono font-semibold">{row.tracking_number || '—'}</p>
+                        <p className="text-muted">
+                          {row.is_unidentified
+                            ? row.label_name || 'Unidentified'
+                            : row.customer_name || row.shipping_id || 'Customer'}
+                          {row.shipping_id && !row.is_unidentified ? ` · ${row.shipping_id}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right text-muted">
+                        <p>{row.billable_weight_lbs != null ? `${row.billable_weight_lbs} lbs` : '—'}</p>
+                        <p className="text-xs">
+                          {new Date(row.received_at).toLocaleTimeString([], {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           <div className="rounded-2xl border border-boss-green/30 bg-card p-6">
             <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
               <Barcode className="h-4 w-4" />
@@ -630,7 +796,7 @@ export function ReceivePage() {
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
                       Unidentified package
                     </p>
                     <p className="mt-1 text-sm text-muted">
@@ -707,16 +873,24 @@ export function ReceivePage() {
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && customer && canComplete && !submitLoading) {
+                if (e.key === 'Enter' && customer && canPreviewCustomer && !submitLoading) {
                   e.preventDefault()
-                  handleReceive(e as unknown as React.FormEvent)
+                  goToPreview(false)
                 }
               }}
               required
             />
             <p className="text-xs text-muted">
-              Max {MAX_RECEIVE_LBS} lbs for standard rates. Heavier packages need a custom quote.
+              Up to {MAX_RECEIVE_LBS} lbs. Standard tier rates apply to {MAX_AUTO_RATE_LBS} lbs or
+              less; heavier packages are received with a custom quote.
             </p>
+
+            {requiresCustomQuote && (
+              <p className="rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-xs font-medium text-amber-900 dark:text-amber-100">
+                {billableWeight(lbs!)} lbs billable — over {MAX_AUTO_RATE_LBS} lbs, freight will be
+                quoted separately.
+              </p>
+            )}
 
             {!rushMode && (
               <Input
@@ -762,28 +936,94 @@ export function ReceivePage() {
                 <RotateCcw className="h-4 w-4" />
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                fullWidth
-                disabled={
-                  submitLoading ||
-                  (customer
-                    ? !canComplete
+              <div className="flex flex-1 flex-col gap-3 sm:flex-row">
+                <Button
+                  type="submit"
+                  variant="outline"
+                  fullWidth
+                  disabled={
+                    submitLoading ||
+                    (customer
+                      ? !canPreviewCustomer
+                      : showUnidentifiedSection
+                        ? !canPreviewUnidentified
+                        : true)
+                  }
+                >
+                  {customer
+                    ? 'Preview label'
                     : showUnidentifiedSection
-                      ? !canCompleteUnidentified
-                      : true)
-                }
-              >
-                {submitLoading
-                  ? 'Completing...'
-                  : customer
-                    ? 'Complete receival & generate label'
-                    : showUnidentifiedSection
-                      ? 'Add to unidentified queue'
-                      : 'Select customer to continue'}
-              </Button>
+                      ? 'Preview unidentified label'
+                      : 'Preview label'}
+                </Button>
+                <Button
+                  type="button"
+                  fullWidth
+                  disabled={
+                    submitLoading ||
+                    (customer
+                      ? !canPreviewCustomer
+                      : showUnidentifiedSection
+                        ? !canPreviewUnidentified
+                        : true)
+                  }
+                  onClick={handleCompleteDirectly}
+                >
+                  {submitLoading
+                    ? 'Completing…'
+                    : customer
+                      ? 'Complete receival'
+                      : showUnidentifiedSection
+                        ? 'Complete unidentified receival'
+                        : 'Complete receival'}
+                </Button>
+              </div>
             </div>
           </form>
+        </div>
+      )}
+
+      {step === 'preview' && (
+        <div className="space-y-6">
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/15 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-200">
+              Review before confirming
+            </p>
+            <p className="mt-2 text-sm text-muted">
+              Check the label details below. Nothing is saved until you confirm receival.
+            </p>
+            {requiresCustomQuote && (
+              <p className="mt-2 text-sm font-medium text-amber-900 dark:text-amber-100">
+                This package requires a custom freight quote (over {MAX_AUTO_RATE_LBS} lbs).
+              </p>
+            )}
+          </div>
+
+          <ShippingLabel
+            preview
+            pkg={buildPreviewPackage(previewUnidentified)}
+            customer={previewCustomer(previewUnidentified)}
+          />
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStep('receiving')}
+              className="inline-flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Back to edit
+            </Button>
+            <Button
+              type="button"
+              fullWidth
+              disabled={submitLoading}
+              onClick={() => void handleConfirmReceive()}
+            >
+              {submitLoading ? 'Confirming…' : 'Confirm receival'}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -842,10 +1082,6 @@ export function ReceivePage() {
             </Link>
           )}
         </div>
-      )}
-
-      {error && (
-        <p className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
       )}
     </div>
   )

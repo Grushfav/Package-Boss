@@ -24,8 +24,11 @@ function labelCustomer(pkg: Package): StaffCustomer | null {
   }
 }
 
+type QueueView = 'pending' | 'all'
+
 export function PrintQueuePage() {
   const { refresh: refreshCounts } = useWarehouseCounts()
+  const [view, setView] = useState<QueueView>('pending')
   const [packages, setPackages] = useState<Package[]>([])
   const [total, setTotal] = useState(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -38,10 +41,14 @@ export function PrintQueuePage() {
     setLoading(true)
     setError('')
     try {
-      const { packages: pkgs, total: count } = await fetchPrintQueue({ days: 7, limit: 200 })
+      const { packages: pkgs, total: count } = await fetchPrintQueue({
+        days: 7,
+        limit: 200,
+        pending_only: view === 'pending',
+      })
       setPackages(pkgs)
       setTotal(count)
-      setSelectedIds(new Set(pkgs.map((p) => p.id)))
+      setSelectedIds(new Set(view === 'pending' ? pkgs.map((p) => p.id) : []))
     } catch (err) {
       setError(getErrorMessage(err))
       setPackages([])
@@ -49,7 +56,7 @@ export function PrintQueuePage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [view])
 
   useEffect(() => {
     loadQueue()
@@ -132,8 +139,37 @@ export function PrintQueuePage() {
         <IconBadge icon={Printer} size="sm" />
         <div>
           <h1 className="text-2xl font-black uppercase">Print Queue</h1>
-          <p className="text-sm text-muted">Labels waiting to be printed (last 7 days, auto-refreshes)</p>
+          <p className="text-sm text-muted">
+            {view === 'pending'
+              ? 'Labels waiting to be printed (last 7 days)'
+              : 'All labels received in the last 7 days — reprint anytime'}
+          </p>
         </div>
+      </div>
+
+      <div className="mb-4 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setView('pending')}
+          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            view === 'pending'
+              ? 'border-boss-green bg-boss-green/15 text-boss-green'
+              : 'border-border text-muted hover:border-boss-green/40'
+          }`}
+        >
+          Pending print
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('all')}
+          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            view === 'all'
+              ? 'border-boss-green bg-boss-green/15 text-boss-green'
+              : 'border-border text-muted hover:border-boss-green/40'
+          }`}
+        >
+          Label log
+        </button>
       </div>
 
       {loading ? (
@@ -141,9 +177,13 @@ export function PrintQueuePage() {
       ) : packages.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-8 text-center">
           <Printer className="mx-auto h-10 w-10 text-muted" />
-          <p className="mt-4 font-semibold">No labels in queue</p>
+          <p className="mt-4 font-semibold">
+            {view === 'pending' ? 'No labels in queue' : 'No labels in the last 7 days'}
+          </p>
           <p className="mt-2 text-sm text-muted">
-            Packages received without printing appear here.
+            {view === 'pending'
+              ? 'Packages received without printing appear here.'
+              : 'Received packages will appear here once clerks confirm receival.'}
           </p>
           <Link to="/warehouse/receive" className="mt-4 inline-block text-sm text-boss-green hover:underline">
             Receive packages →
@@ -153,55 +193,63 @@ export function PrintQueuePage() {
         <>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted">
-              {total} label{total === 1 ? '' : 's'} pending · {selectedIds.size} selected
+              {total} label{total === 1 ? '' : 's'}
+              {view === 'pending' ? ' pending' : ' in log'}
+              {view === 'pending' ? ` · ${selectedIds.size} selected` : ''}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={actionLoading || packages.length === 0}
-                onClick={handlePrintNext10}
-                className="inline-flex items-center gap-2"
-              >
-                <Printer className="h-4 w-4" />
-                Print next {Math.min(10, packages.length)}
-              </Button>
-              <Button
-                type="button"
-                disabled={actionLoading || selectedIds.size === 0}
-                onClick={handlePrintSelected}
-                className="inline-flex items-center gap-2"
-              >
-                <Printer className="h-4 w-4" />
-                Print selected ({selectedIds.size})
-              </Button>
-            </div>
+            {view === 'pending' && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={actionLoading || packages.length === 0}
+                  onClick={handlePrintNext10}
+                  className="inline-flex items-center gap-2"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print next {Math.min(10, packages.length)}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={actionLoading || selectedIds.size === 0}
+                  onClick={handlePrintSelected}
+                  className="inline-flex items-center gap-2"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print selected ({selectedIds.size})
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            <div className="border-b border-border px-4 py-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelected
-                  }}
-                  onChange={(e) => toggleSelectAll(e.target.checked)}
-                  className="h-4 w-4 rounded border-border accent-boss-green"
-                />
-                Select all
-              </label>
-            </div>
+            {view === 'pending' && (
+              <div className="border-b border-border px-4 py-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected
+                    }}
+                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                    className="h-4 w-4 rounded border-border accent-boss-green"
+                  />
+                  Select all
+                </label>
+              </div>
+            )}
             <ul className="divide-y divide-border">
               {packages.map((pkg) => (
                 <li key={pkg.id} className="flex flex-wrap items-center gap-4 px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(pkg.id)}
-                    onChange={() => togglePackage(pkg.id)}
-                    className="h-4 w-4 rounded border-border accent-boss-green"
-                  />
+                  {view === 'pending' && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(pkg.id)}
+                      onChange={() => togglePackage(pkg.id)}
+                      className="h-4 w-4 rounded border-border accent-boss-green"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="font-mono font-semibold">{pkg.tracking_number}</p>
                     <p className="text-sm text-muted">
@@ -212,6 +260,12 @@ export function PrintQueuePage() {
                       {pkg.billable_weight_lbs} lbs
                       {' · '}
                       {new Date(pkg.received_at || pkg.created_at).toLocaleString()}
+                      {pkg.label_printed_at && (
+                        <>
+                          {' · '}
+                          <span className="text-boss-green">Printed</span>
+                        </>
+                      )}
                     </p>
                   </div>
                   <Button
@@ -222,7 +276,7 @@ export function PrintQueuePage() {
                     className="!text-xs inline-flex items-center gap-1"
                   >
                     <Printer className="h-3.5 w-3.5" />
-                    Print
+                    {pkg.label_printed_at ? 'Reprint' : 'Print'}
                   </Button>
                 </li>
               ))}

@@ -16,8 +16,7 @@ class User(db.Model):
     contact_number = db.Column(db.String(20), nullable=False)
     parish = db.Column(db.String(50), nullable=True)
 
-    trn_encrypted = db.Column(db.Text, nullable=True)
-    trn_hash = db.Column(db.String(64), unique=True, nullable=True, index=True)
+    trn = db.Column(db.String(11), nullable=True, index=True)
 
     shipping_id = db.Column(db.String(20), unique=True, nullable=False, index=True)
     role = db.Column(db.String(20), nullable=False, default="customer")
@@ -38,7 +37,7 @@ class User(db.Model):
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}"
 
-    def to_dict(self, include_trn_masked: bool = False, include_clerk_fields: bool = False) -> dict:
+    def to_dict(self, include_trn: bool = False, include_clerk_fields: bool = False) -> dict:
         from app.services.clerk_permission_service import get_clerk_permissions
 
         data = {
@@ -54,11 +53,8 @@ class User(db.Model):
             "whatsapp_opt_in": self.whatsapp_opt_in,
             "created_at": self.created_at.isoformat(),
         }
-        if include_trn_masked and self.trn_encrypted:
-            from app.services.trn_service import get_trn_masked
-
-            data["trn_masked"] = get_trn_masked(self)
-            data["trn_on_file"] = True
+        if include_trn and self.trn:
+            data["trn"] = self.trn
         if include_clerk_fields or self.role in ("clerk", "admin"):
             data["permissions"] = get_clerk_permissions(self)
             data["is_active"] = self.is_active

@@ -18,6 +18,9 @@ JAMAICA_PARISHES = [
 UNIDENTIFIED_HOLDER_EMAIL = "unidentified@package-boss.internal"
 UNIDENTIFIED_HOLDER_SHIPPING_ID = "BOSS-00000"
 
+# Maximum weight clerks may enter at receive (above MAX_AUTO_RATE_LBS = custom quote).
+MAX_RECEIVE_LBS = 750
+
 # Clerk workflow — linear: received → in_transit → customs → ready_for_pickup → delivered
 WORKFLOW_STATUSES = [
     "received",
@@ -28,6 +31,7 @@ WORKFLOW_STATUSES = [
 ]
 
 WORKFLOW_TRANSITIONS = {
+    ("unidentified", "received"),
     ("received", "in_transit"),
     ("in_transit", "customs"),
     ("ready_for_pickup", "delivered"),

@@ -120,6 +120,8 @@ export function ProfileSection() {
           />
           <Input
             label="Contact number"
+            type="tel"
+            placeholder="+18765551234 or +19545551234"
             value={contactNumber}
             onChange={(e) => setContactNumber(e.target.value)}
             required
@@ -148,8 +150,8 @@ export function ProfileSection() {
             disabled
             className="opacity-70"
           />
-          {user.trn_masked && (
-            <Input label="TRN on file" value={user.trn_masked} disabled className="opacity-70" />
+          {user.trn && (
+            <Input label="TRN on file" value={user.trn} disabled className="opacity-70" />
           )}
         </div>
 

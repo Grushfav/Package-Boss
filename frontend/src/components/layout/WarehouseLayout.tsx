@@ -51,7 +51,7 @@ function WarehouseShell() {
     {
       to: '/warehouse/print-queue',
       icon: Printer,
-      label: 'Print queue',
+      label: 'Print',
       badge: counts?.print_queue_pending,
       permission: 'receive',
     },
@@ -65,7 +65,7 @@ function WarehouseShell() {
     {
       to: '/warehouse/status',
       icon: RefreshCw,
-      label: 'Status',
+      label: 'Package status',
       permission: ['status_transit', 'status_customs', 'status_pickup'],
     },
     { to: '/warehouse/customers', icon: Users, label: 'Directory', permission: 'directory' },

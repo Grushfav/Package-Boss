@@ -6,6 +6,7 @@ from app.constants import DELIVERY_PARISHES, JAMAICA_PARISHES, MAX_DELIVERY_ADDR
 from app.extensions import db
 from app.models.delivery_address import DeliveryAddress
 from app.models.user import User
+from app.services.auth_service import normalize_phone
 
 
 def _validate_parish(parish: str) -> str:
@@ -37,15 +38,16 @@ def create_delivery_address(customer: User, data: dict) -> DeliveryAddress:
 
     label = (data.get("label") or "").strip()
     line1 = (data.get("line1") or "").strip()
-    contact_number = (data.get("contact_number") or "").strip()
     parish = _validate_parish(data.get("parish") or "")
 
     if not label:
         raise ValueError("label is required")
     if not line1:
         raise ValueError("line1 is required")
-    if not contact_number:
-        raise ValueError("contact_number is required")
+    try:
+        contact_number = normalize_phone(data.get("contact_number") or "")
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
 
     is_default = bool(data.get("is_default"))
     if is_default:
@@ -95,10 +97,10 @@ def update_delivery_address(address: DeliveryAddress, data: dict) -> DeliveryAdd
         address.parish = _validate_parish(data.get("parish") or "")
 
     if "contact_number" in data:
-        contact_number = (data.get("contact_number") or "").strip()
-        if not contact_number:
-            raise ValueError("contact_number cannot be empty")
-        address.contact_number = contact_number
+        try:
+            address.contact_number = normalize_phone(data.get("contact_number") or "")
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
 
     if "delivery_notes" in data:
         address.delivery_notes = (data.get("delivery_notes") or "").strip() or None

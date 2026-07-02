@@ -34,12 +34,14 @@ export function Footer() {
             <li><Link to="/track" className="hover:text-boss-green">Track My Package</Link></li>
             <li><Link to="/rates" className="hover:text-boss-green">View Rates</Link></li>
             <li><Link to="/terms" className="hover:text-boss-green">Terms &amp; Conditions</Link></li>
+            <li><Link to="/privacy" className="hover:text-boss-green">Privacy Policy</Link></li>
+            <li><Link to="/data-protection" className="hover:text-boss-green">Data Protection</Link></li>
             <li><Link to="/signup" className="hover:text-boss-green">Sign Up</Link></li>
           </ul>
         </div>
       </div>
       <div className="border-t border-border py-4 text-center text-xs text-muted">
-        © {new Date().getFullYear()} Package Boss Shipping &amp; Logistics. Terms effective June 21, 2026.
+        © {new Date().getFullYear()} Package Boss Shipping &amp; Logistics. Policies effective June 21, 2026.
       </div>
     </footer>
   )

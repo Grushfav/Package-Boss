@@ -26,7 +26,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
   {
     title: '3. Responsibilities, Risk & Liability',
     paragraphs: [
-      'The customer agrees to provide accurate personal information (including name, contact number, email address, and TRN), accurate shipment information, properly packaged and labeled goods, and all documentation required for shipment and clearance. The customer must comply with applicable laws and pay all charges, duties, taxes, and fees.',
+      'The customer agrees to provide accurate personal information (including name, contact number, email address, and TRN where provided), accurate shipment information, properly packaged and labeled goods, and all documentation required for shipment and clearance. The customer must comply with applicable laws and pay all charges, duties, taxes, and fees.',
       'The customer shall be liable for any losses, fines, penalties, or expenses resulting from inaccurate or incomplete information. All shipments are transported at the customer’s own risk.',
       `${COMPANY_LEGAL_NAME} is not responsible for vendor errors, incorrect customer information, packages lost before reaching our warehouse, or delays and damages caused by third parties.`,
       `${COMPANY_LEGAL_NAME} assumes zero / limited liability for loss, damage, delay, or errors related to shipments. Responsibility, where applicable, begins when a package reaches our warehouse or at pickup, and ends once handed to third-party carriers, customs authorities, or delivery partners.`,
@@ -135,7 +135,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
   {
     title: '18. Privacy and Confidentiality',
     paragraphs: [
-      'Customer information is used solely for operational, regulatory, and administrative purposes and will not be disclosed except as required by law or necessary to provide services.',
+      'Customer information is used solely for operational, regulatory, and administrative purposes and will not be disclosed except as required by law or necessary to provide services. For full details, see our Privacy Policy and Data Protection Policy on our website.',
     ],
   },
   {

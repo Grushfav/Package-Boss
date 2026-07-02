@@ -430,7 +430,7 @@ export function StatusUpdatePage() {
               : 'border border-border bg-card text-muted hover:border-boss-green/40'
           }`}
         >
-          Custom
+          Search
         </button>
       </div>
 

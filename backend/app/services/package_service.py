@@ -11,7 +11,7 @@ from app.models.pre_alert import PreAlert
 from app.models.user import User
 from app.services.image_upload_service import is_valid_photo_reference
 from app.services.pre_alert_service import match_pre_alert_on_receive, normalize_carrier_tracking
-from app.services.shipping_service import calculate_shipping_cost
+from app.services.shipping_service import calculate_receive_quote
 
 
 def generate_tracking_number() -> str:
@@ -113,7 +113,7 @@ def receive_package(
     photo_keys: list[str] | None = None,
     note: str | None = None,
 ) -> tuple[Package, PreAlert | None]:
-    quote = calculate_shipping_cost(actual_weight_lbs)
+    quote = calculate_receive_quote(actual_weight_lbs)
     tracking_number = generate_tracking_number()
     normalized_carrier = normalize_carrier_tracking(carrier_tracking) if carrier_tracking else None
     if normalized_carrier == "":
@@ -172,7 +172,7 @@ def receive_unidentified_package(
     from app.services.unidentified_service import ensure_unidentified_holder
 
     holder = ensure_unidentified_holder()
-    quote = calculate_shipping_cost(actual_weight_lbs)
+    quote = calculate_receive_quote(actual_weight_lbs)
     tracking_number = generate_tracking_number()
 
     normalized_label_name = (label_name or "").strip() or None
@@ -316,15 +316,86 @@ def warehouse_package_to_dict(package: Package) -> dict:
 
 
 def list_print_queue(days: int = 7, limit: int = 100, offset: int = 0) -> tuple[list[Package], int]:
+    return list_label_log(days=days, limit=limit, offset=offset, pending_only=True)
+
+
+def list_label_log(
+    days: int = 7,
+    limit: int = 100,
+    offset: int = 0,
+    pending_only: bool = False,
+) -> tuple[list[Package], int]:
     cutoff = datetime.utcnow() - timedelta(days=max(1, min(days, 30)))
-    query = (
-        Package.query.filter(Package.label_printed_at.is_(None))
-        .filter(Package.received_at >= cutoff)
-        .order_by(Package.received_at.asc(), Package.tracking_number.asc())
-    )
+    query = Package.query.filter(Package.received_at >= cutoff)
+    if pending_only:
+        query = query.filter(Package.label_printed_at.is_(None)).order_by(
+            Package.received_at.asc(), Package.tracking_number.asc()
+        )
+    else:
+        query = query.order_by(Package.received_at.desc(), Package.tracking_number.desc())
     total = query.count()
     packages = query.offset(offset).limit(limit).all()
     return packages, total
+
+
+def list_clerk_receives_today(clerk_id, limit: int = 3) -> list[dict]:
+    from app.models.audit_log import AuditLog
+    from app.services.audit_service import (
+        ACTION_PACKAGE_RECEIVED,
+        ACTION_PACKAGE_RECEIVED_UNIDENTIFIED,
+    )
+
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    logs = (
+        AuditLog.query.filter(
+            AuditLog.actor_id == clerk_id,
+            AuditLog.action.in_(
+                [ACTION_PACKAGE_RECEIVED, ACTION_PACKAGE_RECEIVED_UNIDENTIFIED]
+            ),
+            AuditLog.created_at >= today_start,
+        )
+        .order_by(AuditLog.created_at.desc())
+        .limit(max(1, min(limit, 10)))
+        .all()
+    )
+
+    results: list[dict] = []
+    for entry in logs:
+        package = None
+        if entry.entity_id:
+            try:
+                pid = uuid.UUID(str(entry.entity_id))
+                package = db.session.get(Package, pid)
+            except (TypeError, ValueError):
+                package = None
+
+        metadata = entry.metadata_json or {}
+        item = {
+            "received_at": entry.created_at.isoformat(),
+            "action": entry.action,
+            "tracking_number": metadata.get("tracking_number")
+            or (package.tracking_number if package else None),
+            "shipping_id": metadata.get("shipping_id"),
+            "billable_weight_lbs": metadata.get("billable_weight_lbs")
+            or (package.billable_weight_lbs if package else None),
+            "is_unidentified": entry.action == ACTION_PACKAGE_RECEIVED_UNIDENTIFIED,
+            "label_name": metadata.get("label_name"),
+            "package_id": str(package.id) if package else entry.entity_id,
+        }
+
+        if package:
+            customer = package.customer
+            if customer and customer.shipping_id != UNIDENTIFIED_HOLDER_SHIPPING_ID:
+                item["customer_name"] = customer.full_name
+                item["shipping_id"] = item["shipping_id"] or customer.shipping_id
+            elif package.label_name:
+                item["customer_name"] = package.label_name
+            else:
+                item["customer_name"] = "Unidentified"
+
+        results.append(item)
+
+    return results
 
 
 def mark_labels_printed(package_ids: list[str]) -> tuple[list[Package], list[dict]]:

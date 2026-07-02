@@ -13,6 +13,7 @@ from app.services.image_upload_service import (
     is_storage_configured,
     parse_presign_fields,
 )
+from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
 from app.utils.auth_decorators import get_user_from_jwt
 
 pre_alerts_bp = Blueprint("pre_alerts", __name__)
@@ -128,6 +129,11 @@ def presign_invoice_upload():
     user = _get_customer_user()
     if not user:
         return _error("Customer access required", 403)
+
+    try:
+        assert_upload_presign_allowed(str(user.id))
+    except RateLimitExceeded as exc:
+        return _error(str(exc), 429)
 
     if not is_storage_configured():
         return _error("Invoice storage is not configured", 503)

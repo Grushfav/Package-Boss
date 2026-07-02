@@ -13,6 +13,7 @@ from app.services.image_upload_service import (
     is_storage_configured,
     parse_presign_fields,
 )
+from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
 
 packages_bp = Blueprint("packages", __name__)
 
@@ -73,6 +74,11 @@ def presign_package_invoice(package_id: str):
     user = _get_current_user()
     if not user:
         return jsonify({"error": "User not found"}), 404
+
+    try:
+        assert_upload_presign_allowed(str(user.id))
+    except RateLimitExceeded as exc:
+        return jsonify({"error": str(exc)}), 429
 
     package = _get_customer_package(user, package_id)
     if not package:

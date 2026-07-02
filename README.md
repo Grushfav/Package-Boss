@@ -20,13 +20,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` in the project root and set `TRN_ENCRYPTION_KEY`, `TRN_PEPPER`, and `DATABASE_URL`.
-
-```bash
-# Generate keys
-python -c "from cryptography.fernet import Fernet; print('TRN_ENCRYPTION_KEY=' + Fernet.generate_key().decode())"
-python -c "import secrets; print('TRN_PEPPER=' + secrets.token_hex(32))"
-```
+Copy `.env.example` to `.env` in the project root and set `DATABASE_URL`.
 
 Apply database migrations (required before first run):
 
@@ -97,7 +91,7 @@ App: http://localhost:5173
   "last_name": "Doe",
   "email": "jane@example.com",
   "password": "securepass",
-  "contact_number": "8765551234",
+  "contact_number": "+18765551234",
   "trn": "123456789",
   "parish": "Kingston"
 }

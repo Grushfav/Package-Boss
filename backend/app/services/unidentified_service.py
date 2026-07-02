@@ -2,7 +2,6 @@ from app.constants import UNIDENTIFIED_HOLDER_EMAIL, UNIDENTIFIED_HOLDER_SHIPPIN
 from app.extensions import db
 from app.models.user import User
 from app.services.auth_service import hash_password
-from app.services.trn_service import encrypt_trn, hash_trn
 
 
 def is_unidentified_holder(user: User | None) -> bool:
@@ -21,8 +20,7 @@ def ensure_unidentified_holder() -> User:
         last_name="Packages",
         contact_number="+18760000000",
         parish="Kingston",
-        trn_encrypted=encrypt_trn("000000000"),
-        trn_hash=hash_trn("000000000"),
+        trn=None,
         shipping_id=UNIDENTIFIED_HOLDER_SHIPPING_ID,
         role="customer",
     )

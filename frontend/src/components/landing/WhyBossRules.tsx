@@ -73,7 +73,7 @@ export function WhyBossRules() {
 
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute right-3 top-1 select-none text-6xl font-black leading-none text-white/[0.06]"
+                  className="pointer-events-none absolute right-3 top-1 select-none text-6xl font-black leading-none text-boss-gold/30"
                 >
                   {number}
                 </span>

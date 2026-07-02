@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request, Response
 from sqlalchemy import func, or_
 
-from app.constants import SHIPPER_CODES, SHIPPERS, STATUS_LABELS, UPDATABLE_STATUSES
+from app.constants import MAX_RECEIVE_LBS, SHIPPER_CODES, SHIPPERS, STATUS_LABELS, UPDATABLE_STATUSES
 from app.models.package import Package
 from app.models.user import User
 from app.services.audit_service import (
@@ -38,7 +38,8 @@ from app.services.package_service import (
     assign_unidentified_package,
     bulk_update_package_status,
     get_warehouse_summary,
-    list_print_queue,
+    list_clerk_receives_today,
+    list_label_log,
     list_unidentified_packages,
     list_warehouse_packages,
     mark_labels_printed,
@@ -79,6 +80,26 @@ def _active_package_counts(user_ids: list) -> dict:
         .all()
     )
     return {customer_id: count for customer_id, count in rows}
+
+
+def _parse_receive_weight(weight_raw) -> tuple[float | None, tuple[dict, int] | None]:
+    try:
+        weight = float(weight_raw)
+    except (TypeError, ValueError):
+        return None, ({"error": "actual_weight_lbs must be a number"}, 400)
+    if weight <= 0:
+        return None, ({"error": "actual_weight_lbs must be greater than zero"}, 400)
+    if weight > MAX_RECEIVE_LBS:
+        return None, (
+            {
+                "error": (
+                    f"Packages over {MAX_RECEIVE_LBS} lbs cannot be received here. "
+                    "Contact support@packageboss.com."
+                )
+            },
+            400,
+        )
+    return weight, None
 
 
 @staff_bp.route("/shippers", methods=["GET"])
@@ -478,10 +499,10 @@ def receive_package_endpoint():
     if shipper not in SHIPPER_CODES:
         return jsonify({"error": "Invalid shipper"}), 400
 
-    try:
-        weight = float(weight_raw)
-    except (TypeError, ValueError):
-        return jsonify({"error": "actual_weight_lbs must be a number"}), 400
+    weight, weight_error = _parse_receive_weight(weight_raw)
+    if weight_error:
+        body, status = weight_error
+        return jsonify(body), status
 
     customer = customer_query().filter_by(shipping_id=shipping_id).first()
     if not customer:
@@ -545,10 +566,10 @@ def receive_unidentified_endpoint():
     if shipper not in SHIPPER_CODES:
         return jsonify({"error": "Invalid shipper"}), 400
 
-    try:
-        weight = float(weight_raw)
-    except (TypeError, ValueError):
-        return jsonify({"error": "actual_weight_lbs must be a number"}), 400
+    weight, weight_error = _parse_receive_weight(weight_raw)
+    if weight_error:
+        body, status = weight_error
+        return jsonify(body), status
 
     photo_keys = data.get("photo_keys") or []
     if not isinstance(photo_keys, list):
@@ -697,17 +718,34 @@ def lookup_package_by_tracking(tracking_number: str):
     return jsonify({"package": warehouse_package_to_dict(package)})
 
 
+@staff_bp.route("/staff/packages/my-recent-receives", methods=["GET"])
+@permission_required("receive")
+def get_my_recent_receives():
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    limit = request.args.get("limit", 3, type=int)
+    limit = max(1, min(limit, 10))
+    receives = list_clerk_receives_today(actor.id, limit=limit)
+    return jsonify({"receives": receives})
+
+
 @staff_bp.route("/staff/packages/print-queue", methods=["GET"])
 @permission_required("receive")
 def get_print_queue():
     days = request.args.get("days", 7, type=int)
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
+    pending_only_raw = request.args.get("pending_only", "true")
+    pending_only = str(pending_only_raw).lower() not in ("0", "false", "no")
     days = max(1, min(days, 30))
     limit = max(1, min(limit, 200))
     offset = max(0, offset)
 
-    packages, total = list_print_queue(days=days, limit=limit, offset=offset)
+    packages, total = list_label_log(
+        days=days, limit=limit, offset=offset, pending_only=pending_only
+    )
     return jsonify(
         {
             "packages": [warehouse_package_to_dict(p) for p in packages],

@@ -50,7 +50,7 @@ def get_me():
     return jsonify(
         {
             "user": user.to_dict(
-                include_trn_masked=user.role == "customer",
+                include_trn=user.role == "customer",
                 include_clerk_fields=user.role in ("clerk", "admin"),
             )
         }
@@ -70,7 +70,7 @@ def update_me():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    return jsonify({"user": user.to_dict(include_trn_masked=True)})
+    return jsonify({"user": user.to_dict(include_trn=True)})
 
 
 @me_bp.route("/me/change-password", methods=["POST"])

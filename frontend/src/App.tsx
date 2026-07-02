@@ -27,6 +27,8 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { SignupPage } from './pages/SignupPage'
 import { ServicesPage } from './pages/ServicesPage'
 import { TermsPage } from './pages/TermsPage'
+import { PrivacyPage } from './pages/PrivacyPage'
+import { DataProtectionPage } from './pages/DataProtectionPage'
 import { StatusUpdatePage } from './pages/StatusUpdatePage'
 import { TrackPage } from './pages/TrackPage'
 import { CustomerAccountPage } from './pages/CustomerAccountPage'
@@ -49,6 +51,8 @@ function App() {
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/rates" element={<RatesPage />} />
               <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/data-protection" element={<DataProtectionPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/track" element={<TrackPage />} />

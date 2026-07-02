@@ -16,7 +16,9 @@ from app.services.image_upload_service import (
     parse_content_length,
     parse_presign_fields,
 )
+from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
 from app.utils.auth_decorators import jwt_required, staff_required
+from flask_jwt_extended import get_jwt_identity
 
 uploads_bp = Blueprint("uploads", __name__)
 
@@ -34,10 +36,25 @@ def _presign_error(exc: Exception, status: int = 500):
     return jsonify({"error": f"Failed to generate upload URL: {exc}"}), status
 
 
+def _check_upload_presign_limit():
+    user_id = get_jwt_identity()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    try:
+        assert_upload_presign_allowed(str(user_id))
+    except RateLimitExceeded as exc:
+        return jsonify({"error": str(exc)}), 429
+    return None
+
+
 @uploads_bp.route("/upload-url", methods=["POST"])
 @jwt_required()
 def proxy_upload_url():
     """Proxy presign requests to the image Worker (keeps API key server-side)."""
+    limited = _check_upload_presign_limit()
+    if limited:
+        return limited
+
     if not is_image_upload_configured():
         return jsonify({"error": "Image upload worker is not configured"}), 503
 
@@ -118,6 +135,10 @@ def proxy_presigned_put():
 @uploads_bp.route("/uploads/presign", methods=["POST"])
 @staff_required()
 def presign_upload():
+    limited = _check_upload_presign_limit()
+    if limited:
+        return limited
+
     if not is_storage_configured():
         return jsonify({"error": "File storage is not configured"}), 503
 
@@ -157,6 +178,10 @@ def presign_upload():
 @uploads_bp.route("/uploads/presign-unidentified", methods=["POST"])
 @staff_required()
 def presign_unidentified_upload():
+    limited = _check_upload_presign_limit()
+    if limited:
+        return limited
+
     if not is_storage_configured():
         return jsonify({"error": "File storage is not configured"}), 503
 
