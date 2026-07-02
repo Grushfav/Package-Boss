@@ -35,7 +35,7 @@ def _email_headers(api_key: str) -> dict[str, str]:
 def _worker_config() -> tuple[str, str, str]:
     api_url = (current_app.config.get("EMAIL_API_URL") or "").rstrip("/")
     api_key = current_app.config.get("EMAIL_API_KEY") or ""
-    from_address = current_app.config.get("DEFAULT_FROM_EMAIL") or "gavin@geeksja.com"
+    from_address = current_app.config.get("DEFAULT_FROM_EMAIL") or "info@packagebossja.com"
     if not api_url or not api_key:
         raise EmailServiceError("Email worker is not configured (EMAIL_API_URL / EMAIL_API_KEY)")
     return api_url, api_key, from_address

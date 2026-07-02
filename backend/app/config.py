@@ -52,7 +52,7 @@ class Config:
     IMAGE_API_KEY = os.environ.get("IMAGE_API_KEY", "")
     IMAGE_UPLOAD_WORKER_URL = os.environ.get("IMAGE_UPLOAD_WORKER_URL", "").rstrip("/")
     IMAGE_UPLOAD_API_KEY = os.environ.get("IMAGE_UPLOAD_API_KEY", "") or IMAGE_API_KEY
-    DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "gavin@geeksja.com")
+    DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "info@packagebossja.com")
     EMAIL_LOGO_URL = os.environ.get("EMAIL_LOGO_URL", "").strip()
     WHATSAPP_PROVIDER = os.environ.get("WHATSAPP_PROVIDER", "console")
 
