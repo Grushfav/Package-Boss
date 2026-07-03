@@ -27,7 +27,7 @@ export function DashboardHomePage() {
         </p>
       </div>
       
-      <div className="rounded-2xl border border-boss-green/30 bg-card p-6 shadow-sm">
+      <div className="rounded-2xl border border-boss-gold/30 bg-card p-6 shadow-md shadow-boss-gold/20">
         <p className="text-xs font-medium uppercase tracking-wider text-muted">Your BOSS ID</p>
         <p className="mt-2 font-mono text-3xl font-black text-boss-gold">{user?.shipping_id}</p>
         <p className="mt-2 text-sm text-muted">
@@ -46,26 +46,20 @@ export function DashboardHomePage() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Link
-          to="/dashboard/track"
-          className="rounded-xl border border-border bg-card p-4 text-sm font-semibold transition-colors hover:border-boss-green/40"
-        >
-          Track a package →
-        </Link>
-        <Link
           to="/pre-alerts/new"
-          className="rounded-xl border border-border bg-card p-4 text-sm font-semibold transition-colors hover:border-boss-green/40"
+          className="rounded-xl border border-boss-gold/30 bg-card p-4 text-sm font-semibold shadow-sm shadow-boss-gold/15 transition-colors hover:border-boss-gold/50 hover:shadow-md hover:shadow-boss-gold/25"
         >
           Pre-alert a shipment →
         </Link>
         <Link
           to="/dashboard/packages"
-          className="rounded-xl border border-border bg-card p-4 text-sm font-semibold transition-colors hover:border-boss-green/40"
+          className="rounded-xl border border-boss-gold/30 bg-card p-4 text-sm font-semibold shadow-sm shadow-boss-gold/15 transition-colors hover:border-boss-gold/50 hover:shadow-md hover:shadow-boss-gold/25"
         >
           View packages →
         </Link>
         <Link
           to="/dashboard/delivery-address"
-          className="rounded-xl border border-border bg-card p-4 text-sm font-semibold transition-colors hover:border-boss-green/40"
+          className="rounded-xl border border-boss-gold/30 bg-card p-4 text-sm font-semibold shadow-sm shadow-boss-gold/15 transition-colors hover:border-boss-gold/50 hover:shadow-md hover:shadow-boss-gold/25"
         >
           Manage delivery addresses →
         </Link>

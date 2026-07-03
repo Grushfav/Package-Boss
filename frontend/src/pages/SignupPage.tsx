@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { fetchParishes, register } from '../api/auth'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { cacheShippingAddress } from '../lib/offlineAddress'
 import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -44,6 +45,9 @@ export function SignupPage() {
     try {
       const data = await register({ ...form, accept_terms: true })
       setSession(data.access_token, data.user)
+      if (data.shipping_address) {
+        cacheShippingAddress(data.shipping_address)
+      }
       navigate('/dashboard', { state: { shipping_address: data.shipping_address } })
     } catch (err) {
       setError(getErrorMessage(err))

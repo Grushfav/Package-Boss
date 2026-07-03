@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import { fetchMyPackage, submitPackageInvoice } from '../api/packages'
+import { useCustomerData } from '../context/CustomerDataContext'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
@@ -12,6 +13,7 @@ import type { Package } from '../types'
 export function PackageInvoiceUploadPage() {
   const { packageId } = useParams<{ packageId: string }>()
   const navigate = useNavigate()
+  const { refreshPackages } = useCustomerData()
   const [pkg, setPkg] = useState<Package | null>(null)
   const [declaredValue, setDeclaredValue] = useState('')
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
@@ -44,6 +46,7 @@ export function PackageInvoiceUploadPage() {
         invoice_object_key: invoiceKey,
         declared_value_usd: declaredValue ? parseFloat(declaredValue) : undefined,
       })
+      await refreshPackages()
       navigate('/dashboard/packages')
     } catch (err) {
       setError(getErrorMessage(err))

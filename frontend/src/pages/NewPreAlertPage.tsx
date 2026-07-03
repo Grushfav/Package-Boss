@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import { createPreAlert } from '../api/preAlerts'
 import { useAuth } from '../context/AuthContext'
+import { useCustomerData } from '../context/CustomerDataContext'
 import { getHomeRoute } from '../lib/routing'
 import { uploadInvoice } from '../lib/uploadInvoice'
 import { Button } from '../components/ui/Button'
@@ -15,6 +16,7 @@ const INVOICE_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf'
 export function NewPreAlertPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { refreshPreAlerts } = useCustomerData()
   const [carrierTracking, setCarrierTracking] = useState('')
   const [merchant, setMerchant] = useState('')
   const [description, setDescription] = useState('')
@@ -47,6 +49,7 @@ export function NewPreAlertPage() {
         declared_value_usd: declaredValue ? parseFloat(declaredValue) : undefined,
       })
 
+      await refreshPreAlerts()
       navigate('/dashboard/pre-alerts')
     } catch (err) {
       setError(getErrorMessage(err))

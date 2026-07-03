@@ -1,25 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { getErrorMessage } from '../../api/client'
-import { cancelPreAlert, fetchMyPreAlerts } from '../../api/preAlerts'
-import type { PreAlert } from '../../types'
+import { cancelPreAlert } from '../../api/preAlerts'
+import { useCustomerData } from '../../context/CustomerDataContext'
 
 export function PreAlertsPanel() {
-  const [preAlerts, setPreAlerts] = useState<PreAlert[]>([])
+  const { preAlerts, preAlertsLoading, refreshPreAlerts } = useCustomerData()
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    fetchMyPreAlerts()
-      .then(setPreAlerts)
-      .catch(() => setPreAlerts([]))
-  }, [])
 
   async function handleCancel(id: string) {
     setError('')
     try {
       await cancelPreAlert(id)
-      setPreAlerts((prev) => prev.filter((a) => a.id !== id))
+      await refreshPreAlerts()
     } catch (err) {
       setError(getErrorMessage(err))
     }
@@ -49,7 +43,11 @@ export function PreAlertsPanel() {
         <p className="mt-3 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>
       )}
 
-      {active.length === 0 ? (
+      {preAlertsLoading && active.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
+          Loading pre-alerts...
+        </p>
+      ) : active.length === 0 ? (
         <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
           No pre-alerts yet. Add one when you order online using your Fort Lauderdale address.
         </p>

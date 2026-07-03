@@ -1,17 +1,9 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchMyPackages } from '../../api/packages'
 import { formatPackageCost, packageCanUploadInvoice, packageNeedsInvoiceUpload } from '../../lib/packageBilling'
-import type { Package as Pkg } from '../../types'
+import { useCustomerData } from '../../context/CustomerDataContext'
 
 export function PackagesHistoryPanel() {
-  const [packages, setPackages] = useState<Pkg[]>([])
-
-  useEffect(() => {
-    fetchMyPackages()
-      .then(setPackages)
-      .catch(() => setPackages([]))
-  }, [])
+  const { packages, packagesLoading } = useCustomerData()
 
   return (
     <div>
@@ -27,7 +19,11 @@ export function PackagesHistoryPanel() {
         </Link>
       </div>
 
-      {packages.length === 0 ? (
+      {packagesLoading && packages.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
+          Loading packages...
+        </p>
+      ) : packages.length === 0 ? (
         <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
           No packages yet. Once your shipment is received at the Fort Lauderdale warehouse, it will appear
           here.

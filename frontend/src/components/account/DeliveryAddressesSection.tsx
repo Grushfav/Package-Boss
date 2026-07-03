@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { getErrorMessage } from '../../api/client'
 import {
   createDeliveryAddress,
   deleteDeliveryAddress,
-  fetchDeliveryAddresses,
   setDefaultDeliveryAddress,
 } from '../../api/deliveryAddresses'
-import { api } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
+import { useCustomerData } from '../../context/CustomerDataContext'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
-import type { DeliveryAddress } from '../../types'
 
 const DELIVERY_PARISHES = ['Kingston', 'St. Andrew', 'St. Catherine']
 
@@ -27,27 +25,20 @@ const emptyForm = {
 
 export function DeliveryAddressesSection() {
   const { user } = useAuth()
-  const [addresses, setAddresses] = useState<DeliveryAddress[]>([])
-  const [maxAddresses, setMaxAddresses] = useState(4)
-  const [parishes, setParishes] = useState<string[]>([])
+  const {
+    deliveryAddresses: addresses,
+    maxDeliveryAddresses: maxAddresses,
+    parishes,
+    refreshDeliveryAddresses,
+  } = useCustomerData()
   const [form, setForm] = useState(emptyForm)
   const [showForm, setShowForm] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  function load() {
-    fetchDeliveryAddresses()
-      .then(({ addresses: list, max_addresses }) => {
-        setAddresses(list)
-        setMaxAddresses(max_addresses)
-      })
-      .catch(() => setAddresses([]))
+  async function load() {
+    await refreshDeliveryAddresses()
   }
-
-  useEffect(() => {
-    load()
-    api.get<{ parishes: string[] }>('/parishes').then(({ data }) => setParishes(data.parishes))
-  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

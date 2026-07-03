@@ -6,10 +6,8 @@ import {
   Package,
   User,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
-import { fetchMyPackages } from '../../api/packages'
-import { fetchMyPreAlerts } from '../../api/preAlerts'
+import { useCustomerData } from '../../context/CustomerDataContext'
 import { useAuth } from '../../context/AuthContext'
 import { getHomeRoute } from '../../lib/routing'
 import { packageNeedsInvoiceUpload } from '../../lib/packageBilling'
@@ -32,21 +30,11 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 export function CustomerDashboardLayout() {
   const { user } = useAuth()
+  const { packages, preAlerts } = useCustomerData()
   const isCustomer = !user?.role || user.role === 'customer'
-  const [preAlertCount, setPreAlertCount] = useState(0)
-  const [actionCount, setActionCount] = useState(0)
 
-  useEffect(() => {
-    fetchMyPreAlerts()
-      .then((alerts) =>
-        setPreAlertCount(alerts.filter((a) => a.status === 'pending').length),
-      )
-      .catch(() => setPreAlertCount(0))
-
-    fetchMyPackages()
-      .then((pkgs) => setActionCount(pkgs.filter(packageNeedsInvoiceUpload).length))
-      .catch(() => setActionCount(0))
-  }, [])
+  const preAlertCount = preAlerts.filter((a) => a.status === 'pending').length
+  const actionCount = packages.filter(packageNeedsInvoiceUpload).length
 
   if (!isCustomer) {
     return <Navigate to={getHomeRoute(user?.role)} replace />

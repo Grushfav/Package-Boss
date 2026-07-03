@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { RequireAdmin, RequireAuth, RequireWarehouse } from './components/auth/RouteGuards'
 import { Layout } from './components/layout/Layout'
 import { AuthProvider } from './context/AuthContext'
+import { CustomerDataProvider } from './context/CustomerDataContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { AboutPage } from './pages/AboutPage'
 import { AdminActivityPage } from './pages/AdminActivityPage'
@@ -41,6 +42,7 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <CustomerDataProvider>
         <BrowserRouter>
           <Layout>
             <Routes>
@@ -100,6 +102,7 @@ function App() {
             </Routes>
           </Layout>
         </BrowserRouter>
+        </CustomerDataProvider>
       </AuthProvider>
     </ThemeProvider>
   )

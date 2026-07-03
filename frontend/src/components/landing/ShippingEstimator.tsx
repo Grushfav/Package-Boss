@@ -1,7 +1,8 @@
 import { Scale } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { estimateRate, fetchRates } from '../../api/rates'
+import { estimateRate } from '../../api/rates'
+import { loadRates } from '../../lib/ratesCache'
 import { getErrorMessage } from '../../api/client'
 import { Button } from '../ui/Button'
 import { IconBadge } from '../ui/IconBadge'
@@ -51,7 +52,7 @@ export function ShippingEstimator() {
   }
 
   useEffect(() => {
-    fetchRates()
+    loadRates()
       .then((data) => setMaxAutoLbs(data.max_auto_rate_lbs))
       .catch(() => setMaxAutoLbs(DEFAULT_MAX_AUTO_LBS))
   }, [])

@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react'
 import { WifiOff } from 'lucide-react'
-import { api } from '../../api/client'
-import { cacheShippingAddress, getCachedShippingAddress } from '../../lib/offlineAddress'
+import { useOptionalCustomerData } from '../../context/CustomerDataContext'
+import { getCachedShippingAddress } from '../../lib/offlineAddress'
 import { Button } from '../ui/Button'
-import type { ShippingAddress } from '../../types'
 
 export function FortLauderdaleShippingAddressCard() {
-  const [address, setAddress] = useState<ShippingAddress | null>(null)
+  const customerData = useOptionalCustomerData()
   const [copied, setCopied] = useState(false)
   const [offline, setOffline] = useState(!navigator.onLine)
-  const [usingCache, setUsingCache] = useState(false)
 
   useEffect(() => {
     function handleOnline() {
@@ -26,43 +24,22 @@ export function FortLauderdaleShippingAddressCard() {
     }
   }, [])
 
-  useEffect(() => {
-    if (offline) {
-      const cached = getCachedShippingAddress()
-      if (cached) {
-        setAddress(cached)
-        setUsingCache(true)
-      }
-      return
-    }
-
-    api
-      .get<{ shipping_address: ShippingAddress }>('/me/shipping-address')
-      .then(({ data }) => {
-        setAddress(data.shipping_address)
-        cacheShippingAddress(data.shipping_address)
-        setUsingCache(false)
-      })
-      .catch(() => {
-        const cached = getCachedShippingAddress()
-        if (cached) {
-          setAddress(cached)
-          setUsingCache(true)
-        }
-      })
-  }, [offline])
+  const address = offline
+    ? (customerData?.shippingAddress ?? getCachedShippingAddress())
+    : customerData?.shippingAddress ?? null
+  const usingCache = offline && !!address
 
   async function copyAddress() {
-    if (!address) return
+    if (!address?.formatted) return
     await navigator.clipboard.writeText(address.formatted)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <div className="rounded-2xl border border-boss-green/30 bg-card p-6 shadow-sm sm:p-8">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-lg font-bold uppercase tracking-wide text-black dark:text-white">
+    <div className="rounded-2xl border border-boss-gold/30 bg-card p-6 shadow-md shadow-boss-gold/20 sm:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-lg font-bold uppercase tracking-wide text-foreground">
           Fort Lauderdale Shipping Address
         </h2>
         {usingCache && (
@@ -77,8 +54,8 @@ export function FortLauderdaleShippingAddressCard() {
       </p>
 
       {address ? (
-        <div className="mt-6 rounded-lg border-[3px] border-dashed border-boss-gold/55 bg-background p-6">
-          <pre className="whitespace-pre-wrap font-mono text-base leading-relaxed text-black dark:text-white sm:text-lg">
+        <div className="mt-6 rounded-lg border-[3px] border-dashed border-boss-gold/55 bg-background p-6 shadow-sm shadow-boss-gold/30">
+          <pre className="whitespace-pre-wrap font-mono text-base leading-relaxed text-foreground sm:text-lg">
             {address.formatted}
           </pre>
         </div>

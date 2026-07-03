@@ -5,6 +5,8 @@ import { getErrorMessage } from '../api/client'
 import { ShippingEstimator } from '../components/landing/ShippingEstimator'
 import { Seo } from '../components/seo/Seo'
 import { useAuth } from '../context/AuthContext'
+import { useOptionalCustomerData } from '../context/CustomerDataContext'
+import { loadRates } from '../lib/ratesCache'
 import { getHomeRoute } from '../lib/routing'
 import { PAGE_SEO } from '../lib/seo'
 
@@ -20,6 +22,7 @@ export function RatesPage() {
 }
 
 export function RatesPageContent({ embedded = false }: { embedded?: boolean } = {}) {
+  const customerData = useOptionalCustomerData()
   const [tiers, setTiers] = useState<Awaited<ReturnType<typeof fetchRates>>['tiers']>([])
   const [roundingNote, setRoundingNote] = useState('')
   const [formulaNote, setFormulaNote] = useState('')
@@ -30,7 +33,19 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchRates()
+    if (embedded && customerData?.rates) {
+      const data = customerData.rates
+      setTiers(data.tiers)
+      setRoundingNote(data.rounding_note)
+      setFormulaNote(data.formula_note)
+      setQuoteNote(data.quote_note)
+      setJmdPerUsd(data.jmd_per_usd)
+      setMaxLbs(data.max_auto_rate_lbs)
+      setLoading(false)
+      return
+    }
+
+    loadRates()
       .then((data) => {
         setTiers(data.tiers)
         setRoundingNote(data.rounding_note)
@@ -41,7 +56,7 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
       })
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false))
-  }, [])
+  }, [embedded, customerData?.rates])
 
   return (
     <div className={embedded ? '' : 'px-4 py-12'}>

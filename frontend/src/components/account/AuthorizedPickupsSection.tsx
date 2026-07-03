@@ -1,11 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { getErrorMessage } from '../../api/client'
-import {
-  createAuthorizedPickup,
-  deleteAuthorizedPickup,
-  fetchAuthorizedPickups,
-} from '../../api/authorizedPickups'
-import type { AuthorizedPickupPerson, PickupOption } from '../../types'
+import { createAuthorizedPickup, deleteAuthorizedPickup } from '../../api/authorizedPickups'
+import { useCustomerData } from '../../context/CustomerDataContext'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 
@@ -17,27 +13,18 @@ const emptyForm = {
 }
 
 export function AuthorizedPickupsSection() {
-  const [pickups, setPickups] = useState<AuthorizedPickupPerson[]>([])
-  const [maxPickups, setMaxPickups] = useState(5)
-  const [idTypes, setIdTypes] = useState<PickupOption[]>([])
+  const { authorizedPickups, refreshAuthorizedPickups } = useCustomerData()
+  const pickups = authorizedPickups?.pickups ?? []
+  const maxPickups = authorizedPickups?.max_pickups ?? 5
+  const idTypes = authorizedPickups?.id_types ?? []
   const [form, setForm] = useState(emptyForm)
   const [showForm, setShowForm] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  function load() {
-    fetchAuthorizedPickups()
-      .then(({ pickups: list, max_pickups, id_types }) => {
-        setPickups(list)
-        setMaxPickups(max_pickups)
-        setIdTypes(id_types)
-      })
-      .catch(() => setPickups([]))
+  async function load() {
+    await refreshAuthorizedPickups()
   }
-
-  useEffect(() => {
-    load()
-  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

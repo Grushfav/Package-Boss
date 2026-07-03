@@ -2,11 +2,13 @@ import {
   Barcode,
   Camera,
   Clock,
+  Keyboard,
   PackagePlus,
   Printer,
   RotateCcw,
   Search,
   UserCheck,
+  X,
   Zap,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -35,6 +37,7 @@ import { Input } from '../components/ui/Input'
 import type { Package, Shipper, StaffCustomer } from '../types'
 
 type ReceiveStep = 'idle' | 'receiving' | 'preview' | 'complete'
+type IdleInputMode = 'scan' | 'search'
 
 const RUSH_MODE_KEY = 'boss:warehouse:rush-mode'
 const LAST_SHIPPER_KEY = 'boss:warehouse:last-shipper'
@@ -60,6 +63,7 @@ export function ReceivePage() {
   const [searchParams] = useSearchParams()
   const scanInputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const receivingSearchInputRef = useRef<HTMLInputElement>(null)
   const weightInputRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<ReceiveStep>('idle')
@@ -92,6 +96,9 @@ export function ReceivePage() {
   const [recentReceives, setRecentReceives] = useState<ClerkRecentReceive[]>([])
   const [recentLoading, setRecentLoading] = useState(false)
   const [previewUnidentified, setPreviewUnidentified] = useState(false)
+  const [idleInputMode, setIdleInputMode] = useState<IdleInputMode>('scan')
+  const [searchKeyboardReady, setSearchKeyboardReady] = useState(false)
+  const [receivingSearchKeyboardReady, setReceivingSearchKeyboardReady] = useState(false)
 
   const loadRecentReceives = useCallback(async () => {
     setRecentLoading(true)
@@ -135,13 +142,13 @@ export function ReceivePage() {
   }, [searchParams])
 
   useEffect(() => {
-    if (step === 'idle') {
+    if (step === 'idle' && idleInputMode === 'scan') {
       scanInputRef.current?.focus()
     }
     if (step === 'receiving' && customer) {
       weightInputRef.current?.focus()
     }
-  }, [step, customer])
+  }, [step, customer, idleInputMode])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -175,6 +182,35 @@ export function ReceivePage() {
     }
   }
 
+  function focusScanMode() {
+    setIdleInputMode('scan')
+    setSearchKeyboardReady(false)
+    searchInputRef.current?.blur()
+    window.setTimeout(() => scanInputRef.current?.focus(), 0)
+  }
+
+  function focusSearchMode() {
+    setIdleInputMode('search')
+    setSearchKeyboardReady(false)
+    scanInputRef.current?.blur()
+  }
+
+  function enableSearchKeyboard() {
+    setIdleInputMode('search')
+    setSearchKeyboardReady(true)
+    window.setTimeout(() => searchInputRef.current?.focus(), 50)
+  }
+
+  function enableReceivingSearchKeyboard() {
+    setReceivingSearchKeyboardReady(true)
+    window.setTimeout(() => receivingSearchInputRef.current?.focus(), 50)
+  }
+
+  function clearScanValue() {
+    setScanValue('')
+    window.setTimeout(() => scanInputRef.current?.focus(), 0)
+  }
+
   function resetAll() {
     setStep('idle')
     setScanValue('')
@@ -197,6 +233,9 @@ export function ReceivePage() {
     setPreAlertMatches([])
     setPreAlertLookupLoading(false)
     setPreviewUnidentified(false)
+    setIdleInputMode('scan')
+    setSearchKeyboardReady(false)
+    setReceivingSearchKeyboardReady(false)
   }
 
   function applyPreAlertMatches(matches: PreAlertLookupMatch[]) {
@@ -251,6 +290,8 @@ export function ReceivePage() {
     const tracking = scanValue.trim()
     if (!tracking) return
     const upper = tracking.toUpperCase()
+    setScanValue('')
+    scanInputRef.current?.blur()
     setCarrierTracking(upper)
     setCustomer(null)
     setSuggestedPreAlert(null)
@@ -454,7 +495,7 @@ export function ReceivePage() {
           : `Receival complete — ${tracking}. Label added to print queue.`
         resetAll()
         setSuccess(summary)
-        scanInputRef.current?.focus()
+        window.setTimeout(() => scanInputRef.current?.focus(), 0)
         return
       }
 
@@ -568,7 +609,38 @@ export function ReceivePage() {
             </div>
           )}
 
-          <div className="rounded-2xl border border-boss-green/30 bg-card p-6">
+          <div className="flex rounded-xl border border-border bg-card p-1">
+            <button
+              type="button"
+              onClick={focusScanMode}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                idleInputMode === 'scan'
+                  ? 'bg-boss-green/15 text-boss-green'
+                  : 'text-muted hover:text-foreground'
+              }`}
+            >
+              <Barcode className="h-4 w-4" />
+              Scan barcode
+            </button>
+            <button
+              type="button"
+              onClick={focusSearchMode}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                idleInputMode === 'search'
+                  ? 'bg-boss-green/15 text-boss-green'
+                  : 'text-muted hover:text-foreground'
+              }`}
+            >
+              <Search className="h-4 w-4" />
+              Find customer
+            </button>
+          </div>
+
+          <div
+            className={`rounded-2xl border bg-card p-6 ${
+              idleInputMode === 'scan' ? 'border-boss-green/30' : 'border-border opacity-60'
+            }`}
+          >
             <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
               <Barcode className="h-4 w-4" />
               Scan carrier barcode
@@ -577,18 +649,49 @@ export function ReceivePage() {
               Scan the USPS, UPS, or FedEx label on the incoming package.
             </p>
             <div className="mt-4 space-y-3">
-              <Input
-                ref={scanInputRef}
-                label="Carrier tracking number"
-                placeholder="Scan or type tracking number"
-                value={scanValue}
-                onChange={(e) => setScanValue(e.target.value)}
-                onKeyDown={handleScanKeyDown}
-              />
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="carrier-tracking-scan"
+                  className="block text-xs font-medium uppercase tracking-wider text-muted"
+                >
+                  Carrier tracking number
+                </label>
+                <div className="relative">
+                  <input
+                    ref={scanInputRef}
+                    id="carrier-tracking-scan"
+                    type="text"
+                    inputMode="none"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="Scan or type tracking number"
+                    value={scanValue}
+                    onChange={(e) => setScanValue(e.target.value)}
+                    onKeyDown={handleScanKeyDown}
+                    onFocus={(e) => {
+                      setIdleInputMode('scan')
+                      e.target.select()
+                    }}
+                    disabled={idleInputMode === 'search'}
+                    className="w-full rounded-lg border border-border bg-input px-4 py-3 pr-11 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  {scanValue.trim() && idleInputMode === 'scan' && (
+                    <button
+                      type="button"
+                      onClick={clearScanValue}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted hover:text-foreground"
+                      aria-label="Clear scan field"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
               <Button
                 type="button"
                 fullWidth
-                disabled={!scanValue.trim()}
+                disabled={!scanValue.trim() || idleInputMode !== 'scan'}
                 onClick={startFromScan}
               >
                 Start receival from scan
@@ -603,7 +706,11 @@ export function ReceivePage() {
             <div className="absolute inset-x-0 top-1/2 -z-10 border-t border-border" />
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-6">
+          <div
+            className={`rounded-2xl border bg-card p-6 ${
+              idleInputMode === 'search' ? 'border-boss-green/30' : 'border-border opacity-60'
+            }`}
+          >
             <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
               <Search className="h-4 w-4" />
               Find customer
@@ -615,25 +722,68 @@ export function ReceivePage() {
               </Link>
               .
             </p>
+            {idleInputMode === 'search' && !searchKeyboardReady && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                Barcode scanner connected? Tap <strong>Show keyboard</strong> to type a name or BOSS ID.
+              </p>
+            )}
             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <Input
-                ref={searchInputRef}
-                label="Customer search"
-                placeholder="Jane Doe or BOSS-90009"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                onClick={handleSearch}
-                disabled={searchLoading || searchQuery.trim().length < 2}
-                className="inline-flex items-center justify-center gap-2 sm:self-end"
-              >
-                <Search className="h-4 w-4" />
-                {searchLoading ? 'Searching...' : 'Search'}
-              </Button>
+              <div className="flex-1 space-y-1.5">
+                <label
+                  htmlFor="customer-search"
+                  className="block text-xs font-medium uppercase tracking-wider text-muted"
+                >
+                  Customer search
+                </label>
+                <input
+                  ref={searchInputRef}
+                  id="customer-search"
+                  type="search"
+                  inputMode="search"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="Jane Doe or BOSS-90009"
+                  value={searchQuery}
+                  readOnly={idleInputMode === 'search' && !searchKeyboardReady}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+                  onFocus={() => setIdleInputMode('search')}
+                  onPointerDown={() => {
+                    if (idleInputMode === 'search' && !searchKeyboardReady) {
+                      enableSearchKeyboard()
+                    }
+                  }}
+                  disabled={idleInputMode !== 'search'}
+                  className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+              <div className="flex flex-col gap-2 sm:self-end">
+                {idleInputMode === 'search' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={enableSearchKeyboard}
+                    className="inline-flex items-center justify-center gap-2 !text-xs"
+                  >
+                    <Keyboard className="h-4 w-4" />
+                    Show keyboard
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  onClick={handleSearch}
+                  disabled={
+                    idleInputMode !== 'search' ||
+                    searchLoading ||
+                    searchQuery.trim().length < 2
+                  }
+                  className="inline-flex items-center justify-center gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  {searchLoading ? 'Searching...' : 'Search'}
+                </Button>
+              </div>
             </div>
 
             {searchResults.length > 0 && (
@@ -689,6 +839,7 @@ export function ReceivePage() {
                     setSuggestedPreAlert(null)
                     setPreAlertMatches([])
                     setShowUnidentifiedSection(false)
+                    setReceivingSearchKeyboardReady(false)
                   }}
                   className="text-xs text-muted hover:text-foreground"
                 >
@@ -734,18 +885,58 @@ export function ReceivePage() {
                   </div>
                 )}
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                  <Input
-                    label="Customer search"
-                    placeholder="Name or BOSS ID"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
-                    className="flex-1"
-                  />
-                  <Button type="button" onClick={handleSearch} disabled={searchLoading} className="sm:self-end">
-                    Search
-                  </Button>
+                  <div className="flex-1 space-y-1.5">
+                    <label
+                      htmlFor="receiving-customer-search"
+                      className="block text-xs font-medium uppercase tracking-wider text-muted"
+                    >
+                      Customer search
+                    </label>
+                    <input
+                      ref={receivingSearchInputRef}
+                      id="receiving-customer-search"
+                      type="search"
+                      inputMode="search"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      placeholder="Name or BOSS ID"
+                      value={searchQuery}
+                      readOnly={!receivingSearchKeyboardReady}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+                      onPointerDown={() => {
+                        if (!receivingSearchKeyboardReady) {
+                          enableReceivingSearchKeyboard()
+                        }
+                      }}
+                      className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 sm:self-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={enableReceivingSearchKeyboard}
+                      className="inline-flex items-center justify-center gap-2 !text-xs"
+                    >
+                      <Keyboard className="h-4 w-4" />
+                      Show keyboard
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleSearch}
+                      disabled={searchLoading || searchQuery.trim().length < 2}
+                    >
+                      Search
+                    </Button>
+                  </div>
                 </div>
+                {!receivingSearchKeyboardReady && (
+                  <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                    Tap <strong>Show keyboard</strong> to type a customer name or BOSS ID.
+                  </p>
+                )}
                 {searchResults.length > 0 && (
                   <ul className="mt-3 space-y-2">
                     {searchResults.map((c) => (
@@ -756,6 +947,7 @@ export function ReceivePage() {
                             setCustomer(c)
                             setShowUnidentifiedSection(false)
                             setSearchResults([])
+                            setReceivingSearchKeyboardReady(false)
                           }}
                           className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-green/40"
                         >
