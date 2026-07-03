@@ -30,6 +30,7 @@ import type { PreAlert } from '../types'
 import { markPrintedAfterPrint, ShippingLabel } from '../components/warehouse/ShippingLabel'
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { uploadPhoto, uploadUnidentifiedPhoto } from '../lib/uploadPhoto'
+import { focusInputForSoftKeyboard } from '../lib/focusSoftKeyboard'
 import { MAX_AUTO_RATE_LBS, MAX_RECEIVE_LBS } from '../lib/warehouseConstants'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
@@ -198,12 +199,12 @@ export function ReceivePage() {
   function enableSearchKeyboard() {
     setIdleInputMode('search')
     setSearchKeyboardReady(true)
-    window.setTimeout(() => searchInputRef.current?.focus(), 50)
+    focusInputForSoftKeyboard(searchInputRef.current)
   }
 
   function enableReceivingSearchKeyboard() {
     setReceivingSearchKeyboardReady(true)
-    window.setTimeout(() => receivingSearchInputRef.current?.focus(), 50)
+    focusInputForSoftKeyboard(receivingSearchInputRef.current)
   }
 
   function clearScanValue() {
@@ -297,6 +298,7 @@ export function ReceivePage() {
     setSuggestedPreAlert(null)
     setPreAlertMatches([])
     setStep('receiving')
+    setReceivingSearchKeyboardReady(false)
     setError('')
     setSuccess('')
     await resolvePreAlertForTracking(upper)
@@ -735,35 +737,52 @@ export function ReceivePage() {
                 >
                   Customer search
                 </label>
-                <input
-                  ref={searchInputRef}
-                  id="customer-search"
-                  type="search"
-                  inputMode="search"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="Jane Doe or BOSS-90009"
-                  value={searchQuery}
-                  readOnly={idleInputMode === 'search' && !searchKeyboardReady}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
-                  onFocus={() => setIdleInputMode('search')}
-                  onPointerDown={() => {
-                    if (idleInputMode === 'search' && !searchKeyboardReady) {
-                      enableSearchKeyboard()
-                    }
-                  }}
-                  disabled={idleInputMode !== 'search'}
-                  className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green disabled:cursor-not-allowed disabled:opacity-50"
-                />
+                <div className="relative">
+                  <input
+                    ref={searchInputRef}
+                    id="customer-search"
+                    type="text"
+                    inputMode={searchKeyboardReady ? 'search' : 'none'}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="Jane Doe or BOSS-90009"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+                    onFocus={() => setIdleInputMode('search')}
+                    disabled={idleInputMode !== 'search'}
+                    tabIndex={idleInputMode === 'search' && !searchKeyboardReady ? -1 : 0}
+                    className={`w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green disabled:cursor-not-allowed disabled:opacity-50 ${
+                      idleInputMode === 'search' && !searchKeyboardReady ? 'pointer-events-none' : ''
+                    }`}
+                  />
+                  {idleInputMode === 'search' && !searchKeyboardReady && (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        enableSearchKeyboard()
+                      }}
+                      className="absolute inset-0 z-10 flex w-full items-center gap-2 rounded-lg border border-border bg-input px-4 py-3 text-left text-muted/70"
+                    >
+                      <Keyboard className="h-4 w-4 shrink-0" />
+                      <span className="truncate">
+                        {searchQuery.trim() || 'Tap to type…'}
+                      </span>
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex flex-col gap-2 sm:self-end">
                 {idleInputMode === 'search' && (
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={enableSearchKeyboard}
+                    onPointerDown={(e) => {
+                      e.preventDefault()
+                      enableSearchKeyboard()
+                    }}
                     className="inline-flex items-center justify-center gap-2 !text-xs"
                   >
                     <Keyboard className="h-4 w-4" />
@@ -892,32 +911,49 @@ export function ReceivePage() {
                     >
                       Customer search
                     </label>
-                    <input
-                      ref={receivingSearchInputRef}
-                      id="receiving-customer-search"
-                      type="search"
-                      inputMode="search"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      placeholder="Name or BOSS ID"
-                      value={searchQuery}
-                      readOnly={!receivingSearchKeyboardReady}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
-                      onPointerDown={() => {
-                        if (!receivingSearchKeyboardReady) {
-                          enableReceivingSearchKeyboard()
-                        }
-                      }}
-                      className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green"
-                    />
+                    <div className="relative">
+                      <input
+                        ref={receivingSearchInputRef}
+                        id="receiving-customer-search"
+                        type="text"
+                        inputMode={receivingSearchKeyboardReady ? 'search' : 'none'}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        placeholder="Name or BOSS ID"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+                        tabIndex={!receivingSearchKeyboardReady ? -1 : 0}
+                        className={`w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green ${
+                          !receivingSearchKeyboardReady ? 'pointer-events-none' : ''
+                        }`}
+                      />
+                      {!receivingSearchKeyboardReady && (
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.preventDefault()
+                            enableReceivingSearchKeyboard()
+                          }}
+                          className="absolute inset-0 z-10 flex w-full items-center gap-2 rounded-lg border border-border bg-input px-4 py-3 text-left text-muted/70"
+                        >
+                          <Keyboard className="h-4 w-4 shrink-0" />
+                          <span className="truncate">
+                            {searchQuery.trim() || 'Tap to type…'}
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col gap-2 sm:self-end">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={enableReceivingSearchKeyboard}
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        enableReceivingSearchKeyboard()
+                      }}
                       className="inline-flex items-center justify-center gap-2 !text-xs"
                     >
                       <Keyboard className="h-4 w-4" />
