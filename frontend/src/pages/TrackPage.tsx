@@ -4,6 +4,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import { trackPackage } from '../api/track'
 import { PackageTimeline } from '../components/packages/PackageTimeline'
+import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
@@ -12,6 +13,7 @@ import { packageNeedsInvoiceUpload } from '../lib/packageBilling'
 import { isCustomerBillVisible } from '../lib/packageStatuses'
 import { formatJmd } from '../lib/money'
 import { getHomeRoute } from '../lib/routing'
+import { PAGE_SEO } from '../lib/seo'
 import type { Package } from '../types'
 
 export function TrackPage() {
@@ -62,6 +64,7 @@ export function TrackPageContent({ embedded = false }: { embedded?: boolean } = 
 
   return (
     <div className={embedded ? '' : 'mx-auto max-w-3xl px-4 py-12'}>
+      {!embedded && <Seo {...PAGE_SEO.track} />}
       <div className={`mb-8 flex items-center gap-2.5 ${embedded ? 'mb-6' : ''}`}>
         {!embedded && <IconBadge icon={PackageSearch} size="sm" />}
         {embedded ? (

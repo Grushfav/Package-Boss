@@ -18,6 +18,8 @@ export default defineConfig({
         'logo-bw.svg',
         'icon-192.png',
         'icon-512.png',
+        'og-image.png',
+        'email-logo.png',
       ],
       manifest: {
         name: 'Package Boss',

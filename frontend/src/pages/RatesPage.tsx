@@ -3,8 +3,10 @@ import { Navigate } from 'react-router-dom'
 import { fetchRates } from '../api/rates'
 import { getErrorMessage } from '../api/client'
 import { ShippingEstimator } from '../components/landing/ShippingEstimator'
+import { Seo } from '../components/seo/Seo'
 import { useAuth } from '../context/AuthContext'
 import { getHomeRoute } from '../lib/routing'
+import { PAGE_SEO } from '../lib/seo'
 
 export function RatesPage() {
   const { user, isAuthenticated } = useAuth()
@@ -43,6 +45,7 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
 
   return (
     <div className={embedded ? '' : 'px-4 py-12'}>
+      {!embedded && <Seo {...PAGE_SEO.rates} />}
       <div className={embedded ? '' : 'mx-auto max-w-4xl'}>
         {!embedded && (
           <>

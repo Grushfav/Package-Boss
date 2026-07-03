@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
 import { ABOUT_PARAGRAPHS, TAGLINE } from '../content/marketing'
+import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { ShippingFrequencyCard } from '../components/landing/ShippingFrequencyCard'
+import { PAGE_SEO } from '../lib/seo'
 
 export function AboutPage() {
   return (
     <div className="px-4 py-12">
+      <Seo {...PAGE_SEO.about} />
       <div className="mx-auto max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-widest text-boss-green">About Us</p>
         <h1 className="mt-2 text-3xl font-black uppercase md:text-4xl">

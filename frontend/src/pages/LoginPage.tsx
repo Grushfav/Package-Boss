@@ -5,9 +5,11 @@ import { login } from '../api/auth'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { getPostLoginPath } from '../lib/routing'
+import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
+import { PAGE_SEO } from '../lib/seo'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -35,6 +37,7 @@ export function LoginPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
+      <Seo {...PAGE_SEO.login} />
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-2.5">
           <IconBadge icon={User} size="sm" />

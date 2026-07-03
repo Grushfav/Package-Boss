@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { resetPassword, validateResetToken } from '../api/auth'
 import { getErrorMessage } from '../api/client'
+import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { PAGE_SEO } from '../lib/seo'
 
 export function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
@@ -48,26 +50,33 @@ export function ResetPasswordPage() {
 
   if (valid === null) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-muted">
-        Validating link...
-      </div>
+      <>
+        <Seo {...PAGE_SEO.resetPassword} />
+        <div className="flex min-h-[40vh] items-center justify-center text-muted">
+          Validating link...
+        </div>
+      </>
     )
   }
 
   if (!valid) {
     return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
+      <>
+        <Seo {...PAGE_SEO.resetPassword} />
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="text-xl font-bold uppercase text-red-400">Invalid or Expired Link</h1>
         <p className="mt-4 text-muted">Request a new password reset link.</p>
         <Link to="/forgot-password" className="mt-6 inline-block text-boss-green hover:underline">
           Forgot Password
         </Link>
-      </div>
+        </div>
+      </>
     )
   }
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
+      <Seo {...PAGE_SEO.resetPassword} />
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <h1 className="text-xl font-bold uppercase">Reset Password</h1>
         <p className="mt-2 text-sm text-muted">Enter your new password below.</p>

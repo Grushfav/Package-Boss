@@ -4,11 +4,14 @@ import { BossMemberLogin } from '../components/landing/BossMemberLogin'
 import { Hero } from '../components/landing/Hero'
 import { ShippingEstimator } from '../components/landing/ShippingEstimator'
 import { WhyBossRules } from '../components/landing/WhyBossRules'
+import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
+import { PAGE_SEO } from '../lib/seo'
 
 export function LandingPage() {
   return (
     <>
+      <Seo {...PAGE_SEO.home} includeOrganization />
       <section className="px-4 py-12 md:py-16">
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2 lg:gap-12">
           <Hero />

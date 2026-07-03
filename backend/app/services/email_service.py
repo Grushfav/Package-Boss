@@ -71,7 +71,7 @@ def resolve_logo_url() -> str | None:
 
     frontend = (current_app.config.get("FRONTEND_URL") or "").rstrip("/")
     if frontend:
-        return f"{frontend}/icon-512.png"
+        return f"{frontend}/email-logo.png"
 
     return None
 

@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { forgotPassword } from '../api/auth'
 import { getErrorMessage } from '../api/client'
+import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { PAGE_SEO } from '../lib/seo'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -28,6 +30,7 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-16">
+      <Seo {...PAGE_SEO.forgotPassword} />
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <h1 className="text-xl font-bold uppercase">Forgot Password</h1>
         <p className="mt-2 text-sm text-muted">

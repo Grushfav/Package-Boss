@@ -5,12 +5,15 @@ import {
   SERVICES,
   SHIPPING_FREQUENCY_SHORT,
 } from '../content/marketing'
+import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { ShippingFrequencyCard } from '../components/landing/ShippingFrequencyCard'
+import { PAGE_SEO } from '../lib/seo'
 
 export function ServicesPage() {
   return (
     <div className="px-4 py-12">
+      <Seo {...PAGE_SEO.services} />
       <div className="mx-auto max-w-4xl">
         <p className="text-xs font-semibold uppercase tracking-widest text-boss-green">Services</p>
         <h1 className="mt-2 text-3xl font-black uppercase md:text-4xl">

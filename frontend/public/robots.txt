@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+Disallow: /dashboard
+Disallow: /warehouse
+Disallow: /admin
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /pre-alerts
+Disallow: /packages/
+
+Sitemap: https://www.packagebossja.com/sitemap.xml

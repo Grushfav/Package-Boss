@@ -2,10 +2,14 @@ import { COMPANY_LEGAL_NAME } from '../content/terms'
 import { LEGAL_EFFECTIVE_DATE } from '../content/legal'
 import { PRIVACY_SECTIONS } from '../content/privacy'
 import { LegalDocumentPage } from '../components/legal/LegalDocumentPage'
+import { Seo } from '../components/seo/Seo'
+import { PAGE_SEO } from '../lib/seo'
 
 export function PrivacyPage() {
   return (
-    <LegalDocumentPage
+    <>
+      <Seo {...PAGE_SEO.privacy} />
+      <LegalDocumentPage
       title="Privacy Policy"
       subtitle={COMPANY_LEGAL_NAME}
       effectiveDate={LEGAL_EFFECTIVE_DATE}
@@ -15,5 +19,6 @@ export function PrivacyPage() {
         { label: 'Data Protection Policy', to: '/data-protection' },
       ]}
     />
+    </>
   )
 }

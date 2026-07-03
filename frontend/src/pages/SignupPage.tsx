@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { fetchParishes, register } from '../api/auth'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { PAGE_SEO } from '../lib/seo'
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -52,6 +54,7 @@ export function SignupPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
+      <Seo {...PAGE_SEO.signup} />
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <h1 className="text-2xl font-black uppercase">
           Join <span className="italic text-boss-green">Package Boss</span>
