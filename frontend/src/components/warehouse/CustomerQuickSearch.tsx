@@ -77,7 +77,7 @@ export function CustomerQuickSearch() {
               <button
                 type="button"
                 onClick={() => selectCustomer(c, 'account')}
-                className="w-full px-3 py-2 text-left hover:bg-boss-green/10"
+                className="w-full px-3 py-2 text-left hover:bg-boss-gold/10"
               >
                 <p className="text-sm font-medium">{c.full_name}</p>
                 <p className="text-xs text-muted">{c.shipping_id}</p>

@@ -118,7 +118,7 @@ export function UnidentifiedQueuePage() {
           <p className="mt-2 text-sm text-muted">
             Packages without a matched owner appear here after receival.
           </p>
-          <Link to="/warehouse/receive" className="mt-4 inline-block text-sm text-boss-green hover:underline">
+          <Link to="/warehouse/receive" className="mt-4 inline-block text-sm text-boss-gold hover:underline">
             Receive a package →
           </Link>
         </div>
@@ -131,7 +131,7 @@ export function UnidentifiedQueuePage() {
                 key={pkg.id}
                 className={`rounded-xl border bg-card p-4 transition-colors ${
                   selected?.id === pkg.id
-                    ? 'border-boss-green/50 ring-1 ring-boss-green/30'
+                    ? 'border-boss-gold/50 ring-1 ring-boss-gold/30'
                     : 'border-border'
                 }`}
               >
@@ -173,8 +173,8 @@ export function UnidentifiedQueuePage() {
       )}
 
       {selected && (
-        <div className="mt-8 rounded-2xl border border-boss-green/30 bg-boss-green/5 p-6">
-          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
+        <div className="mt-8 rounded-2xl border border-boss-gold/30 bg-boss-gold/5 p-6">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
             <UserCheck className="h-4 w-4" />
             Assign {selected.tracking_number}
           </h2>

@@ -31,7 +31,6 @@ export function Footer() {
           <ul className="mt-3 space-y-2 text-sm text-muted">
             <li><Link to="/about" className="hover:text-boss-green">About Us</Link></li>
             <li><Link to="/services" className="hover:text-boss-green">Services</Link></li>
-            <li><Link to="/track" className="hover:text-boss-green">Track My Package</Link></li>
             <li><Link to="/rates" className="hover:text-boss-green">View Rates</Link></li>
             <li><Link to="/terms" className="hover:text-boss-green">Terms &amp; Conditions</Link></li>
             <li><Link to="/privacy" className="hover:text-boss-green">Privacy Policy</Link></li>

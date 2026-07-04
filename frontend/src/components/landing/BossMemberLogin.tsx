@@ -75,7 +75,7 @@ export function BossMemberLogin() {
           Forgot Password?
         </Link>
         <Link to="/signup" className="text-muted hover:text-foreground">
-          New Boss? <span className="text-boss-green">Sign Up</span>
+          New Boss? <span className="text-boss-gold">Sign Up</span>
         </Link>
       </div>
     </div>

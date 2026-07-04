@@ -1,0 +1,52 @@
+name: k6 regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Apply database migrations
+        working-directory: backend
+        env:
+          FLASK_APP: wsgi:app
+          DATABASE_URL: sqlite:///ci_k6_test.db
+        run: flask db upgrade
+
+      - name: Start API server
+        working-directory: backend
+        env:
+          FLASK_APP: wsgi:app
+          DATABASE_URL: sqlite:///ci_k6_test.db
+        run: |
+          flask run --host 0.0.0.0 --port 5000 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5000/api/health && exit 0
+            sleep 1
+          done
+          echo "API failed to start"
+          exit 1
+
+      - name: Run k6 regression suite
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: k6/smoke/regression.js
+        env:
+          K6_BASE_URL: http://localhost:5000

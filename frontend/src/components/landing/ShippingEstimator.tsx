@@ -98,14 +98,14 @@ export function ShippingEstimator() {
               </p>
               <a
                 href="mailto:support@packageboss.com"
-                className="mt-3 text-sm font-semibold text-boss-green hover:underline"
+                className="mt-3 text-sm font-semibold text-boss-gold hover:underline"
               >
                 Request a quote →
               </a>
             </>
           ) : estimate ? (
             <>
-              <p className="mt-2 text-3xl font-black text-boss-green">
+              <p className="mt-2 text-3xl font-black text-boss-gold">
                 ${estimate.cost_usd.toFixed(2)} USD
               </p>
               <p className="mt-1 text-xl font-bold text-muted">

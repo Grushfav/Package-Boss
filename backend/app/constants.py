@@ -157,6 +157,7 @@ INVOICE_REQUEST_CHANNELS = ["email", "whatsapp", "both"]
 CLERK_PERMISSIONS = [
     "receive",
     "activity",
+    "pre_alerts",
     "directory",
     "status_transit",
     "status_customs",
@@ -168,6 +169,7 @@ CLERK_PERMISSIONS = [
 CLERK_PERMISSION_LABELS = {
     "receive": "Receive packages",
     "activity": "Activity log",
+    "pre_alerts": "View pre-alerts",
     "directory": "Customer directory",
     "status_transit": "Status: received → in transit (Fort Lauderdale)",
     "status_customs": "Status: customs updates",
@@ -176,7 +178,7 @@ CLERK_PERMISSION_LABELS = {
     "invoice_request": "Request customer invoices",
 }
 
-DEFAULT_CLERK_PERMISSIONS = ["receive", "activity"]
+DEFAULT_CLERK_PERMISSIONS = ["receive", "activity", "pre_alerts"]
 
 # Allowed status transitions per permission (admin bypasses)
 STATUS_TRANSITIONS_BY_PERMISSION = {

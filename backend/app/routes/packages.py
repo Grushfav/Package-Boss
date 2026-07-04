@@ -1,7 +1,7 @@
 import uuid
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import jwt_required
 
 from app.constants import ALLOWED_INVOICE_TYPES
 from app.models.package import Package
@@ -14,17 +14,9 @@ from app.services.image_upload_service import (
     parse_presign_fields,
 )
 from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
+from app.utils.auth_decorators import resolve_jwt_user
 
 packages_bp = Blueprint("packages", __name__)
-
-
-def _get_current_user():
-    user_id = get_jwt_identity()
-    try:
-        uid = uuid.UUID(user_id)
-    except (TypeError, ValueError):
-        return None
-    return User.query.get(uid)
 
 
 def _get_customer_package(user: User, package_id: str) -> Package | None:
@@ -38,9 +30,9 @@ def _get_customer_package(user: User, package_id: str) -> Package | None:
 @packages_bp.route("/me/packages", methods=["GET"])
 @jwt_required()
 def list_my_packages():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     packages = (
         Package.query.filter_by(customer_id=user.id)
@@ -53,9 +45,9 @@ def list_my_packages():
 @packages_bp.route("/me/packages/<package_id>", methods=["GET"])
 @jwt_required()
 def get_my_package(package_id: str):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     package = _get_customer_package(user, package_id)
     if not package:
@@ -71,9 +63,9 @@ def get_my_package(package_id: str):
 @packages_bp.route("/me/packages/<package_id>/invoice/presign", methods=["POST"])
 @jwt_required()
 def presign_package_invoice(package_id: str):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     try:
         assert_upload_presign_allowed(str(user.id))
@@ -120,9 +112,9 @@ def presign_package_invoice(package_id: str):
 @packages_bp.route("/me/packages/<package_id>/invoice", methods=["POST"])
 @jwt_required()
 def submit_package_invoice(package_id: str):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     package = _get_customer_package(user, package_id)
     if not package:

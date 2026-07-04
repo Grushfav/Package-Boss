@@ -57,7 +57,7 @@ export function NotificationsSection() {
                 — welcome messages, invoice requests, and package status updates.
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-boss-green/15 px-2.5 py-1 text-xs font-semibold text-boss-green">
+            <span className="shrink-0 rounded-full bg-boss-gold/15 px-2.5 py-1 text-xs font-semibold text-boss-gold">
               Always on
             </span>
           </div>
@@ -69,7 +69,7 @@ export function NotificationsSection() {
             checked={whatsappOptIn}
             disabled={loading}
             onChange={(e) => handleWhatsappToggle(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-border accent-boss-green"
+            className="mt-0.5 h-4 w-4 rounded border-border accent-boss-gold"
           />
           <div>
             <p className="font-semibold">WhatsApp</p>

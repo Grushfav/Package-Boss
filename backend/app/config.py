@@ -7,6 +7,19 @@ _root_env = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(_root_env)
 load_dotenv()
 
+INSECURE_SECRET_VALUES = frozenset(
+    {
+        "",
+        "dev-secret-change-me",
+        "change-me-in-production",
+    }
+)
+
+
+def is_production_env() -> bool:
+    env = (os.environ.get("FLASK_ENV") or os.environ.get("ENV") or "development").strip().lower()
+    return env == "production"
+
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
@@ -16,8 +29,8 @@ class Config:
         "pool_pre_ping": True,
     }
 
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", SECRET_KEY)
-    JWT_ACCESS_TOKEN_EXPIRES = 60 * 60 * 24 * 7  # 7 days
+    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or SECRET_KEY
+    JWT_ACCESS_TOKEN_EXPIRES = 60 * 60 * 24  # 24 hours
 
     BOSS_ID_SEQ_START = int(os.environ.get("BOSS_ID_SEQ_START", "90001"))
 
@@ -39,7 +52,7 @@ class Config:
     WAREHOUSE_LINE1 = os.environ.get("WAREHOUSE_LINE1", "2201 SW 59th Terrace")
     WAREHOUSE_CITY = os.environ.get("WAREHOUSE_CITY", "West Park")
     WAREHOUSE_STATE = os.environ.get("WAREHOUSE_STATE", "FL")
-    WAREHOUSE_ZIP = os.environ.get("WAREHOUSE_ZIP", " 33023")
+    WAREHOUSE_ZIP = os.environ.get("WAREHOUSE_ZIP", "33023")
     WAREHOUSE_COUNTRY = os.environ.get("WAREHOUSE_COUNTRY", "US")
 
     EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "console")
@@ -60,3 +73,44 @@ class Config:
     CLERK_EMAIL = os.environ.get("CLERK_EMAIL", "").strip().lower()
     # Legacy alias — treated as CLERK_EMAIL if CLERK_EMAIL is unset
     STAFF_EMAIL = os.environ.get("STAFF_EMAIL", "").strip().lower()
+
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+
+
+class ProductionConfig(Config):
+    DEBUG = False
+
+    @classmethod
+    def validate(cls) -> None:
+        secret = (os.environ.get("SECRET_KEY") or "").strip()
+        jwt_secret = (os.environ.get("JWT_SECRET_KEY") or "").strip()
+        database_url = (os.environ.get("DATABASE_URL") or "").strip()
+
+        errors: list[str] = []
+
+        if secret in INSECURE_SECRET_VALUES:
+            errors.append("SECRET_KEY must be set to a secure random value in production")
+        if jwt_secret in INSECURE_SECRET_VALUES:
+            errors.append("JWT_SECRET_KEY must be set to a secure random value in production")
+        elif jwt_secret == secret:
+            errors.append("JWT_SECRET_KEY must differ from SECRET_KEY in production")
+        if not database_url:
+            errors.append("DATABASE_URL must be set in production")
+        elif database_url.lower().startswith("sqlite"):
+            errors.append("DATABASE_URL must not use SQLite in production")
+
+        if errors:
+            message = "Production configuration invalid:\n" + "\n".join(f"  - {item}" for item in errors)
+            raise RuntimeError(message)
+
+
+def get_config_class():
+    if is_production_env():
+        return ProductionConfig
+    return DevelopmentConfig
+
+
+# Backwards-compatible default for imports and tests that pass Config explicitly.
+Config = DevelopmentConfig

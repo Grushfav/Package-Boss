@@ -288,6 +288,8 @@ def render_package_status_html(
     track_url: str,
     note: str | None = None,
     logo_url: str | None = None,
+    carrier_tracking: str | None = None,
+    shipper_label: str | None = None,
 ) -> str:
     from app.constants import STATUS_LABELS
 
@@ -301,20 +303,54 @@ def render_package_status_html(
         note_block = render_info_box(
             f'<strong style="color:{TEXT_PRIMARY};">Update</strong><br />{html.escape(note)}'
         )
-    tracking_box = render_info_box(
-        f'<span style="font-size:12px;color:{TEXT_MUTED};">Tracking number</span><br />'
-        f'<span style="font-family:ui-monospace,Consolas,monospace;font-size:16px;'
-        f'font-weight:700;color:{BRAND_GREEN_DARK};">{safe_tracking}</span><br /><br />'
-        f'<span style="font-size:12px;color:{TEXT_MUTED};">Status</span><br />'
-        f'<span style="font-size:15px;font-weight:700;color:{TEXT_PRIMARY};">{safe_label}</span>'
+
+    detail_rows = [
+        (
+            "Package Boss tracking",
+            f'<span style="font-family:ui-monospace,Consolas,monospace;font-size:16px;'
+            f'font-weight:700;color:{BRAND_GREEN_DARK};">{safe_tracking}</span>',
+        ),
+    ]
+    if carrier_tracking:
+        safe_carrier = _esc(carrier_tracking.strip())
+        detail_rows.append(
+            (
+                "Carrier tracking",
+                f'<span style="font-family:ui-monospace,Consolas,monospace;font-size:15px;'
+                f'font-weight:600;color:{TEXT_PRIMARY};">{safe_carrier}</span>',
+            )
+        )
+    if shipper_label:
+        detail_rows.append(
+            (
+                "Shipper",
+                f'<span style="font-size:15px;font-weight:600;color:{TEXT_PRIMARY};">'
+                f'{_esc(shipper_label.strip())}</span>',
+            )
+        )
+    detail_rows.append(
+        (
+            "Status",
+            f'<span style="font-size:15px;font-weight:700;color:{TEXT_PRIMARY};">{safe_label}</span>',
+        )
     )
+
+    detail_html = "<br /><br />".join(
+        f'<span style="font-size:12px;color:{TEXT_MUTED};">{_esc(label)}</span><br />{value}'
+        for label, value in detail_rows
+    )
+    tracking_box = render_info_box(detail_html)
     body = f"""
       <p style="margin:0 0 12px;">Hi {safe_name},</p>
       <p style="margin:0 0 12px;">{safe_message}</p>
       {tracking_box}
       {note_block}"""
     return render_layout(
-        preheader=f"Package {tracking_number} — {status_label}",
+        preheader=(
+            f"Package {tracking_number}"
+            + (f" · {carrier_tracking.strip()}" if carrier_tracking and carrier_tracking.strip() else "")
+            + f" — {status_label}"
+        ),
         title="Package status update",
         body_html=body,
         logo_url=logo_url,

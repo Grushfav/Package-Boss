@@ -13,6 +13,7 @@ export interface RatesResponse {
   currency: string
   jmd_per_usd: number
   max_auto_rate_lbs: number
+  rates_revision?: string
   quote_note: string
   rounding_note: string
   formula_note: string

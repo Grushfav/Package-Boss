@@ -43,7 +43,7 @@ export function AdminActivityPage() {
         <button
           type="button"
           onClick={() => { setFilter(''); setOffset(0) }}
-          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${!filter ? 'bg-boss-green text-white' : 'border border-border text-muted'}`}
+          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${!filter ? 'bg-boss-gold text-white' : 'border border-border text-muted'}`}
         >
           All
         </button>
@@ -52,7 +52,7 @@ export function AdminActivityPage() {
             key={code}
             type="button"
             onClick={() => { setFilter(code); setOffset(0) }}
-            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${filter === code ? 'bg-boss-green text-white' : 'border border-border text-muted'}`}
+            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${filter === code ? 'bg-boss-gold text-white' : 'border border-border text-muted'}`}
           >
             {label}
           </button>
@@ -82,7 +82,7 @@ export function AdminActivityPage() {
                     <p className="font-medium">{entry.actor_name}</p>
                     <p className="text-xs text-muted">{entry.actor_role}</p>
                   </td>
-                  <td className="px-4 py-3 text-xs font-semibold uppercase text-boss-green">
+                  <td className="px-4 py-3 text-xs font-semibold uppercase text-boss-gold">
                     {ACTION_LABELS[entry.action] || entry.action}
                   </td>
                   <td className="px-4 py-3">{entry.summary}</td>

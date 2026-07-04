@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
 import {
   fetchCustomerDeliveryAddresses,
@@ -7,6 +7,8 @@ import {
   setPackageDeliveryAddress,
   updatePackageBilling,
 } from '../../api/staff'
+import { useAuth } from '../../context/AuthContext'
+import { clerkHasPermission } from '../../lib/clerkPermissions'
 import { formatJmd } from '../../lib/money'
 import { packageHasAdditionalFees } from '../../lib/packageBilling'
 import { RecordPaymentForm } from './RecordPaymentForm'
@@ -21,7 +23,25 @@ interface PackageStaffModalProps {
 }
 
 export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModalProps) {
-  const [tab, setTab] = useState<'invoice' | 'billing' | 'payment' | 'delivery'>('invoice')
+  const { user } = useAuth()
+  const perms = user?.permissions || user?.clerk_permissions
+  const role = user?.role
+  const canRequestInvoice = clerkHasPermission(perms, 'invoice_request', role)
+  const canManageBilling = clerkHasPermission(perms, 'billing', role)
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: 'invoice' as const, label: 'Invoice', enabled: canRequestInvoice },
+        { id: 'billing' as const, label: 'Billing', enabled: canManageBilling },
+        { id: 'payment' as const, label: 'Payment', enabled: canManageBilling },
+        { id: 'delivery' as const, label: 'Delivery', enabled: canManageBilling },
+      ],
+    [canManageBilling, canRequestInvoice],
+  )
+
+  const defaultTab = tabs.find((t) => t.enabled)?.id ?? 'invoice'
+  const [tab, setTab] = useState<'invoice' | 'billing' | 'payment' | 'delivery'>(defaultTab)
   const [note, setNote] = useState('')
   const [channel, setChannel] = useState<'email' | 'whatsapp' | 'both'>('email')
   const [error, setError] = useState('')
@@ -103,19 +123,15 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
     }
   }
 
-  const tabs = [
-    { id: 'invoice' as const, label: 'Invoice' },
-    { id: 'billing' as const, label: 'Billing' },
-    { id: 'payment' as const, label: 'Payment' },
-    { id: 'delivery' as const, label: 'Delivery' },
-  ]
+  const tabEnabled = (id: (typeof tabs)[number]['id']) =>
+    tabs.find((t) => t.id === id)?.enabled ?? false
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-mono font-bold text-boss-green">{pkg.tracking_number}</h2>
+            <h2 className="font-mono font-bold text-boss-gold">{pkg.tracking_number}</h2>
             <p className="text-sm text-muted">
               {pkg.invoice_status_label} · {pkg.billing_status_label}
             </p>
@@ -125,16 +141,24 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
           </button>
         </div>
 
-        <div className="mt-4 flex gap-2 border-b border-border pb-2">
+        <div className="mt-4 flex flex-wrap gap-2 border-b border-border pb-2">
           {tabs.map((t) => (
             <button
               key={t.id}
               type="button"
+              disabled={!t.enabled}
+              title={
+                t.enabled
+                  ? undefined
+                  : t.id === 'invoice'
+                    ? 'Requires invoice request permission'
+                    : 'Requires billing permission'
+              }
               onClick={() => setTab(t.id)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase disabled:cursor-not-allowed disabled:opacity-40 ${
                 tab === t.id
-                  ? 'bg-boss-green/15 text-boss-green'
-                  : 'text-muted hover:text-foreground'
+                  ? 'bg-boss-gold/15 text-boss-gold'
+                  : 'text-muted hover:text-foreground disabled:hover:text-muted'
               }`}
             >
               {t.label}
@@ -142,8 +166,15 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
           ))}
         </div>
 
+        {!canRequestInvoice && !canManageBilling && (
+          <p className="mt-4 text-sm text-muted">
+            You can view package details here, but billing and invoice actions require additional
+            permissions from an admin.
+          </p>
+        )}
+
         {success && (
-          <p className="mt-3 rounded-lg bg-boss-green/10 px-3 py-2 text-sm text-boss-green">
+          <p className="mt-3 rounded-lg bg-boss-gold/10 px-3 py-2 text-sm text-boss-gold">
             {success}
           </p>
         )}
@@ -152,7 +183,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
           <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</p>
         )}
 
-        {tab === 'invoice' && (
+        {tab === 'invoice' && tabEnabled('invoice') && (
           <div className="mt-4 space-y-4">
             <p className="text-sm text-muted">
             Send the customer a link to upload their invoice/receipt by email or WhatsApp.
@@ -182,7 +213,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
                 href={pkg.invoice_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-boss-green hover:underline"
+                className="text-sm text-boss-gold hover:underline"
               >
                 View uploaded invoice
               </a>
@@ -196,7 +227,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
           </div>
         )}
 
-        {tab === 'billing' && (
+        {tab === 'billing' && tabEnabled('billing') && (
           <div className="mt-4 space-y-3">
             {pkg.status === 'customs' ? (
               <>
@@ -272,7 +303,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
                   <button
                     type="button"
                     onClick={() => setShowExtraFees(true)}
-                    className="text-xs font-semibold text-boss-green hover:underline"
+                    className="text-xs font-semibold text-boss-gold hover:underline"
                   >
                     + Add duties, handling, or other fees
                   </button>
@@ -338,7 +369,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
           </div>
         )}
 
-        {tab === 'payment' && (
+        {tab === 'payment' && tabEnabled('payment') && (
           <div className="mt-4">
             <RecordPaymentForm
               pkg={pkg}
@@ -350,7 +381,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
           </div>
         )}
 
-        {tab === 'delivery' && (
+        {tab === 'delivery' && tabEnabled('delivery') && (
           <div className="mt-4 space-y-3">
             {addresses.length === 0 ? (
               <p className="text-sm text-muted">Customer has no saved delivery addresses.</p>
@@ -363,8 +394,8 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
                   disabled={loading}
                   className={`w-full rounded-xl border p-4 text-left text-sm transition-colors ${
                     pkg.delivery_address_id === addr.id
-                      ? 'border-boss-green bg-boss-green/10'
-                      : 'border-border hover:border-boss-green/40'
+                      ? 'border-boss-gold bg-boss-gold/10'
+                      : 'border-border hover:border-boss-gold/40'
                   }`}
                 >
                   <p className="font-semibold">{addr.label}</p>

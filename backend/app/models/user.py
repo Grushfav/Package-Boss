@@ -24,6 +24,7 @@ class User(db.Model):
     clerk_permissions = db.Column(db.JSON, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     must_set_password = db.Column(db.Boolean, default=False, nullable=False)
+    token_version = db.Column(db.Integer, default=0, nullable=False)
 
     terms_accepted_at = db.Column(db.DateTime, nullable=True)
     whatsapp_opt_in = db.Column(db.Boolean, default=False, nullable=False)

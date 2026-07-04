@@ -66,7 +66,7 @@ export function ResetPasswordPage() {
         <div className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="text-xl font-bold uppercase text-red-400">Invalid or Expired Link</h1>
         <p className="mt-4 text-muted">Request a new password reset link.</p>
-        <Link to="/forgot-password" className="mt-6 inline-block text-boss-green hover:underline">
+        <Link to="/forgot-password" className="mt-6 inline-block text-boss-gold hover:underline">
           Forgot Password
         </Link>
         </div>

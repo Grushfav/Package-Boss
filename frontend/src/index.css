@@ -14,7 +14,7 @@
   --color-muted: #9ca3af;
   --color-border: rgb(255 255 255 / 0.1);
   --color-input: #1a1a1a;
-  --color-accent-subtle: rgb(34 197 94 / 0.05);
+  --color-accent-subtle: rgb(234 179 8 / 0.05);
 }
 
 :root.light {
@@ -24,7 +24,7 @@
   --color-muted: #64748b;
   --color-border: rgb(15 23 42 / 0.12);
   --color-input: #ffffff;
-  --color-accent-subtle: rgb(34 197 94 / 0.08);
+  --color-accent-subtle: rgb(234 179 8 / 0.08);
 }
 
 body {

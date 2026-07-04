@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { api } from '../api/client'
+import { logoutSession } from '../api/auth'
 import { getHomeRoute } from '../lib/routing'
 import type { User } from '../types'
 
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
+    void logoutSession()
     localStorage.removeItem('access_token')
     setUser(null)
   }, [])

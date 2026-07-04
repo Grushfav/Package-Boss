@@ -65,7 +65,7 @@ export function CheckoutPaymentModal({
         <ul className="mt-4 space-y-2 rounded-xl border border-border bg-background/50 p-3 text-sm">
           {packages.map((pkg) => (
             <li key={pkg.id} className="flex items-center justify-between gap-3">
-              <span className="font-mono text-boss-green">{pkg.tracking_number}</span>
+              <span className="font-mono text-boss-gold">{pkg.tracking_number}</span>
               <span className="font-semibold">{formatJmd(pkg.total_due_jmd)}</span>
             </li>
           ))}

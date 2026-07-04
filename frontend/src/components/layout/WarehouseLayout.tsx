@@ -1,5 +1,7 @@
 import {
   Activity,
+  Bell,
+  ChevronLeft,
   LayoutDashboard,
   PackagePlus,
   PackageSearch,
@@ -8,9 +10,10 @@ import {
   Search,
   Users,
 } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { clerkHasAnyPermission, clerkHasPermission } from '../../lib/clerkPermissions'
+import { isAdmin } from '../../lib/roles'
 import type { ClerkPermission } from '../../types'
 import { WarehouseCountsProvider, useWarehouseCounts } from '../../context/WarehouseCountsContext'
 import { CommandPalette, openCommandPalette } from '../warehouse/CommandPalette'
@@ -19,7 +22,7 @@ import { CustomerQuickSearch } from '../warehouse/CustomerQuickSearch'
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null
   return (
-    <span className="ml-auto rounded-full bg-boss-green px-1.5 py-0.5 text-[10px] font-bold text-black">
+    <span className="ml-auto rounded-full bg-boss-gold px-1.5 py-0.5 text-[10px] font-bold text-black">
       {count > 99 ? '99+' : count}
     </span>
   )
@@ -28,7 +31,7 @@ function NavBadge({ count }: { count: number }) {
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
     isActive
-      ? 'bg-boss-green/15 text-boss-green'
+      ? 'bg-boss-gold/15 text-boss-gold'
       : 'text-muted hover:bg-card hover:text-foreground'
   }`
 
@@ -48,6 +51,13 @@ function WarehouseShell() {
   }[] = [
     { to: '/warehouse', end: true, icon: LayoutDashboard, label: 'Floor', permission: 'receive' },
     { to: '/warehouse/receive', icon: PackagePlus, label: 'Receive', permission: 'receive' },
+    {
+      to: '/warehouse/pre-alerts',
+      icon: Bell,
+      label: 'Pre-alerts',
+      badge: counts?.pending_pre_alerts,
+      permission: 'pre_alerts',
+    },
     {
       to: '/warehouse/print-queue',
       icon: Printer,
@@ -85,6 +95,15 @@ function WarehouseShell() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
       <aside className="hidden shrink-0 border-r border-border md:flex md:w-52 md:flex-col md:px-3 md:py-6 lg:w-56">
+        {isAdmin(user?.role) && (
+          <Link
+            to="/admin"
+            className="mb-4 inline-flex items-center gap-1 px-3 text-sm font-semibold text-muted transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Admin home
+          </Link>
+        )}
         <p className="mb-4 px-3 text-[10px] font-bold uppercase tracking-widest text-muted">
           Warehouse
         </p>
@@ -101,11 +120,20 @@ function WarehouseShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+          {isAdmin(user?.role) && (
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-muted transition-colors hover:text-foreground md:hidden"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Admin home
+            </Link>
+          )}
           {showQuickSearch && <CustomerQuickSearch />}
           <button
             type="button"
             onClick={openCommandPalette}
-            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted hover:border-boss-green/40"
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-muted hover:border-boss-gold/40"
           >
             <Search className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Jump to…</span>
@@ -131,14 +159,14 @@ function WarehouseShell() {
             end={item.end}
             className={({ isActive }) =>
               `relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold ${
-                isActive ? 'text-boss-green' : 'text-muted'
+                isActive ? 'text-boss-gold' : 'text-muted'
               }`
             }
           >
             <item.icon className="h-5 w-5" strokeWidth={2} />
             {item.label.split(' ')[0]}
             {item.badge != null && item.badge > 0 && (
-              <span className="absolute right-2 top-1 h-2 w-2 rounded-full bg-boss-green" />
+              <span className="absolute right-2 top-1 h-2 w-2 rounded-full bg-boss-gold" />
             )}
           </NavLink>
         ))}

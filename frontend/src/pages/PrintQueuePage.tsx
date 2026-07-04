@@ -153,8 +153,8 @@ export function PrintQueuePage() {
           onClick={() => setView('pending')}
           className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
             view === 'pending'
-              ? 'border-boss-green bg-boss-green/15 text-boss-green'
-              : 'border-border text-muted hover:border-boss-green/40'
+              ? 'border-boss-gold bg-boss-gold/15 text-boss-gold'
+              : 'border-border text-muted hover:border-boss-gold/40'
           }`}
         >
           Pending print
@@ -164,8 +164,8 @@ export function PrintQueuePage() {
           onClick={() => setView('all')}
           className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
             view === 'all'
-              ? 'border-boss-green bg-boss-green/15 text-boss-green'
-              : 'border-border text-muted hover:border-boss-green/40'
+              ? 'border-boss-gold bg-boss-gold/15 text-boss-gold'
+              : 'border-border text-muted hover:border-boss-gold/40'
           }`}
         >
           Label log
@@ -185,7 +185,7 @@ export function PrintQueuePage() {
               ? 'Packages received without printing appear here.'
               : 'Received packages will appear here once clerks confirm receival.'}
           </p>
-          <Link to="/warehouse/receive" className="mt-4 inline-block text-sm text-boss-green hover:underline">
+          <Link to="/warehouse/receive" className="mt-4 inline-block text-sm text-boss-gold hover:underline">
             Receive packages →
           </Link>
         </div>
@@ -233,7 +233,7 @@ export function PrintQueuePage() {
                       if (el) el.indeterminate = someSelected
                     }}
                     onChange={(e) => toggleSelectAll(e.target.checked)}
-                    className="h-4 w-4 rounded border-border accent-boss-green"
+                    className="h-4 w-4 rounded border-border accent-boss-gold"
                   />
                   Select all
                 </label>
@@ -247,7 +247,7 @@ export function PrintQueuePage() {
                       type="checkbox"
                       checked={selectedIds.has(pkg.id)}
                       onChange={() => togglePackage(pkg.id)}
-                      className="h-4 w-4 rounded border-border accent-boss-green"
+                      className="h-4 w-4 rounded border-border accent-boss-gold"
                     />
                   )}
                   <div className="min-w-0 flex-1">
@@ -263,7 +263,7 @@ export function PrintQueuePage() {
                       {pkg.label_printed_at && (
                         <>
                           {' · '}
-                          <span className="text-boss-green">Printed</span>
+                          <span className="text-boss-gold">Printed</span>
                         </>
                       )}
                     </p>

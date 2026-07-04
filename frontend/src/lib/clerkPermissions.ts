@@ -3,6 +3,7 @@ import type { ClerkPermission } from '../types'
 export const CLERK_PERMISSION_LABELS: Record<ClerkPermission, string> = {
   receive: 'Receive packages',
   activity: 'Activity log',
+  pre_alerts: 'View pre-alerts',
   directory: 'Customer directory',
   status_transit: 'Status: received → in transit (Fort Lauderdale)',
   status_customs: 'Status: customs updates',
@@ -11,7 +12,7 @@ export const CLERK_PERMISSION_LABELS: Record<ClerkPermission, string> = {
   invoice_request: 'Request customer invoices',
 }
 
-export const DEFAULT_CLERK_PERMISSIONS: ClerkPermission[] = ['receive', 'activity']
+export const DEFAULT_CLERK_PERMISSIONS: ClerkPermission[] = ['receive', 'activity', 'pre_alerts']
 
 export function clerkHasPermission(
   permissions: ClerkPermission[] | undefined,
@@ -30,4 +31,11 @@ export function clerkHasAnyPermission(
 ): boolean {
   if (role === 'admin') return true
   return required.some((p) => clerkHasPermission(permissions, p, role))
+}
+
+export function clerkCanManagePackageActions(
+  permissions: ClerkPermission[] | undefined,
+  role?: string,
+): boolean {
+  return clerkHasAnyPermission(permissions, ['billing', 'invoice_request'], role)
 }

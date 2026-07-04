@@ -1,10 +1,11 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, make_response, request
 
 from app.services.rate_limit_service import RateLimitExceeded, assert_rates_estimate_allowed
 from app.services.shipping_service import (
     JMD_PER_USD,
     MAX_AUTO_RATE_LBS,
     QUOTE_MESSAGE,
+    RATES_REVISION,
     build_rate_table,
     calculate_shipping_cost,
 )
@@ -14,24 +15,26 @@ rates_bp = Blueprint("rates", __name__)
 
 @rates_bp.route("/rates", methods=["GET"])
 def list_rates():
-    return jsonify(
-        {
-            "currency": "USD",
-            "jmd_per_usd": JMD_PER_USD,
-            "max_auto_rate_lbs": MAX_AUTO_RATE_LBS,
-            "quote_note": QUOTE_MESSAGE,
-            "rounding_note": "All weights are rounded up to the nearest whole pound before rating.",
-            "formula_note": (
-                f"Published tier rates by billable weight (1–{MAX_AUTO_RATE_LBS} lbs). "
-                f"JMD shown at {JMD_PER_USD} JMD = 1 USD."
-            ),
-            "billing_disclaimer": (
-                "Published rates are freight estimates only. Final bills may include customs duties "
-                "(items over $100 USD), handling fees, and other charges after invoice review."
-            ),
-            "tiers": build_rate_table(),
-        }
-    )
+    payload = {
+        "currency": "USD",
+        "jmd_per_usd": JMD_PER_USD,
+        "max_auto_rate_lbs": MAX_AUTO_RATE_LBS,
+        "rates_revision": RATES_REVISION,
+        "quote_note": QUOTE_MESSAGE,
+        "rounding_note": "All weights are rounded up to the nearest whole pound before rating.",
+        "formula_note": (
+            f"Published tier rates by billable weight (1–{MAX_AUTO_RATE_LBS} lbs). "
+            f"JMD shown at {JMD_PER_USD} JMD = 1 USD."
+        ),
+        "billing_disclaimer": (
+            "Published rates are freight estimates only. Final bills may include customs duties "
+            "(items over $100 USD), handling fees, and other charges after invoice review."
+        ),
+        "tiers": build_rate_table(),
+    }
+    response = make_response(jsonify(payload))
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return response
 
 
 @rates_bp.route("/rates/estimate", methods=["GET"])

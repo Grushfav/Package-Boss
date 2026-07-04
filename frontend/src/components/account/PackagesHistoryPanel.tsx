@@ -7,16 +7,11 @@ export function PackagesHistoryPanel() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold uppercase tracking-wide">Packages</h2>
-          <p className="mt-2 text-sm text-muted">
-            Shipments received at our Fort Lauderdale warehouse and their status in Jamaica.
-          </p>
-        </div>
-        <Link to="/dashboard/track" className="text-sm text-boss-green hover:underline">
-          Track by number →
-        </Link>
+      <div>
+        <h2 className="text-lg font-bold uppercase tracking-wide">Packages</h2>
+        <p className="mt-2 text-sm text-muted">
+          Shipments received at our Fort Lauderdale warehouse and their status in Jamaica.
+        </p>
       </div>
 
       {packagesLoading && packages.length === 0 ? (
@@ -58,7 +53,7 @@ export function PackagesHistoryPanel() {
                     <td className="border-t border-border px-4 py-3 text-foreground">
                       {pkg.shipper_label || pkg.shipper || '—'}
                     </td>
-                    <td className="border-t border-border px-4 py-3 font-mono font-bold text-boss-green">
+                    <td className="border-t border-border px-4 py-3 font-mono font-bold text-boss-gold">
                       {pkg.tracking_number}
                     </td>
                     <td className="border-t border-border px-4 py-3 text-foreground">
@@ -77,25 +72,19 @@ export function PackagesHistoryPanel() {
                       )}
                     </td>
                     <td className="border-t border-border px-4 py-3">
-                      <span className="inline-block rounded-full bg-boss-green/15 px-2.5 py-1 text-[10px] font-semibold uppercase text-boss-green">
+                      <span className="inline-block rounded-full bg-boss-gold/15 px-2.5 py-1 text-[10px] font-semibold uppercase text-boss-gold">
                         {pkg.status_label}
                       </span>
                     </td>
                     <td className="border-t border-border px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <Link
-                          to={`/dashboard/track?tracking=${pkg.tracking_number}`}
-                          className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:border-boss-green/40 hover:text-boss-green"
-                        >
-                          Track
-                        </Link>
                         {packageCanUploadInvoice(pkg) && (
                           <Link
                             to={`/packages/${pkg.id}/upload-invoice`}
                             className={
                               packageNeedsInvoiceUpload(pkg)
                                 ? 'rounded-lg bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
-                                : 'rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:border-boss-green/40 hover:text-boss-green'
+                                : 'rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:border-boss-gold/40 hover:text-boss-gold'
                             }
                           >
                             Upload invoice
@@ -106,7 +95,7 @@ export function PackagesHistoryPanel() {
                             href={pkg.invoice_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:border-boss-green/40 hover:text-boss-green"
+                            className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:border-boss-gold/40 hover:text-boss-gold"
                           >
                             View invoice
                           </a>

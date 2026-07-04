@@ -548,8 +548,8 @@ export function ReceivePage() {
           onClick={toggleRushMode}
           className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
             rushMode
-              ? 'border-boss-green bg-boss-green/15 text-boss-green'
-              : 'border-border text-muted hover:border-boss-green/40'
+              ? 'border-boss-gold bg-boss-gold/15 text-boss-gold'
+              : 'border-border text-muted hover:border-boss-gold/40'
           }`}
         >
           <Zap className="h-3.5 w-3.5" />
@@ -571,7 +571,7 @@ export function ReceivePage() {
         <div className="space-y-6">
           {(recentLoading || recentReceives.length > 0) && (
             <div className="rounded-2xl border border-border bg-card p-6">
-              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
+              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
                 <Clock className="h-4 w-4" />
                 Your last 3 receivals today
               </h2>
@@ -617,7 +617,7 @@ export function ReceivePage() {
               onClick={focusScanMode}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
                 idleInputMode === 'scan'
-                  ? 'bg-boss-green/15 text-boss-green'
+                  ? 'bg-boss-gold/15 text-boss-gold'
                   : 'text-muted hover:text-foreground'
               }`}
             >
@@ -629,7 +629,7 @@ export function ReceivePage() {
               onClick={focusSearchMode}
               className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
                 idleInputMode === 'search'
-                  ? 'bg-boss-green/15 text-boss-green'
+                  ? 'bg-boss-gold/15 text-boss-gold'
                   : 'text-muted hover:text-foreground'
               }`}
             >
@@ -640,10 +640,10 @@ export function ReceivePage() {
 
           <div
             className={`rounded-2xl border bg-card p-6 ${
-              idleInputMode === 'scan' ? 'border-boss-green/30' : 'border-border opacity-60'
+              idleInputMode === 'scan' ? 'border-boss-gold/30' : 'border-border opacity-60'
             }`}
           >
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
               <Barcode className="h-4 w-4" />
               Scan carrier barcode
             </h2>
@@ -676,7 +676,7 @@ export function ReceivePage() {
                       e.target.select()
                     }}
                     disabled={idleInputMode === 'search'}
-                    className="w-full rounded-lg border border-border bg-input px-4 py-3 pr-11 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-lg border border-border bg-input px-4 py-3 pr-11 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   {scanValue.trim() && idleInputMode === 'scan' && (
                     <button
@@ -710,16 +710,16 @@ export function ReceivePage() {
 
           <div
             className={`rounded-2xl border bg-card p-6 ${
-              idleInputMode === 'search' ? 'border-boss-green/30' : 'border-border opacity-60'
+              idleInputMode === 'search' ? 'border-boss-gold/30' : 'border-border opacity-60'
             }`}
           >
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
               <Search className="h-4 w-4" />
               Find customer
             </h2>
             <p className="mt-2 text-sm text-muted">
               Search by name, BOSS ID, email, or phone — or{' '}
-              <Link to="/warehouse/customers" className="text-boss-green hover:underline">
+              <Link to="/warehouse/customers" className="text-boss-gold hover:underline">
                 browse all customers
               </Link>
               .
@@ -753,7 +753,7 @@ export function ReceivePage() {
                     onFocus={() => setIdleInputMode('search')}
                     disabled={idleInputMode !== 'search'}
                     tabIndex={idleInputMode === 'search' && !searchKeyboardReady ? -1 : 0}
-                    className={`w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green disabled:cursor-not-allowed disabled:opacity-50 ${
+                    className={`w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold disabled:cursor-not-allowed disabled:opacity-50 ${
                       idleInputMode === 'search' && !searchKeyboardReady ? 'pointer-events-none' : ''
                     }`}
                   />
@@ -836,8 +836,16 @@ export function ReceivePage() {
 
       {step === 'receiving' && (
         <div className="space-y-6">
-          <div className="rounded-lg border border-boss-green/30 bg-boss-green/5 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-boss-green">
+          <div
+            className={`rounded-lg border p-4 ${
+              customer ? 'border-boss-green/30 bg-boss-green/5' : 'border-boss-gold/30 bg-boss-gold/5'
+            }`}
+          >
+            <p
+              className={`text-xs font-bold uppercase tracking-wider ${
+                customer ? 'text-boss-green' : 'text-boss-gold'
+              }`}
+            >
               Active receival
             </p>
             {customer ? (
@@ -869,11 +877,11 @@ export function ReceivePage() {
               <div className="mt-4">
                 <p className="text-sm text-muted">Find customer to attach this package.</p>
                 {preAlertLookupLoading && (
-                  <p className="mt-2 text-sm text-boss-green">Looking up pre-alerts…</p>
+                  <p className="mt-2 text-sm text-boss-gold">Looking up pre-alerts…</p>
                 )}
                 {!preAlertLookupLoading && preAlertMatches.length > 0 && (
-                  <div className="mt-3 rounded-lg border border-boss-green/30 bg-boss-green/5 p-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-boss-green">
+                  <div className="mt-3 rounded-lg border border-boss-gold/30 bg-boss-gold/5 p-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-boss-gold">
                       Pre-alert matches
                     </p>
                     <p className="mt-1 text-sm text-muted">
@@ -890,7 +898,7 @@ export function ReceivePage() {
                               setPreAlertMatches([])
                               setShowUnidentifiedSection(false)
                             }}
-                            className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-green/40"
+                            className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-gold/40"
                           >
                             <p className="font-semibold">{match.customer.full_name}</p>
                             <p className="text-sm text-muted">
@@ -925,7 +933,7 @@ export function ReceivePage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
                         tabIndex={!receivingSearchKeyboardReady ? -1 : 0}
-                        className={`w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green ${
+                        className={`w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold ${
                           !receivingSearchKeyboardReady ? 'pointer-events-none' : ''
                         }`}
                       />
@@ -985,7 +993,7 @@ export function ReceivePage() {
                             setSearchResults([])
                             setReceivingSearchKeyboardReady(false)
                           }}
-                          className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-green/40"
+                          className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-gold/40"
                         >
                           <p className="font-semibold">{c.full_name}</p>
                           <p className="text-sm text-muted">{c.shipping_id}</p>
@@ -1003,7 +1011,7 @@ export function ReceivePage() {
               </p>
             )}
             {suggestedPreAlert && customer && (
-              <p className="mt-2 text-sm text-boss-green">
+              <p className="mt-2 text-sm text-boss-gold">
                 Pre-alert matched for {customer.shipping_id}
                 {suggestedPreAlert.invoice_url ? ' · invoice will attach on receival' : ''}
               </p>
@@ -1080,7 +1088,7 @@ export function ReceivePage() {
                 value={shipper}
                 onChange={(e) => updateShipper(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green"
+                className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold"
               >
                 {shippers.map((s) => (
                   <option key={s.code} value={s.code}>
@@ -1134,7 +1142,7 @@ export function ReceivePage() {
                 <label className="block text-xs font-medium uppercase tracking-wider text-muted">
                   Package photo (optional)
                 </label>
-                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 transition-colors hover:border-boss-green">
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 transition-colors hover:border-boss-gold">
                   <Camera className="h-5 w-5 text-muted" />
                   <span className="text-sm text-muted">
                     {photoFile ? photoFile.name : 'JPEG, PNG, or WebP'}
@@ -1289,7 +1297,7 @@ export function ReceivePage() {
 
           <Link
             to="/warehouse/print-queue"
-            className="block text-center text-sm text-boss-green hover:underline"
+            className="block text-center text-sm text-boss-gold hover:underline"
           >
             View print queue →
           </Link>
@@ -1297,17 +1305,17 @@ export function ReceivePage() {
           {completedPackage.is_unidentified ? (
             <Link
               to="/warehouse/unidentified"
-              className="block text-center text-sm text-boss-green hover:underline"
+              className="block text-center text-sm text-boss-gold hover:underline"
             >
               View unidentified queue →
             </Link>
           ) : (
-            <Link
-              to={`/track?tracking=${completedPackage.tracking_number}`}
-              className="block text-center text-sm text-boss-green hover:underline"
-            >
-              View tracking page →
-            </Link>
+            <p className="block text-center text-sm text-muted">
+              PB tracking:{' '}
+              <span className="font-mono font-semibold text-foreground">
+                {completedPackage.tracking_number}
+              </span>
+            </p>
           )}
         </div>
       )}

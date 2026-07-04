@@ -13,7 +13,7 @@ function LegalParagraph({ text }: { text: string }) {
         {before}
         <a
           href={urlMatch[1]}
-          className="text-boss-green hover:underline"
+          className="text-boss-gold hover:underline"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -29,7 +29,7 @@ function LegalParagraph({ text }: { text: string }) {
     return (
       <p className="mt-3 text-sm leading-relaxed text-muted">
         {before}
-        <a href={`mailto:${emailMatch[1]}`} className="text-boss-green hover:underline">
+        <a href={`mailto:${emailMatch[1]}`} className="text-boss-gold hover:underline">
           {emailMatch[1]}
         </a>
         {after}
@@ -66,7 +66,7 @@ export function LegalDocumentPage({
         {relatedLinks.length > 0 && (
           <nav className="mt-6 flex flex-wrap gap-4 text-sm">
             {relatedLinks.map((link) => (
-              <Link key={link.to} to={link.to} className="text-boss-green hover:underline">
+              <Link key={link.to} to={link.to} className="text-boss-gold hover:underline">
                 {link.label}
               </Link>
             ))}
@@ -76,7 +76,7 @@ export function LegalDocumentPage({
         <div className="mt-10 space-y-8">
           {sections.map((section) => (
             <section key={section.title}>
-              <h2 className="text-lg font-bold text-boss-green">{section.title}</h2>
+              <h2 className="text-lg font-bold text-boss-gold">{section.title}</h2>
               {section.paragraphs?.map((p) => (
                 <LegalParagraph key={p.slice(0, 48)} text={p} />
               ))}
@@ -93,11 +93,11 @@ export function LegalDocumentPage({
 
         <p className="mt-12 border-t border-border pt-6 text-center text-sm text-muted">
           Questions? Contact us at{' '}
-          <a href={`mailto:${PRIVACY_EMAIL}`} className="text-boss-green hover:underline">
+          <a href={`mailto:${PRIVACY_EMAIL}`} className="text-boss-gold hover:underline">
             {PRIVACY_EMAIL}
           </a>
           .{' '}
-          <Link to="/signup" className="text-boss-green hover:underline">
+          <Link to="/signup" className="text-boss-gold hover:underline">
             Create an account
           </Link>
         </p>

@@ -12,6 +12,7 @@ interface CommandItem {
 
 const COMMANDS: CommandItem[] = [
   { id: 'receive', label: 'Receive package', path: '/warehouse/receive', keywords: 'scan barcode' },
+  { id: 'pre-alerts', label: 'Pre-alerts', path: '/warehouse/pre-alerts', keywords: 'tracking pending customer' },
   { id: 'inbox', label: 'Floor', path: '/warehouse', keywords: 'home dashboard operations' },
   { id: 'print', label: 'Print queue', path: '/warehouse/print-queue', keywords: 'labels' },
   { id: 'unidentified', label: 'Unidentified queue', path: '/warehouse/unidentified', keywords: 'misc assign' },
@@ -98,7 +99,7 @@ export function CommandPalette() {
                 <button
                   type="button"
                   onClick={() => go(item.path)}
-                  className="flex w-full flex-col px-4 py-2.5 text-left hover:bg-boss-green/10"
+                  className="flex w-full flex-col px-4 py-2.5 text-left hover:bg-boss-gold/10"
                 >
                   <span className="text-sm font-semibold">{item.label}</span>
                   {item.description && (

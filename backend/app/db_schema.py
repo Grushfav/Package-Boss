@@ -73,6 +73,7 @@ def ensure_schema(app) -> None:
             ("clerk_permissions", "JSONB" if db.engine.dialect.name == "postgresql" else "TEXT"),
             ("is_active", "BOOLEAN NOT NULL DEFAULT TRUE"),
             ("must_set_password", "BOOLEAN NOT NULL DEFAULT FALSE"),
+            ("token_version", "INTEGER NOT NULL DEFAULT 0"),
         ]
         for col_name, col_type in user_patches:
             if col_name not in columns:

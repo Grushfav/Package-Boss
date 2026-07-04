@@ -281,6 +281,8 @@ def send_package_status_email(
     *,
     status_label: str | None = None,
     note: str | None = None,
+    carrier_tracking: str | None = None,
+    shipper_label: str | None = None,
 ) -> None:
     from app.constants import STATUS_LABELS
 
@@ -288,17 +290,27 @@ def send_package_status_email(
     frontend = (current_app.config.get("FRONTEND_URL") or "http://localhost:5173").rstrip("/")
     track_url = f"{frontend}/track?tracking={tracking_number}"
     subject = f"Package update — {tracking_number}: {label}"
+
+    shipment_lines = [f"Package Boss tracking: {tracking_number}"]
+    if carrier_tracking and carrier_tracking.strip():
+        shipment_lines.append(f"Carrier tracking: {carrier_tracking.strip()}")
+    if shipper_label and shipper_label.strip():
+        shipment_lines.append(f"Shipper: {shipper_label.strip()}")
+    shipment_block = "\n".join(shipment_lines)
+
     body = (
         f"Hi {first_name},\n\n"
-        f"Your package {tracking_number} status is now: {label}.\n\n"
+        f"Your package status is now: {label}.\n\n"
+        f"{shipment_block}\n\n"
         f"Track your package: {track_url}\n\n"
         f"— Package Boss"
     )
     if note:
         body = (
             f"Hi {first_name},\n\n"
-            f"Your package {tracking_number} status is now: {label}.\n\n"
+            f"Your package status is now: {label}.\n\n"
             f"{note}\n\n"
+            f"{shipment_block}\n\n"
             f"Track your package: {track_url}\n\n"
             f"— Package Boss"
         )
@@ -310,6 +322,8 @@ def send_package_status_email(
         track_url,
         note=note,
         logo_url=resolve_logo_url(),
+        carrier_tracking=carrier_tracking,
+        shipper_label=shipper_label,
     )
     _dispatch_email(
         to_email,
@@ -321,7 +335,7 @@ def send_package_status_email(
             "trackingNumber": tracking_number,
             "status": status,
         },
-        async_send=False,
+        async_send=True,
     )
 
 
@@ -405,5 +419,5 @@ def send_invoice_request_email(
         body,
         html_body=html_body,
         metadata={"type": "invoice_request", "trackingNumber": package_tracking},
-        async_send=False,
+        async_send=True,
     )

@@ -16,7 +16,12 @@ import {
   formatReleaseSummary,
 } from '../components/warehouse/ReleaseFromCustomsModal'
 import { StatusBadge } from '../components/warehouse/StatusBadge'
+import { useAuth } from '../context/AuthContext'
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
+import {
+  clerkCanManagePackageActions,
+  clerkHasPermission,
+} from '../lib/clerkPermissions'
 import { formatJmd } from '../lib/money'
 import { packagePaymentConfirmed } from '../lib/packageBilling'
 import { WORKFLOW_STATUSES } from '../lib/packageStatuses'
@@ -95,8 +100,14 @@ const QUEUE_PRESETS: QueuePreset[] = [
 
 export function StatusUpdatePage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { user } = useAuth()
   const { counts, refresh: refreshCounts } = useWarehouseCounts()
   const today = formatDateInput(new Date())
+  const perms = user?.permissions || user?.clerk_permissions
+  const role = user?.role
+  const canManagePackages = clerkCanManagePackageActions(perms, role)
+  const canRequestInvoice = clerkHasPermission(perms, 'invoice_request', role)
+  const canManageBilling = clerkHasPermission(perms, 'billing', role)
 
   const presetParam = (searchParams.get('preset') || '') as QueuePresetId
   const activePreset: QueuePresetId = QUEUE_PRESETS.some((p) => p.id === presetParam)
@@ -360,7 +371,7 @@ export function StatusUpdatePage() {
         {scanPackage && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/50 p-4">
             <div>
-              <p className="font-mono font-bold text-boss-green">{scanPackage.tracking_number}</p>
+              <p className="font-mono font-bold text-boss-gold">{scanPackage.tracking_number}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <StatusBadge status={scanPackage.status} label={scanPackage.status_label} />
                 {scanPackage.customer && (
@@ -388,6 +399,12 @@ export function StatusUpdatePage() {
                 <Button
                   type="button"
                   variant="outline"
+                  disabled={!canManageBilling}
+                  title={
+                    canManageBilling
+                      ? undefined
+                      : 'Requires billing permission'
+                  }
                   onClick={() => {
                     setSelectedIds(new Set([scanPackage.id]))
                     setReleaseOpen(true)
@@ -396,13 +413,23 @@ export function StatusUpdatePage() {
                   Release &amp; bill
                 </Button>
               )}
-              <Button type="button" variant="outline" onClick={() => setStaffPackage(scanPackage)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!canManagePackages}
+                title={
+                  canManagePackages
+                    ? undefined
+                    : 'Requires billing or invoice request permission'
+                }
+                onClick={() => setStaffPackage(scanPackage)}
+              >
                 Manage
               </Button>
             </div>
           </div>
         )}
-        {scanSuccess && <p className="mt-3 text-sm text-boss-green">{scanSuccess}</p>}
+        {scanSuccess && <p className="mt-3 text-sm text-boss-gold">{scanSuccess}</p>}
       </form>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -413,8 +440,8 @@ export function StatusUpdatePage() {
             onClick={() => applyPreset(preset.id)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
               activePreset === preset.id
-                ? 'bg-boss-green text-black'
-                : 'border border-border bg-card text-muted hover:border-boss-green/40'
+                ? 'bg-boss-gold text-black'
+                : 'border border-border bg-card text-muted hover:border-boss-gold/40'
             }`}
             title={preset.description}
           >
@@ -426,8 +453,8 @@ export function StatusUpdatePage() {
           onClick={() => applyPreset('custom')}
           className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
             activePreset === 'custom'
-              ? 'bg-boss-green text-black'
-              : 'border border-border bg-card text-muted hover:border-boss-green/40'
+              ? 'bg-boss-gold text-black'
+              : 'border border-border bg-card text-muted hover:border-boss-gold/40'
           }`}
         >
           Search
@@ -444,7 +471,7 @@ export function StatusUpdatePage() {
           onClick={() => setShowFilters((v) => !v)}
           className="flex w-full items-center justify-between p-4 text-left"
         >
-          <span className="text-sm font-bold uppercase tracking-wide text-boss-green">
+          <span className="text-sm font-bold uppercase tracking-wide text-boss-gold">
             {activePreset === 'custom' ? 'Filter packages' : 'Adjust date range'}
           </span>
           {showFilters || activePreset === 'custom' ? (
@@ -483,7 +510,7 @@ export function StatusUpdatePage() {
                   setSearchParams({})
                   setFilterStatus(e.target.value)
                 }}
-                className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green"
+                className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold"
               >
                 <option value="">All statuses</option>
                 {WORKFLOW_STATUSES.map((s) => (
@@ -529,7 +556,7 @@ export function StatusUpdatePage() {
                   if (el) el.indeterminate = someSelected
                 }}
                 onChange={(e) => toggleSelectAll(e.target.checked)}
-                className="h-4 w-4 rounded border-border accent-boss-green"
+                className="h-4 w-4 rounded border-border accent-boss-gold"
               />
               Select all in queue
             </label>
@@ -560,7 +587,7 @@ export function StatusUpdatePage() {
                           type="checkbox"
                           checked={selectedIds.has(pkg.id)}
                           onChange={() => togglePackage(pkg.id)}
-                          className="h-4 w-4 rounded border-border accent-boss-green"
+                          className="h-4 w-4 rounded border-border accent-boss-gold"
                         />
                       </td>
                       <td className="py-3 pr-3">
@@ -604,8 +631,14 @@ export function StatusUpdatePage() {
                       <td className="py-3">
                         <button
                           type="button"
+                          disabled={!canManagePackages}
+                          title={
+                            canManagePackages
+                              ? undefined
+                              : 'Requires billing or invoice request permission'
+                          }
                           onClick={() => setStaffPackage(pkg)}
-                          className="text-xs font-semibold text-boss-green hover:underline"
+                          className="text-xs font-semibold text-boss-gold hover:underline disabled:cursor-not-allowed disabled:text-muted disabled:no-underline"
                         >
                           Manage
                         </button>
@@ -627,7 +660,7 @@ export function StatusUpdatePage() {
 
       {bulkResult && (
         <div className="mt-4 rounded-lg border border-border bg-card p-4">
-          <p className="font-semibold text-boss-green">
+          <p className="font-semibold text-boss-gold">
             {bulkResult.updated} package{bulkResult.updated === 1 ? '' : 's'} updated
           </p>
           {bulkResult.failed.length > 0 && (
@@ -643,10 +676,10 @@ export function StatusUpdatePage() {
       )}
 
       {packages.length > 0 && selectedIds.size > 0 && (
-        <div className="fixed bottom-16 left-0 right-0 z-20 border-t border-boss-green/30 bg-card/95 px-4 py-4 backdrop-blur md:bottom-0 md:left-52 lg:left-56">
+        <div className="fixed bottom-16 left-0 right-0 z-20 border-t border-boss-gold/30 bg-card/95 px-4 py-4 backdrop-blur md:bottom-0 md:left-52 lg:left-56">
           <div className="mx-auto max-w-5xl space-y-3">
             {reviewOpen && (selection.mode === 'advance' || selection.mode === 'payment_required') && primaryAdvance && (
-              <div className="rounded-xl border border-boss-green/30 bg-boss-green/5 p-4">
+              <div className="rounded-xl border border-boss-gold/30 bg-boss-gold/5 p-4">
                 <p className="text-sm font-semibold">
                   {selection.mode === 'payment_required' ? selection.paidCount : selection.count}{' '}
                   package
@@ -731,12 +764,20 @@ export function StatusUpdatePage() {
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={invoiceLoading}
+                    disabled={invoiceLoading || !canRequestInvoice}
+                    title={
+                      canRequestInvoice ? undefined : 'Requires invoice request permission'
+                    }
                     onClick={handleBulkInvoiceRequest}
                   >
                     {invoiceLoading ? 'Sending…' : `Request invoice (${selection.count})`}
                   </Button>
-                  <Button type="button" onClick={() => setReleaseOpen(true)}>
+                  <Button
+                    type="button"
+                    disabled={!canManageBilling}
+                    title={canManageBilling ? undefined : 'Requires billing permission'}
+                    onClick={() => setReleaseOpen(true)}
+                  >
                     Release &amp; bill ({selection.count})
                   </Button>
                 </>

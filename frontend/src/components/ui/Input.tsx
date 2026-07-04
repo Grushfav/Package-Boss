@@ -13,7 +13,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const [showPassword, setShowPassword] = useState(false)
   const inputId = id || label?.toLowerCase().replace(/\s+/g, '-')
   const isPassword = type === 'password'
-  const inputClassName = `w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green${isPassword ? ' pr-11' : ''} ${className}`
+  const inputClassName = `w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold${isPassword ? ' pr-11' : ''} ${className}`
 
   const input = (
     <input

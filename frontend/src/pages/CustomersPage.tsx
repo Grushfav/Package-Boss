@@ -132,7 +132,7 @@ function CustomerRow({ customer }: { customer: StaffCustomer }) {
         <p className="font-semibold">{customer.full_name}</p>
         <p className="text-xs text-muted sm:hidden">{customer.shipping_id}</p>
       </td>
-      <td className="px-4 py-3 font-mono text-boss-green hidden sm:table-cell">
+      <td className="px-4 py-3 font-mono text-boss-gold hidden sm:table-cell">
         {customer.shipping_id}
       </td>
       <td className="px-4 py-3 hidden sm:table-cell">{customer.parish}</td>
@@ -147,13 +147,13 @@ function CustomerRow({ customer }: { customer: StaffCustomer }) {
         <div className="flex flex-wrap justify-end gap-2">
           <Link
             to={`/warehouse/customers/${encodeURIComponent(customer.shipping_id)}`}
-            className="inline-flex rounded-lg border border-border px-3 py-1.5 text-xs font-semibold uppercase hover:border-boss-green/40"
+            className="inline-flex rounded-lg border border-border px-3 py-1.5 text-xs font-semibold uppercase hover:border-boss-gold/40"
           >
             View account
           </Link>
           <Link
             to={`/warehouse/receive?shipping_id=${encodeURIComponent(customer.shipping_id)}`}
-            className="inline-flex rounded-lg border border-boss-green/30 bg-boss-green/10 px-3 py-1.5 text-xs font-semibold uppercase text-boss-green hover:bg-boss-green/20"
+            className="inline-flex rounded-lg border border-boss-gold/30 bg-boss-gold/10 px-3 py-1.5 text-xs font-semibold uppercase text-boss-gold hover:bg-boss-gold/20"
           >
             Start receival
           </Link>

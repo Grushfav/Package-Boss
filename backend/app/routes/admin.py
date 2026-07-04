@@ -20,6 +20,7 @@ from app.services.email_service import EmailServiceError, send_clerk_invite_emai
 from app.services.rate_limit_service import RateLimitExceeded, assert_clerk_invite_resend_allowed
 from app.services.reset_token_service import build_reset_url, generate_reset_token, store_invite_token
 from app.services.staff_id_service import generate_staff_shipping_id
+from app.services.token_service import bump_token_version
 from app.utils.auth_decorators import admin_required, get_user_from_jwt, permission_required
 
 admin_bp = Blueprint("admin", __name__)
@@ -190,8 +191,13 @@ def update_clerk(user_id: str):
         return _error("Clerk not found", 404)
 
     data = request.get_json(silent=True) or {}
+    bump_tokens = False
+
     if "permissions" in data:
-        user.clerk_permissions = normalize_clerk_permissions(data.get("permissions"))
+        permissions = normalize_clerk_permissions(data.get("permissions"))
+        if permissions != user.clerk_permissions:
+            user.clerk_permissions = permissions
+            bump_tokens = True
 
     if "first_name" in data:
         user.first_name = (data["first_name"] or "").strip()
@@ -212,7 +218,14 @@ def update_clerk(user_id: str):
         user.parish = parish or None
 
     if "is_active" in data:
-        user.is_active = bool(data.get("is_active"))
+        is_active = bool(data.get("is_active"))
+        if is_active != user.is_active:
+            user.is_active = is_active
+            if not is_active:
+                bump_tokens = True
+
+    if bump_tokens:
+        bump_token_version(user, commit=False)
 
     db.session.commit()
     return jsonify({"user": _clerk_dict(user)})
@@ -280,5 +293,6 @@ def deactivate_clerk(user_id: str):
         return _error("User is not a clerk", 400)
 
     user.is_active = False
+    bump_token_version(user, commit=False)
     db.session.commit()
     return jsonify({"user": _clerk_dict(user)})

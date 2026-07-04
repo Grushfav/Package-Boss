@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request, Response
 from sqlalchemy import func, or_
 
-from app.constants import MAX_RECEIVE_LBS, SHIPPER_CODES, SHIPPERS, STATUS_LABELS, UPDATABLE_STATUSES
+from app.models.pre_alert import PreAlert
+from app.constants import MAX_RECEIVE_LBS, PRE_ALERT_STATUSES, SHIPPER_CODES, SHIPPERS, STATUS_LABELS, UPDATABLE_STATUSES
 from app.models.package import Package
 from app.models.user import User
 from app.services.audit_service import (
@@ -109,7 +110,7 @@ def list_shippers():
 
 
 @staff_bp.route("/staff/warehouse/summary", methods=["GET"])
-@permission_required("receive", "activity", "status_transit", "status_customs", "status_pickup", "billing", "invoice_request", "directory")
+@permission_required("receive", "activity", "pre_alerts", "status_transit", "status_customs", "status_pickup", "billing", "invoice_request", "directory")
 def warehouse_summary():
     return jsonify(get_warehouse_summary())
 
@@ -198,7 +199,7 @@ def lookup_customer(shipping_id: str):
 
 
 @staff_bp.route("/staff/pre-alerts/lookup", methods=["GET"])
-@permission_required("receive")
+@permission_required("receive", "pre_alerts")
 def lookup_pre_alert_by_tracking():
     tracking = (request.args.get("carrier_tracking") or "").strip()
     if not tracking:
@@ -219,6 +220,59 @@ def lookup_pre_alert_by_tracking():
         )
 
     return jsonify({"matches": matches})
+
+
+def _staff_pre_alert_dict(pre_alert: PreAlert) -> dict:
+    data = pre_alert.to_dict()
+    customer = pre_alert.customer
+    if customer:
+        data["customer"] = _customer_dict(customer)
+    return data
+
+
+@staff_bp.route("/staff/pre-alerts", methods=["GET"])
+@permission_required("pre_alerts")
+def list_pre_alerts():
+    q = (request.args.get("q") or "").strip()
+    status = (request.args.get("status") or "").strip()
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+
+    query = PreAlert.query.join(User, PreAlert.customer_id == User.id)
+
+    if status and status in PRE_ALERT_STATUSES:
+        query = query.filter(PreAlert.status == status)
+
+    if q:
+        pattern = f"%{q}%"
+        shipping_pattern = f"%{q.upper()}%"
+        query = query.filter(
+            or_(
+                PreAlert.carrier_tracking.ilike(pattern),
+                PreAlert.merchant.ilike(pattern),
+                PreAlert.description.ilike(pattern),
+                User.shipping_id.ilike(shipping_pattern),
+                User.first_name.ilike(pattern),
+                User.last_name.ilike(pattern),
+            )
+        )
+
+    total = query.count()
+    alerts = (
+        query.order_by(PreAlert.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return jsonify(
+        {
+            "pre_alerts": [_staff_pre_alert_dict(alert) for alert in alerts],
+            "total": total,
+        }
+    )
 
 
 @staff_bp.route("/staff/customers/<shipping_id>/account", methods=["GET"])

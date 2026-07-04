@@ -46,7 +46,7 @@ export function RecordPaymentForm({ pkg, onCompleted, compact = false }: RecordP
           Paid via {pkg.payment.method_label ?? pkg.payment.method}
           {pkg.payment.reference ? ` · Ref ${pkg.payment.reference}` : ''}
         </p>
-        <p className="font-mono text-sm font-semibold text-boss-green">{pkg.payment.invoice_number}</p>
+        <p className="font-mono text-sm font-semibold text-boss-gold">{pkg.payment.invoice_number}</p>
         <Button variant="outline" className="!text-xs" onClick={() => openPackageBillInvoice(pkg.id)}>
           View / print invoice
         </Button>

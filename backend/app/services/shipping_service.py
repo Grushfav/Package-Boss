@@ -5,6 +5,7 @@ from app.data.revised_rate_table import (
     JMD_PER_USD,
     MAX_AUTO_RATE_LBS,
     QUOTE_MESSAGE,
+    RATES_REVISION,
     REVISED_RATE_USD_BY_LBS,
 )
 
@@ -13,6 +14,7 @@ __all__ = [
     "MAX_AUTO_RATE_LBS",
     "MAX_RECEIVE_LBS",
     "QUOTE_MESSAGE",
+    "RATES_REVISION",
     "billable_weight_lbs",
     "usd_for_billable_lbs",
     "jmd_for_usd",

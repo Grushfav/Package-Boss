@@ -61,7 +61,7 @@ export function SignupPage() {
       <Seo {...PAGE_SEO.signup} />
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <h1 className="text-2xl font-black uppercase">
-          Join <span className="italic text-boss-green">Package Boss</span>
+          Join <span className="italic text-boss-gold">Package Boss</span>
         </h1>
         <p className="mt-2 text-sm text-muted">
           Create your account and get your Fort Lauderdale shipping address instantly.
@@ -128,7 +128,7 @@ export function SignupPage() {
               value={form.parish}
               onChange={(e) => update('parish', e.target.value)}
               required
-              className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-green focus:outline-none"
+              className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-gold focus:outline-none"
             >
               <option value="">Select parish</option>
               {parishes.map((p) => (
@@ -142,7 +142,7 @@ export function SignupPage() {
               type="checkbox"
               checked={acceptTerms}
               onChange={(e) => setAcceptTerms(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-border accent-boss-green"
+              className="mt-0.5 h-4 w-4 rounded border-border accent-boss-gold"
             />
             <span className="text-sm text-muted">
               I agree to the{' '}

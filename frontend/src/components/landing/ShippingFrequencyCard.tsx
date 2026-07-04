@@ -14,11 +14,11 @@ export function ShippingFrequencyCard({
 }: ShippingFrequencyCardProps) {
   return (
     <div
-      className={`relative h-full overflow-hidden rounded-3xl bg-boss-navy shadow-xl ring-1 ring-boss-green/40 ${className}`}
+      className={`relative h-full overflow-hidden rounded-3xl bg-boss-navy shadow-xl ring-1 ring-boss-gold/40 ${className}`}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute -left-20 -top-20 h-56 w-56 rounded-full bg-boss-green/25 blur-3xl"
+        className="pointer-events-none absolute -left-20 -top-20 h-56 w-56 rounded-full bg-boss-gold/25 blur-3xl"
       />
       <div
         aria-hidden
@@ -27,7 +27,7 @@ export function ShippingFrequencyCard({
 
       <div className={`relative z-10 ${compact ? 'p-6 md:p-7' : 'p-8 md:p-10'}`}>
         <div className="flex items-center justify-between gap-4">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-boss-green">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-boss-gold">
             <Plane className="h-3.5 w-3.5" strokeWidth={2.5} />
             Shipping schedule
           </span>
@@ -48,7 +48,7 @@ export function ShippingFrequencyCard({
             <span className="block text-2xl font-black leading-none text-boss-gold md:text-3xl">
               ×
             </span>
-            <span className="mt-1 block text-xs font-bold uppercase tracking-widest text-boss-green">
+            <span className="mt-1 block text-xs font-bold uppercase tracking-widest text-boss-gold">
               weekly
             </span>
           </div>
@@ -68,8 +68,8 @@ export function ShippingFrequencyCard({
             </div>
 
             <div className="flex shrink-0 items-center px-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-boss-green/20 ring-1 ring-boss-green/50">
-                <Plane className="h-3.5 w-3.5 text-boss-green" strokeWidth={2.25} />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-boss-gold/20 ring-1 ring-boss-gold/50">
+                <Plane className="h-3.5 w-3.5 text-boss-gold" strokeWidth={2.25} />
               </span>
             </div>
 
@@ -93,7 +93,7 @@ export function ShippingFrequencyCard({
             </div>
           </div>
           <div className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 p-2.5">
-            <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-boss-green" strokeWidth={2} />
+            <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-boss-gold" strokeWidth={2} />
             <div>
               <p className="text-[11px] font-bold text-white">Faster to yaad</p>
               <p className="mt-0.5 text-[10px] leading-snug text-white/55">3 departures weekly</p>

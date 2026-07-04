@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify, request
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import jwt_required
 
 from app.constants import JAMAICA_PARISHES
 from app.extensions import db
@@ -31,8 +31,10 @@ from app.services.reset_token_service import (
     store_reset_token,
 )
 from app.services.shipping_id_service import generate_shipping_id
+from app.services.token_service import access_token_for_user, bump_token_version
 from app.services.trn_service import normalize_trn
 from app.services.warehouse_service import build_shipping_address
+from app.utils.auth_decorators import resolve_jwt_user
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -104,7 +106,7 @@ def register():
     except (EmailServiceError, NotImplementedError) as exc:
         current_app.logger.warning("Welcome email not sent for %s: %s", user.email, exc)
 
-    access_token = create_access_token(identity=str(user.id))
+    access_token = access_token_for_user(user)
 
     return jsonify(
         {
@@ -146,7 +148,7 @@ def login():
             403,
         )
 
-    access_token = create_access_token(identity=str(user.id))
+    access_token = access_token_for_user(user)
 
     return jsonify(
         {
@@ -157,6 +159,17 @@ def login():
             ),
         }
     )
+
+
+@auth_bp.route("/auth/logout", methods=["POST"])
+@jwt_required()
+def logout():
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
+
+    bump_token_version(user)
+    return jsonify({"message": "Logged out"})
 
 
 @auth_bp.route("/auth/forgot-password", methods=["POST"])
@@ -237,6 +250,7 @@ def reset_password():
 
     user.password_hash = hash_password(new_password)
     user.must_set_password = False
+    bump_token_version(user, commit=False)
     db.session.commit()
     delete_reset_token(token)
 

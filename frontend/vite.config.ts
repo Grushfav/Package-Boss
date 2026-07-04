@@ -25,7 +25,7 @@ export default defineConfig({
         name: 'Package Boss',
         short_name: 'Package Boss',
         description: 'Domestic & International Shipping — Ship Smart. Ship Easy.',
-        theme_color: '#22C55E',
+        theme_color: '#EAB308',
         background_color: '#0A0A0A',
         display: 'standalone',
         start_url: '/',
@@ -53,6 +53,10 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         runtimeCaching: [
+          {
+            urlPattern: /^\/api\/rates(?:\/|$)/i,
+            handler: 'NetworkOnly',
+          },
           {
             urlPattern: /^\/api\/.*/i,
             handler: 'NetworkFirst',

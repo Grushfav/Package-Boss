@@ -186,7 +186,7 @@ export function DeliveryAddressesSection() {
                   <p className="font-semibold">
                     {addr.label}
                     {addr.is_default && (
-                      <span className="ml-2 rounded-full bg-boss-green/15 px-2 py-0.5 text-xs text-boss-green">
+                      <span className="ml-2 rounded-full bg-boss-gold/15 px-2 py-0.5 text-xs text-boss-gold">
                         Default
                       </span>
                     )}
@@ -199,7 +199,7 @@ export function DeliveryAddressesSection() {
                     <button
                       type="button"
                       onClick={() => handleSetDefault(addr.id)}
-                      className="text-xs text-boss-green hover:underline"
+                      className="text-xs text-boss-gold hover:underline"
                     >
                       Set default
                     </button>

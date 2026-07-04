@@ -7,7 +7,6 @@ from app.routes.parishes import parishes_bp
 from app.routes.pre_alerts import pre_alerts_bp
 from app.routes.rates import rates_bp
 from app.routes.staff import staff_bp
-from app.routes.track import track_bp
 from app.routes.uploads import uploads_bp
 
 __all__ = [
@@ -20,6 +19,5 @@ __all__ = [
     "pre_alerts_bp",
     "rates_bp",
     "staff_bp",
-    "track_bp",
     "uploads_bp",
 ]

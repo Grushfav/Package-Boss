@@ -2,7 +2,7 @@ export const SITE_NAME = 'Package Boss'
 export const SITE_LEGAL_NAME = 'Package Boss Shipping & Logistics'
 export const DEFAULT_TITLE = 'Package Boss — Ship Smart. Ship Easy.'
 export const DEFAULT_DESCRIPTION =
-  'Package shipping from Fort Lauderdale, Florida to Jamaica. Get a US warehouse address, track packages, view rates, and ship three times per week. Sign up free.'
+  'Package shipping from Fort Lauderdale, Florida to Jamaica. Get a US warehouse address, view your shipments in your dashboard, view rates, and ship three times per week. Sign up free.'
 
 /** Production site URL — override with VITE_SITE_URL in Render env. */
 export const SITE_URL = (
@@ -41,12 +41,6 @@ export const PAGE_SEO = {
     description:
       'View tiered freight rates from Fort Lauderdale to Kingston. Transparent pricing in USD and JMD. Packages over 50 lbs require a custom quote.',
     path: '/rates',
-  },
-  track: {
-    title: 'Track Your Package — Package Boss',
-    description:
-      'Track your Package Boss shipment from Fort Lauderdale to Jamaica. Enter your PB tracking number for live status updates.',
-    path: '/track',
   },
   signup: {
     title: 'Sign Up — Get Your Fort Lauderdale Shipping Address | Package Boss',

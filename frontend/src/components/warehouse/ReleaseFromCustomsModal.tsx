@@ -167,7 +167,7 @@ export function ReleaseFromCustomsModal({
               mark packages ready for pickup.
             </p>
             {previewTotal != null && (
-              <p className="mt-2 text-sm font-semibold text-boss-green">
+              <p className="mt-2 text-sm font-semibold text-boss-gold">
                 Estimated total: {formatJmd(previewTotal)}
                 {estimating ? ' (calculating…)' : ''}
               </p>
@@ -188,7 +188,7 @@ export function ReleaseFromCustomsModal({
               <div key={pkg.id} className="rounded-xl border border-border p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-mono font-bold text-boss-green">{pkg.tracking_number}</p>
+                    <p className="font-mono font-bold text-boss-gold">{pkg.tracking_number}</p>
                     {pkg.customer && (
                       <p className="text-xs text-muted">
                         {pkg.customer.full_name} · {pkg.customer.shipping_id}
@@ -201,7 +201,7 @@ export function ReleaseFromCustomsModal({
                       {freight != null ? `Shipping ${formatJmd(freight)}` : estimating ? '…' : '—'}
                     </p>
                     {rowTotal != null && (
-                      <p className="mt-0.5 font-bold text-boss-green">Total {formatJmd(rowTotal)}</p>
+                      <p className="mt-0.5 font-bold text-boss-gold">Total {formatJmd(rowTotal)}</p>
                     )}
                   </div>
                 </div>

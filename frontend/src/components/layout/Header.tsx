@@ -5,7 +5,7 @@ import { ThemeToggle } from '../ui/ThemeToggle'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `text-xs font-semibold uppercase tracking-widest transition-colors ${
-    isActive ? 'text-boss-green' : 'text-foreground/80 hover:text-boss-green'
+    isActive ? 'text-boss-gold' : 'text-foreground/80 hover:text-boss-green'
   }`
 
 export function Header() {
@@ -15,7 +15,7 @@ export function Header() {
   return (
     <header className="border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <Link to={isAuthenticated && isCustomer ? '/dashboard' : '/'} className="flex items-center gap-2.5">
+        <Link to={isAuthenticated ? homeRoute : '/'} className="flex items-center gap-2.5">
           <img src="/logo.svg" alt="" className="h-[4.22rem] w-auto" aria-hidden />
           <span className="text-xl font-black italic tracking-tight">
             <span className="text-foreground">PACKAGE </span>
@@ -27,7 +27,6 @@ export function Header() {
           <nav className="hidden items-center gap-8 md:flex">
             <NavLink to="/about" className={navClass}>About</NavLink>
             <NavLink to="/services" className={navClass}>Services</NavLink>
-            <NavLink to="/track" className={navClass}>Tracking</NavLink>
             <NavLink to="/rates" className={navClass}>Rates</NavLink>
           </nav>
         )}
@@ -40,7 +39,7 @@ export function Header() {
                 <Link to={homeRoute} className="hidden items-center gap-2 text-sm sm:flex">
                   <span className="font-semibold text-foreground">{user?.first_name}</span>
                   {user?.role && user.role !== 'customer' && (
-                    <span className="rounded-full bg-boss-green/15 px-2 py-0.5 text-[10px] font-bold uppercase text-boss-green">
+                    <span className="rounded-full bg-boss-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase text-boss-gold">
                       {user.role}
                     </span>
                   )}

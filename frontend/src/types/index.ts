@@ -1,6 +1,7 @@
 export type ClerkPermission =
   | 'receive'
   | 'activity'
+  | 'pre_alerts'
   | 'directory'
   | 'status_transit'
   | 'status_customs'
@@ -277,4 +278,5 @@ export interface PreAlert {
   package_id?: string | null
   created_at: string
   updated_at: string
+  customer?: Pick<StaffCustomer, 'id' | 'full_name' | 'shipping_id' | 'parish' | 'email' | 'contact_number'>
 }

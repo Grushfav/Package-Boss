@@ -11,6 +11,14 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return data
 }
 
+export async function logoutSession(): Promise<void> {
+  try {
+    await api.post('/auth/logout')
+  } catch {
+    // Clear local session even if the token was already invalid.
+  }
+}
+
 export async function fetchParishes(): Promise<string[]> {
   const { data } = await api.get<{ parishes: string[] }>('/parishes')
   return data.parishes

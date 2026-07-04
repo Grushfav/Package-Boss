@@ -1,7 +1,7 @@
 import uuid
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import jwt_required
 
 from app.constants import (
     MAX_AUTHORIZED_PICKUPS,
@@ -9,7 +9,6 @@ from app.constants import (
     PICKUP_ID_TYPE_LABELS,
     PICKUP_ID_TYPES,
 )
-from app.models.user import User
 from app.services.authorized_pickup_service import (
     create_authorized_pickup,
     delete_authorized_pickup,
@@ -27,25 +26,17 @@ from app.services.delivery_address_service import (
 )
 from app.services.profile_service import change_password, update_profile
 from app.services.warehouse_service import build_shipping_address
+from app.utils.auth_decorators import resolve_jwt_user
 
 me_bp = Blueprint("me", __name__)
-
-
-def _get_current_user():
-    user_id = get_jwt_identity()
-    try:
-        uid = uuid.UUID(user_id)
-    except (TypeError, ValueError):
-        return None
-    return User.query.get(uid)
 
 
 @me_bp.route("/me", methods=["GET"])
 @jwt_required()
 def get_me():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     return jsonify(
         {
@@ -60,9 +51,9 @@ def get_me():
 @me_bp.route("/me", methods=["PATCH"])
 @jwt_required()
 def update_me():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     data = request.get_json(silent=True) or {}
     try:
@@ -76,9 +67,9 @@ def update_me():
 @me_bp.route("/me/change-password", methods=["POST"])
 @jwt_required()
 def change_my_password():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     data = request.get_json(silent=True) or {}
     try:
@@ -96,9 +87,9 @@ def change_my_password():
 @me_bp.route("/me/shipping-address", methods=["GET"])
 @jwt_required()
 def get_shipping_address():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     return jsonify(
         {
@@ -111,9 +102,9 @@ def get_shipping_address():
 @me_bp.route("/me/delivery-addresses", methods=["GET"])
 @jwt_required()
 def get_delivery_addresses():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     addresses = list_delivery_addresses(user)
     return jsonify(
@@ -127,9 +118,9 @@ def get_delivery_addresses():
 @me_bp.route("/me/delivery-addresses", methods=["POST"])
 @jwt_required()
 def create_my_delivery_address():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     data = request.get_json(silent=True) or {}
     try:
@@ -143,9 +134,9 @@ def create_my_delivery_address():
 @me_bp.route("/me/delivery-addresses/<address_id>", methods=["PATCH"])
 @jwt_required()
 def update_my_delivery_address(address_id: str):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     try:
         aid = uuid.UUID(address_id)
@@ -168,9 +159,9 @@ def update_my_delivery_address(address_id: str):
 @me_bp.route("/me/delivery-addresses/<address_id>", methods=["DELETE"])
 @jwt_required()
 def delete_my_delivery_address(address_id: str):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     try:
         aid = uuid.UUID(address_id)
@@ -188,9 +179,9 @@ def delete_my_delivery_address(address_id: str):
 @me_bp.route("/me/delivery-addresses/<address_id>/set-default", methods=["POST"])
 @jwt_required()
 def set_my_default_delivery_address(address_id: str):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     try:
         aid = uuid.UUID(address_id)
@@ -208,9 +199,9 @@ def set_my_default_delivery_address(address_id: str):
 @me_bp.route("/me/authorized-pickups", methods=["GET"])
 @jwt_required()
 def get_authorized_pickups():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     pickups = list_authorized_pickups(user)
     return jsonify(
@@ -227,9 +218,9 @@ def get_authorized_pickups():
 @me_bp.route("/me/authorized-pickups", methods=["POST"])
 @jwt_required()
 def create_my_authorized_pickup():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     data = request.get_json(silent=True) or {}
     try:
@@ -243,9 +234,9 @@ def create_my_authorized_pickup():
 @me_bp.route("/me/authorized-pickups/<pickup_id>", methods=["PATCH"])
 @jwt_required()
 def update_my_authorized_pickup(pickup_id: str):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     try:
         pid = uuid.UUID(pickup_id)
@@ -268,9 +259,9 @@ def update_my_authorized_pickup(pickup_id: str):
 @me_bp.route("/me/authorized-pickups/<pickup_id>", methods=["DELETE"])
 @jwt_required()
 def delete_my_authorized_pickup(pickup_id: str):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
 
     try:
         pid = uuid.UUID(pickup_id)

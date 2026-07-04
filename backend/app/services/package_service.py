@@ -81,14 +81,20 @@ def _notify_package_status_email(package: Package, status: str, note: str | None
         return
 
     try:
+        from app.constants import SHIPPER_LABELS
         from app.services.email_service import EmailServiceError, send_package_status_email
 
+        shipper_label = (
+            SHIPPER_LABELS.get(package.shipper, package.shipper) if package.shipper else None
+        )
         send_package_status_email(
             customer.email,
             customer.first_name,
             package.tracking_number,
             status,
             note=note,
+            carrier_tracking=package.carrier_tracking,
+            shipper_label=shipper_label,
         )
     except EmailServiceError as exc:
         current_app.logger.error(

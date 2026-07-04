@@ -34,7 +34,7 @@ export function WhyBossRules() {
               type="button"
               onClick={() => scrollCards('left')}
               aria-label="Scroll services left"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:border-boss-green hover:text-boss-green"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:border-boss-gold hover:text-boss-gold"
             >
               <ChevronLeft className="h-5 w-5" strokeWidth={2} />
             </button>
@@ -42,7 +42,7 @@ export function WhyBossRules() {
               type="button"
               onClick={() => scrollCards('right')}
               aria-label="Scroll services right"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:border-boss-green hover:text-boss-green"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:border-boss-gold hover:text-boss-gold"
             >
               <ChevronRight className="h-5 w-5" strokeWidth={2} />
             </button>
@@ -60,11 +60,11 @@ export function WhyBossRules() {
             return (
               <article
                 key={service.title}
-                className="group relative min-w-[272px] flex-shrink-0 snap-start overflow-hidden rounded-2xl bg-boss-navy shadow-lg ring-1 ring-boss-green/25 transition-all hover:-translate-y-1 hover:shadow-xl hover:ring-boss-green/45 lg:min-w-0"
+                className="group relative min-w-[272px] flex-shrink-0 snap-start overflow-hidden rounded-2xl bg-boss-navy shadow-lg ring-1 ring-boss-gold/25 transition-all hover:-translate-y-1 hover:shadow-xl hover:ring-boss-gold/45 lg:min-w-0"
               >
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-boss-green/20 blur-2xl transition-opacity group-hover:opacity-100"
+                  className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-boss-gold/20 blur-2xl transition-opacity group-hover:opacity-100"
                 />
                 <div
                   aria-hidden
@@ -80,7 +80,7 @@ export function WhyBossRules() {
 
                 <div className="relative z-10 flex h-full flex-col p-6">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/10 backdrop-blur-sm">
-                    <Icon className="h-5 w-5 text-boss-green" strokeWidth={2} />
+                    <Icon className="h-5 w-5 text-boss-gold" strokeWidth={2} />
                   </div>
 
                   <h3 className="mt-5 text-sm font-bold uppercase tracking-wide text-boss-gold">
@@ -92,7 +92,7 @@ export function WhyBossRules() {
 
                   <div
                     aria-hidden
-                    className="mt-5 h-px w-full bg-gradient-to-r from-boss-green/50 via-boss-gold/30 to-transparent"
+                    className="mt-5 h-px w-full bg-gradient-to-r from-boss-gold/50 via-boss-gold/30 to-transparent"
                   />
                 </div>
               </article>

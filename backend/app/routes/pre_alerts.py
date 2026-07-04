@@ -5,7 +5,6 @@ from flask_jwt_extended import jwt_required
 
 from app.constants import ALLOWED_INVOICE_TYPES
 from app.models.pre_alert import PreAlert
-from app.models.user import User
 from app.services.pre_alert_service import cancel_pre_alert, create_pre_alert
 from app.services.image_upload_service import (
     ImageUploadError,
@@ -14,7 +13,7 @@ from app.services.image_upload_service import (
     parse_presign_fields,
 )
 from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
-from app.utils.auth_decorators import get_user_from_jwt
+from app.utils.auth_decorators import resolve_jwt_user
 
 pre_alerts_bp = Blueprint("pre_alerts", __name__)
 
@@ -23,19 +22,21 @@ def _error(message: str, status: int = 400):
     return jsonify({"error": message}), status
 
 
-def _get_customer_user() -> User | None:
-    user = get_user_from_jwt()
-    if not user or user.role != "customer":
-        return None
-    return user
+def _resolve_customer_user():
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return None, auth_err
+    if user.role != "customer":
+        return None, _error("Customer access required", 403)
+    return user, None
 
 
 @pre_alerts_bp.route("/me/pre-alerts", methods=["GET"])
 @jwt_required()
 def list_my_pre_alerts():
-    user = _get_customer_user()
-    if not user:
-        return _error("Customer access required", 403)
+    user, auth_err = _resolve_customer_user()
+    if auth_err:
+        return auth_err
 
     alerts = (
         PreAlert.query.filter_by(customer_id=user.id)
@@ -48,9 +49,9 @@ def list_my_pre_alerts():
 @pre_alerts_bp.route("/me/pre-alerts", methods=["POST"])
 @jwt_required()
 def create_my_pre_alert():
-    user = _get_customer_user()
-    if not user:
-        return _error("Customer access required", 403)
+    user, auth_err = _resolve_customer_user()
+    if auth_err:
+        return auth_err
 
     data = request.get_json(silent=True) or {}
     carrier_tracking = data.get("carrier_tracking") or ""
@@ -83,9 +84,9 @@ def create_my_pre_alert():
 @pre_alerts_bp.route("/me/pre-alerts/<alert_id>", methods=["GET"])
 @jwt_required()
 def get_my_pre_alert(alert_id: str):
-    user = _get_customer_user()
-    if not user:
-        return _error("Customer access required", 403)
+    user, auth_err = _resolve_customer_user()
+    if auth_err:
+        return auth_err
 
     try:
         aid = uuid.UUID(alert_id)
@@ -102,9 +103,9 @@ def get_my_pre_alert(alert_id: str):
 @pre_alerts_bp.route("/me/pre-alerts/<alert_id>", methods=["DELETE"])
 @jwt_required()
 def delete_my_pre_alert(alert_id: str):
-    user = _get_customer_user()
-    if not user:
-        return _error("Customer access required", 403)
+    user, auth_err = _resolve_customer_user()
+    if auth_err:
+        return auth_err
 
     try:
         aid = uuid.UUID(alert_id)
@@ -126,9 +127,9 @@ def delete_my_pre_alert(alert_id: str):
 @pre_alerts_bp.route("/me/uploads/invoice/presign", methods=["POST"])
 @jwt_required()
 def presign_invoice_upload():
-    user = _get_customer_user()
-    if not user:
-        return _error("Customer access required", 403)
+    user, auth_err = _resolve_customer_user()
+    if auth_err:
+        return auth_err
 
     try:
         assert_upload_presign_allowed(str(user.id))

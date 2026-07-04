@@ -2,6 +2,7 @@ from app.constants import JAMAICA_PARISHES
 from app.extensions import db
 from app.models.user import User
 from app.services.auth_service import hash_password, normalize_phone, validate_password, verify_password
+from app.services.token_service import bump_token_version
 
 
 def update_profile(user: User, data: dict) -> User:
@@ -40,4 +41,5 @@ def change_password(user: User, current_password: str, new_password: str) -> Non
         raise ValueError("Current password is incorrect")
     validate_password(new_password)
     user.password_hash = hash_password(new_password)
+    bump_token_version(user, commit=False)
     db.session.commit()

@@ -65,7 +65,7 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
         {!embedded && (
           <>
             <h1 className="text-3xl font-black uppercase">
-              Package <span className="italic text-boss-green">Rates</span>
+              Package <span className="italic text-boss-gold">Rates</span>
             </h1>
             <p className="mt-2 text-muted">Fort Lauderdale → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)</p>
           </>

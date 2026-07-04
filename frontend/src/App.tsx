@@ -7,7 +7,8 @@ import { ThemeProvider } from './context/ThemeContext'
 import { AboutPage } from './pages/AboutPage'
 import { AdminActivityPage } from './pages/AdminActivityPage'
 import { AdminClerksPage } from './pages/AdminClerksPage'
-import { AdminHomePage } from './pages/AdminHomePage'
+import { AdminHubPage } from './pages/AdminHubPage'
+import { AdminOperationsPage } from './pages/AdminOperationsPage'
 import { AdminLayout } from './components/layout/AdminLayout'
 import { WarehouseLayout } from './components/layout/WarehouseLayout'
 import { CustomerDashboardLayout } from './components/layout/CustomerDashboardLayout'
@@ -31,12 +32,12 @@ import { TermsPage } from './pages/TermsPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { DataProtectionPage } from './pages/DataProtectionPage'
 import { StatusUpdatePage } from './pages/StatusUpdatePage'
-import { TrackPage } from './pages/TrackPage'
 import { CustomerAccountPage } from './pages/CustomerAccountPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { PrintQueuePage } from './pages/PrintQueuePage'
 import { UnidentifiedQueuePage } from './pages/UnidentifiedQueuePage'
 import { WarehouseHomePage } from './pages/WarehouseHomePage'
+import { WarehousePreAlertsPage } from './pages/WarehousePreAlertsPage'
 
 function App() {
   return (
@@ -57,7 +58,7 @@ function App() {
               <Route path="/data-protection" element={<DataProtectionPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/track" element={<TrackPage />} />
+              <Route path="/track" element={<Navigate to="/dashboard/packages" replace />} />
 
               <Route element={<RequireAuth />}>
                 <Route path="/dashboard" element={<CustomerDashboardLayout />}>
@@ -65,7 +66,7 @@ function App() {
                   <Route path="profile" element={<DashboardProfilePage />} />
                   <Route path="delivery-address" element={<Navigate to="/dashboard/profile" replace />} />
                   <Route path="authorized-pickups" element={<Navigate to="/dashboard/profile" replace />} />
-                  <Route path="track" element={<Navigate to="/track" replace />} />
+                  <Route path="track" element={<Navigate to="/dashboard/packages" replace />} />
                   <Route path="pre-alerts" element={<DashboardPreAlertsPage />} />
                   <Route path="packages" element={<DashboardPackagesPage />} />
                   <Route path="rates" element={<DashboardRatesPage />} />
@@ -82,6 +83,7 @@ function App() {
                   <Route path="/warehouse/customers/:shippingId" element={<CustomerAccountPage />} />
                   <Route path="/warehouse/receive" element={<ReceivePage />} />
                   <Route path="/warehouse/unidentified" element={<UnidentifiedQueuePage />} />
+                  <Route path="/warehouse/pre-alerts" element={<WarehousePreAlertsPage />} />
                   <Route path="/warehouse/print-queue" element={<PrintQueuePage />} />
                   <Route path="/warehouse/status" element={<StatusUpdatePage />} />
                   <Route path="/warehouse/activity" element={<AdminActivityPage />} />
@@ -89,9 +91,10 @@ function App() {
               </Route>
 
               <Route element={<RequireAdmin />}>
-                <Route element={<AdminLayout />}>
-                  <Route path="/admin" element={<AdminHomePage />} />
-                  <Route path="/admin/clerks" element={<AdminClerksPage />} />
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminHubPage />} />
+                  <Route path="operations" element={<AdminOperationsPage />} />
+                  <Route path="clerks" element={<AdminClerksPage />} />
                 </Route>
               </Route>
 

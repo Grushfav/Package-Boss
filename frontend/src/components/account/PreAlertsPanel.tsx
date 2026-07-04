@@ -32,7 +32,7 @@ export function PreAlertsPanel() {
         </div>
         <Link
           to="/pre-alerts/new"
-          className="inline-flex items-center gap-2 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-2 text-sm font-semibold text-boss-green hover:bg-boss-green/20"
+          className="inline-flex items-center gap-2 rounded-lg border border-boss-gold/30 bg-boss-gold/10 px-4 py-2 text-sm font-semibold text-boss-gold hover:bg-boss-gold/20"
         >
           <Bell className="h-4 w-4" />
           Pre-alert a package
@@ -69,7 +69,7 @@ export function PreAlertsPanel() {
                     href={alert.invoice_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-boss-green hover:underline"
+                    className="text-sm text-boss-gold hover:underline"
                   >
                     View invoice
                   </a>

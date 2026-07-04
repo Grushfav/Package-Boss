@@ -3,6 +3,8 @@ from urllib.parse import urlparse
 
 from flask import Blueprint, jsonify, request
 
+from flask_jwt_extended import get_jwt_identity, jwt_required
+
 from app.constants import ALLOWED_IMAGE_TYPES, MAX_INVOICE_SIZE_BYTES
 from app.models.user import User
 from app.services.image_upload_service import (
@@ -17,8 +19,7 @@ from app.services.image_upload_service import (
     parse_presign_fields,
 )
 from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
-from app.utils.auth_decorators import jwt_required, staff_required
-from flask_jwt_extended import get_jwt_identity
+from app.utils.auth_decorators import resolve_jwt_user, staff_required
 
 uploads_bp = Blueprint("uploads", __name__)
 
@@ -51,6 +52,10 @@ def _check_upload_presign_limit():
 @jwt_required()
 def proxy_upload_url():
     """Proxy presign requests to the image Worker (keeps API key server-side)."""
+    auth_err = resolve_jwt_user()[1]
+    if auth_err:
+        return auth_err
+
     limited = _check_upload_presign_limit()
     if limited:
         return limited
@@ -85,6 +90,10 @@ def proxy_upload_url():
 @jwt_required()
 def proxy_presigned_put():
     """Proxy file PUT to B2 so browsers are not blocked by storage CORS."""
+    auth_err = resolve_jwt_user()[1]
+    if auth_err:
+        return auth_err
+
     if not is_storage_configured():
         return jsonify({"error": "File storage is not configured"}), 503
 

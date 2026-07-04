@@ -68,6 +68,20 @@ export async function lookupPreAlertByTracking(
   return data.matches
 }
 
+export async function fetchStaffPreAlerts(
+  options: { q?: string; status?: PreAlert['status']; limit?: number; offset?: number } = {},
+): Promise<{ pre_alerts: PreAlert[]; total: number }> {
+  const { data } = await api.get<{ pre_alerts: PreAlert[]; total: number }>('/staff/pre-alerts', {
+    params: {
+      q: options.q || undefined,
+      status: options.status || undefined,
+      limit: options.limit,
+      offset: options.offset,
+    },
+  })
+  return data
+}
+
 export async function presignUpload(
   shippingId: string,
   filename: string,

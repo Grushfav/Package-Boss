@@ -61,7 +61,7 @@ export function NewPreAlertPage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
       <div className="mb-2">
-        <Link to="/dashboard/pre-alerts" className="text-sm text-muted hover:text-boss-green">
+        <Link to="/dashboard/pre-alerts" className="text-sm text-muted hover:text-boss-gold">
           ← Dashboard
         </Link>
       </div>
@@ -111,7 +111,7 @@ export function NewPreAlertPage() {
             <label className="block text-xs font-medium uppercase tracking-wider text-muted">
               Invoice / receipt
             </label>
-            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 transition-colors hover:border-boss-green">
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 transition-colors hover:border-boss-gold">
               <FileUp className="h-5 w-5 text-muted" />
               <span className="text-sm text-muted">
                 {invoiceFile ? invoiceFile.name : 'PDF, JPEG, PNG, or WebP'}

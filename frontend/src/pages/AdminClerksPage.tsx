@@ -148,7 +148,7 @@ export function AdminClerksPage() {
           onClick={() => setShowCreateForm((v) => !v)}
           className="flex w-full items-center justify-between p-6 text-left"
         >
-          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
             <UserPlus className="h-4 w-4" />
             Create clerk account
           </h2>
@@ -198,7 +198,7 @@ export function AdminClerksPage() {
                 <select
                   value={form.parish}
                   onChange={(e) => setForm({ ...form, parish: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-green focus:outline-none focus:ring-1 focus:ring-boss-green"
+                  className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold"
                 >
                   <option value="">— None —</option>
                   {parishes.map((p) => (
@@ -233,7 +233,7 @@ export function AdminClerksPage() {
       )}
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-6">
-        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-green">
+        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
           <Users className="h-4 w-4" />
           Active clerks ({activeClerks.length})
         </h2>
@@ -302,7 +302,7 @@ function PermissionCheckboxes({
               type="checkbox"
               checked={selected.includes(opt.code)}
               onChange={() => onToggle(opt.code)}
-              className="mt-0.5 accent-boss-green"
+              className="mt-0.5 accent-boss-gold"
             />
             <span>{opt.label}</span>
           </label>

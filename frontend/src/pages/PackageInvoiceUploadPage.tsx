@@ -95,7 +95,7 @@ export function PackageInvoiceUploadPage() {
           <label className="block text-xs font-medium uppercase tracking-wider text-muted">
             Invoice or receipt
           </label>
-          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-card px-4 py-6 hover:border-boss-green/40">
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-card px-4 py-6 hover:border-boss-gold/40">
             <FileUp className="h-5 w-5 text-muted" />
             <span className="text-sm text-muted">
               {invoiceFile ? invoiceFile.name : 'PDF, JPEG, PNG, or WebP'}
