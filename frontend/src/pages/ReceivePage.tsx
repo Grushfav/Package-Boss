@@ -98,6 +98,7 @@ export function ReceivePage() {
   const [recentLoading, setRecentLoading] = useState(false)
   const [previewUnidentified, setPreviewUnidentified] = useState(false)
   const [idleInputMode, setIdleInputMode] = useState<IdleInputMode>('scan')
+  const [scanKeyboardReady, setScanKeyboardReady] = useState(false)
   const [searchKeyboardReady, setSearchKeyboardReady] = useState(false)
   const [receivingSearchKeyboardReady, setReceivingSearchKeyboardReady] = useState(false)
 
@@ -186,8 +187,15 @@ export function ReceivePage() {
   function focusScanMode() {
     setIdleInputMode('scan')
     setSearchKeyboardReady(false)
+    setScanKeyboardReady(false)
     searchInputRef.current?.blur()
     window.setTimeout(() => scanInputRef.current?.focus(), 0)
+  }
+
+  function enableScanKeyboard() {
+    setIdleInputMode('scan')
+    setScanKeyboardReady(true)
+    focusInputForSoftKeyboard(scanInputRef.current)
   }
 
   function focusSearchMode() {
@@ -235,6 +243,7 @@ export function ReceivePage() {
     setPreAlertLookupLoading(false)
     setPreviewUnidentified(false)
     setIdleInputMode('scan')
+    setScanKeyboardReady(false)
     setSearchKeyboardReady(false)
     setReceivingSearchKeyboardReady(false)
   }
@@ -650,6 +659,12 @@ export function ReceivePage() {
             <p className="mt-2 text-sm text-muted">
               Scan the USPS, UPS, or FedEx label on the incoming package.
             </p>
+            {idleInputMode === 'scan' && !scanKeyboardReady && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                Using a handheld scanner? Scan directly into the field below. To type manually, tap{' '}
+                <strong>Show keyboard</strong>.
+              </p>
+            )}
             <div className="mt-4 space-y-3">
               <div className="space-y-1.5">
                 <label
@@ -663,7 +678,7 @@ export function ReceivePage() {
                     ref={scanInputRef}
                     id="carrier-tracking-scan"
                     type="text"
-                    inputMode="none"
+                    inputMode={scanKeyboardReady ? 'text' : 'none'}
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
@@ -673,11 +688,29 @@ export function ReceivePage() {
                     onKeyDown={handleScanKeyDown}
                     onFocus={(e) => {
                       setIdleInputMode('scan')
-                      e.target.select()
+                      if (scanKeyboardReady) e.target.select()
                     }}
                     disabled={idleInputMode === 'search'}
-                    className="w-full rounded-lg border border-border bg-input px-4 py-3 pr-11 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold disabled:cursor-not-allowed disabled:opacity-50"
+                    tabIndex={idleInputMode === 'scan' && !scanKeyboardReady ? -1 : 0}
+                    className={`w-full rounded-lg border border-border bg-input px-4 py-3 pr-11 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold disabled:cursor-not-allowed disabled:opacity-50 ${
+                      idleInputMode === 'scan' && !scanKeyboardReady ? 'pointer-events-none' : ''
+                    }`}
                   />
+                  {idleInputMode === 'scan' && !scanKeyboardReady && (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        enableScanKeyboard()
+                      }}
+                      className="absolute inset-0 z-10 flex w-full items-center gap-2 rounded-lg border border-border bg-input px-4 py-3 text-left text-muted/70"
+                    >
+                      <Keyboard className="h-4 w-4 shrink-0" />
+                      <span className="truncate">
+                        {scanValue.trim() || 'Tap to type tracking number…'}
+                      </span>
+                    </button>
+                  )}
                   {scanValue.trim() && idleInputMode === 'scan' && (
                     <button
                       type="button"
@@ -690,14 +723,31 @@ export function ReceivePage() {
                   )}
                 </div>
               </div>
-              <Button
-                type="button"
-                fullWidth
-                disabled={!scanValue.trim() || idleInputMode !== 'scan'}
-                onClick={startFromScan}
-              >
-                Start receival from scan
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {idleInputMode === 'scan' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onPointerDown={(e) => {
+                      e.preventDefault()
+                      enableScanKeyboard()
+                    }}
+                    className="inline-flex flex-1 items-center justify-center gap-2 !text-xs sm:flex-none"
+                  >
+                    <Keyboard className="h-4 w-4" />
+                    Show keyboard
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  fullWidth
+                  disabled={!scanValue.trim() || idleInputMode !== 'scan'}
+                  onClick={startFromScan}
+                  className={idleInputMode === 'scan' ? 'sm:flex-1' : ''}
+                >
+                  Start receival from scan
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -1070,6 +1120,8 @@ export function ReceivePage() {
               <Input
                 label="Carrier tracking (scan or type)"
                 placeholder="USPS / UPS / FedEx number"
+                inputMode="text"
+                autoComplete="off"
                 value={carrierTracking}
                 onChange={(e) => setCarrierTracking(e.target.value.toUpperCase())}
                 onBlur={() => {
