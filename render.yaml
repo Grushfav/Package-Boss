@@ -1,0 +1,13 @@
+# Render Blueprint — adjust service names to match your dashboard if already deployed.
+# Static SPA rewrite ensures /rates, /reset-password, etc. serve index.html on direct load.
+
+services:
+  - type: web
+    name: package-boss-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

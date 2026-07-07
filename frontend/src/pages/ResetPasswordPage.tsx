@@ -11,6 +11,7 @@ export function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const token = searchParams.get('token') || ''
+  const isInvite = searchParams.get('invite') === '1'
 
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -30,6 +31,7 @@ export function ResetPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    setMessage('')
 
     if (password !== confirm) {
       setError('Passwords do not match')
@@ -40,7 +42,9 @@ export function ResetPasswordPage() {
     try {
       const msg = await resetPassword(token, password)
       setMessage(msg)
-      setTimeout(() => navigate('/login'), 2000)
+      window.setTimeout(() => {
+        navigate('/login', { replace: true, state: { passwordUpdated: true } })
+      }, 1500)
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -64,24 +68,38 @@ export function ResetPasswordPage() {
       <>
         <Seo {...PAGE_SEO.resetPassword} />
         <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <h1 className="text-xl font-bold uppercase text-red-400">Invalid or Expired Link</h1>
-        <p className="mt-4 text-muted">Request a new password reset link.</p>
-        <Link to="/forgot-password" className="mt-6 inline-block text-boss-gold hover:underline">
-          Forgot Password
-        </Link>
+          <h1 className="text-xl font-bold uppercase text-red-400">Invalid or Expired Link</h1>
+          <p className="mt-4 text-muted">
+            {isInvite
+              ? 'Ask your admin to resend the clerk invite from Manage Clerks.'
+              : 'Request a new password reset link.'}
+          </p>
+          {!isInvite && (
+            <Link to="/forgot-password" className="mt-6 inline-block text-boss-gold hover:underline">
+              Forgot Password
+            </Link>
+          )}
+          <Link to="/login" className="mt-4 block text-sm text-muted hover:text-foreground">
+            Back to login
+          </Link>
         </div>
       </>
     )
   }
 
+  const heading = isInvite ? 'Set Your Password' : 'Reset Password'
+  const subheading = isInvite
+    ? 'Choose a password for your warehouse clerk account.'
+    : 'Enter your new password below.'
+
   return (
     <div className="mx-auto max-w-md px-4 py-16">
       <Seo {...PAGE_SEO.resetPassword} />
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
-        <h1 className="text-xl font-bold uppercase">Reset Password</h1>
-        <p className="mt-2 text-sm text-muted">Enter your new password below.</p>
+        <h1 className="text-xl font-bold uppercase">{heading}</h1>
+        <p className="mt-2 text-sm text-muted">{subheading}</p>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <form method="post" action="#" onSubmit={handleSubmit} className="mt-6 space-y-4">
           <Input
             label="New Password"
             type="password"
@@ -89,6 +107,7 @@ export function ResetPasswordPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
+            autoComplete="new-password"
           />
           <Input
             label="Confirm Password"
@@ -97,6 +116,7 @@ export function ResetPasswordPage() {
             onChange={(e) => setConfirm(e.target.value)}
             required
             minLength={8}
+            autoComplete="new-password"
           />
 
           {error && (
@@ -108,8 +128,8 @@ export function ResetPasswordPage() {
             </p>
           )}
 
-          <Button type="submit" fullWidth disabled={loading}>
-            {loading ? 'Updating...' : 'Update Password'}
+          <Button type="submit" fullWidth disabled={loading || !!message}>
+            {loading ? 'Updating...' : message ? 'Redirecting…' : 'Update Password'}
           </Button>
         </form>
       </div>

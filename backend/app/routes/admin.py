@@ -37,7 +37,7 @@ def _clerk_dict(user: User) -> dict:
 def _send_clerk_invite(user: User) -> None:
     raw_token, token_hash = generate_reset_token()
     store_invite_token(str(user.id), token_hash)
-    invite_url = build_reset_url(raw_token)
+    invite_url = build_reset_url(raw_token, invite=True)
     send_clerk_invite_email(user.email, user.first_name, invite_url)
 
 

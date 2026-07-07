@@ -1,6 +1,6 @@
 import { Lock, User } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { login } from '../api/auth'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -13,8 +13,10 @@ import { PAGE_SEO } from '../lib/seo'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const { setSession } = useAuth()
+  const passwordUpdated = (location.state as { passwordUpdated?: boolean } | null)?.passwordUpdated
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -44,8 +46,13 @@ export function LoginPage() {
           <h1 className="text-lg font-bold uppercase tracking-wide">Boss Member Login</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
+        {passwordUpdated && (
+          <p className="mb-4 rounded-lg bg-boss-green/10 px-4 py-2 text-sm text-boss-green">
+            Password updated. Sign in with your new password.
+          </p>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">          <Input
             label="Email Address"
             type="email"
             placeholder="you@example.com"
