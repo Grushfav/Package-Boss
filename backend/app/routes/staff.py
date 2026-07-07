@@ -49,8 +49,9 @@ from app.services.package_service import (
     update_package_status,
     warehouse_package_to_dict,
 )
+from app.services.package_search_service import MIN_PACKAGE_SEARCH_QUERY_LEN, search_packages
 from app.services.pre_alert_service import find_pending_pre_alerts_by_tracking
-from app.utils.auth_decorators import get_user_from_jwt, permission_required
+from app.utils.auth_decorators import get_user_from_jwt, permission_required, warehouse_required
 from app.services.clerk_permission_service import assert_status_transition_allowed, clerk_has_permission
 from app.services.unidentified_service import customer_query
 
@@ -760,6 +761,19 @@ def list_packages():
             "total": total,
         }
     )
+
+
+@staff_bp.route("/staff/packages/search", methods=["GET"])
+@warehouse_required()
+def search_packages_route():
+    q = (request.args.get("q") or "").strip()
+    limit = request.args.get("limit", 20, type=int)
+
+    if len(q) < MIN_PACKAGE_SEARCH_QUERY_LEN:
+        return jsonify({"matches": [], "truncated": False})
+
+    matches, truncated = search_packages(q, limit=limit)
+    return jsonify({"matches": matches, "truncated": truncated})
 
 
 @staff_bp.route("/staff/packages/lookup/<tracking_number>", methods=["GET"])

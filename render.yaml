@@ -1,5 +1,6 @@
-# Render Blueprint — adjust service names to match your dashboard if already deployed.
-# Static SPA rewrite ensures /rates, /reset-password, etc. serve index.html on direct load.
+# Render Blueprint — sync this file in the Render dashboard (Blueprint > Sync).
+# Direct loads of /rates, /login, etc. need either the rewrite below OR spa-fallback.mjs
+# (runs in npm run build and writes route/index.html copies into frontend/dist).
 
 services:
   - type: web

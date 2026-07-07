@@ -216,6 +216,27 @@ export async function fetchPackageByTracking(trackingNumber: string): Promise<Pa
   return data.package
 }
 
+export interface PackageSearchMatch {
+  package: Package
+  match_score: number
+  match_field: 'tracking_number' | 'carrier_tracking'
+  match_type: 'exact' | 'prefix' | 'partial'
+  matched_value: string
+}
+
+export const PACKAGE_SEARCH_MIN_LENGTH = 5
+
+export async function searchPackages(
+  query: string,
+  limit = 20,
+): Promise<{ matches: PackageSearchMatch[]; truncated: boolean }> {
+  const { data } = await api.get<{ matches: PackageSearchMatch[]; truncated: boolean }>(
+    '/staff/packages/search',
+    { params: { q: query, limit } },
+  )
+  return data
+}
+
 export async function fetchWarehousePackages(options: {
   from?: string
   to?: string

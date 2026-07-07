@@ -140,6 +140,34 @@ export function StatusUpdatePage() {
   const [scanSuccess, setScanSuccess] = useState('')
   const [staffPackage, setStaffPackage] = useState<Package | null>(null)
 
+  const scanParam = searchParams.get('scan')
+
+  useEffect(() => {
+    if (!scanParam) return
+    const tracking = scanParam.trim().toUpperCase()
+    if (!tracking) return
+
+    setScanTracking(tracking)
+    setScanLoading(true)
+    setScanSuccess('')
+    setError('')
+    setScanPackage(null)
+
+    fetchPackageByTracking(tracking)
+      .then(setScanPackage)
+      .catch((err) => setError(getErrorMessage(err)))
+      .finally(() => setScanLoading(false))
+
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('scan')
+        return next
+      },
+      { replace: true },
+    )
+  }, [scanParam, setSearchParams])
+
   const allSelected = packages.length > 0 && selectedIds.size === packages.length
   const someSelected = selectedIds.size > 0 && selectedIds.size < packages.length
 

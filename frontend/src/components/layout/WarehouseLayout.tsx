@@ -13,11 +13,12 @@ import {
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { clerkHasAnyPermission, clerkHasPermission } from '../../lib/clerkPermissions'
-import { isAdmin } from '../../lib/roles'
+import { canAccessWarehouse, isAdmin } from '../../lib/roles'
 import type { ClerkPermission } from '../../types'
 import { WarehouseCountsProvider, useWarehouseCounts } from '../../context/WarehouseCountsContext'
 import { CommandPalette, openCommandPalette } from '../warehouse/CommandPalette'
 import { CustomerQuickSearch } from '../warehouse/CustomerQuickSearch'
+import { PackageQuickSearch } from '../warehouse/PackageQuickSearch'
 
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null
@@ -92,6 +93,8 @@ function WarehouseShell() {
     clerkHasPermission(perms, 'directory', role) ||
     clerkHasPermission(perms, 'receive', role)
 
+  const showPackageSearch = canAccessWarehouse(role)
+
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
       <aside className="hidden shrink-0 border-r border-border md:flex md:w-52 md:flex-col md:px-3 md:py-6 lg:w-56">
@@ -119,7 +122,7 @@ function WarehouseShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+        <div className="relative z-40 flex flex-wrap items-center gap-3 overflow-visible border-b border-border px-4 py-3">
           {isAdmin(user?.role) && (
             <Link
               to="/admin"
@@ -129,6 +132,7 @@ function WarehouseShell() {
               Admin home
             </Link>
           )}
+          {showPackageSearch && <PackageQuickSearch />}
           {showQuickSearch && <CustomerQuickSearch />}
           <button
             type="button"
