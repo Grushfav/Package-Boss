@@ -13,9 +13,9 @@ if (!existsSync(indexPath)) {
 
 /**
  * Client routes that may be opened directly (bookmarks, shared links, sitemap).
- * Each becomes dist/<route>/index.html so static hosts serve real HTML with a
- * text/html content type. Extensionless files must NOT be used: Render serves
- * them as binary/octet-stream, which makes browsers download the page.
+ * Each becomes dist/<route>/index.html so static hosts serve real HTML at /<route>/.
+ * Extensionless files must NOT be created: Render serves them as empty/binary responses
+ * and skips rewrite rules when a "resource" exists at that path.
  */
 const routes = [
   'about',
@@ -53,7 +53,7 @@ const routes = [
 for (const route of routes) {
   const dir = join(dist, route)
 
-  // Clear leftover extensionless files from prior builds at any path segment.
+  // Remove leftover extensionless files from prior builds at any path segment.
   const segments = route.split('/')
   for (let i = 1; i <= segments.length; i += 1) {
     const partial = join(dist, ...segments.slice(0, i))

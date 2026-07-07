@@ -42,24 +42,58 @@ body {
 }
 
 @media print {
-  body * {
-    visibility: hidden;
+  @page {
+    size: 4in 6in;
+    margin: 0;
   }
 
-  .shipping-label,
-  .shipping-label * {
-    visibility: visible;
+  html,
+  body,
+  #root {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    width: 4in !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-labels-root {
+    display: block !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    width: 4in !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: auto !important;
   }
 
   .shipping-label {
-    position: relative;
-    left: 0;
-    top: 0;
-    width: 4in;
-    margin: 0 auto;
-    padding: 0.25in;
+    box-sizing: border-box;
+    display: flex !important;
+    flex-direction: column;
+    width: 4in !important;
+    height: 6in !important;
+    max-width: 4in !important;
+    max-height: 6in !important;
+    margin: 0 !important;
+    padding: 0.12in !important;
+    overflow: hidden !important;
     page-break-after: always;
     break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #000;
+    background: white !important;
+    color: black !important;
   }
 
   .shipping-label:last-child {

@@ -8,12 +8,12 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'text-boss-gold' : 'text-foreground/80 hover:text-boss-green'
   }`
 
-export function Header() {
+export function Header({ className = '' }: { className?: string }) {
   const { isAuthenticated, user, logout, homeRoute } = useAuth()
   const isCustomer = !user?.role || user.role === 'customer'
 
   return (
-    <header className="border-b border-border bg-background/90 backdrop-blur">
+    <header className={`border-b border-border bg-background/90 backdrop-blur ${className}`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link to={isAuthenticated ? homeRoute : '/'} className="flex items-center gap-2.5">
           <img src="/logo.svg" alt="" className="h-[4.22rem] w-auto" aria-hidden />

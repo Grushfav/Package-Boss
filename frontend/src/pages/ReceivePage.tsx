@@ -546,8 +546,8 @@ export function ReceivePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-2xl px-4 py-8 print:mx-0 print:max-w-none print:p-0">
+      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <IconBadge icon={PackagePlus} size="sm" />
           <h1 className="text-2xl font-black uppercase">Receive Package</h1>
@@ -567,7 +567,7 @@ export function ReceivePage() {
       </div>
 
       {success && (
-        <p className="mb-4 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-3 text-sm text-boss-green">
+        <p className="no-print mb-4 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-3 text-sm text-boss-green">
           {success}
         </p>
       )}
@@ -1317,7 +1317,7 @@ export function ReceivePage() {
 
       {step === 'complete' && completedPackage && (
         <div className="space-y-6">
-          <div className="rounded-lg border border-boss-green/30 bg-boss-green/10 p-4 text-center">
+          <div className="no-print rounded-lg border border-boss-green/30 bg-boss-green/10 p-4 text-center">
             <p className="font-bold text-boss-green">
               {completedPackage.is_unidentified ? 'Added to unidentified queue' : 'Receival complete'}
             </p>
@@ -1330,9 +1330,11 @@ export function ReceivePage() {
             )}
           </div>
 
-          <ShippingLabel pkg={completedPackage} customer={customer} />
+          <div className="print-labels-root">
+            <ShippingLabel pkg={completedPackage} customer={customer} />
+          </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="no-print flex flex-col gap-3 sm:flex-row">
             <Button
               type="button"
               variant="outline"
@@ -1349,7 +1351,7 @@ export function ReceivePage() {
 
           <Link
             to="/warehouse/print-queue"
-            className="block text-center text-sm text-boss-gold hover:underline"
+            className="no-print block text-center text-sm text-boss-gold hover:underline"
           >
             View print queue →
           </Link>
@@ -1357,12 +1359,12 @@ export function ReceivePage() {
           {completedPackage.is_unidentified ? (
             <Link
               to="/warehouse/unidentified"
-              className="block text-center text-sm text-boss-gold hover:underline"
+              className="no-print block text-center text-sm text-boss-gold hover:underline"
             >
               View unidentified queue →
             </Link>
           ) : (
-            <p className="block text-center text-sm text-muted">
+            <p className="no-print block text-center text-sm text-muted">
               PB tracking:{' '}
               <span className="font-mono font-semibold text-foreground">
                 {completedPackage.tracking_number}

@@ -134,8 +134,8 @@ export function PrintQueuePage() {
   }
 
   return (
-    <div className="px-4 py-8">
-      <div className="mb-6 flex items-center gap-2.5">
+    <div className="px-4 py-8 print:p-0">
+      <div className="no-print mb-6 flex items-center gap-2.5">
         <IconBadge icon={Printer} size="sm" />
         <div>
           <h1 className="text-2xl font-black uppercase">Print Queue</h1>
@@ -147,7 +147,7 @@ export function PrintQueuePage() {
         </div>
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="no-print mb-4 flex gap-2">
         <button
           type="button"
           onClick={() => setView('pending')}
@@ -173,9 +173,9 @@ export function PrintQueuePage() {
       </div>
 
       {loading ? (
-        <p className="text-muted">Loading queue...</p>
+        <p className="no-print text-muted">Loading queue...</p>
       ) : packages.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-8 text-center">
+        <div className="no-print rounded-2xl border border-border bg-card p-8 text-center">
           <Printer className="mx-auto h-10 w-10 text-muted" />
           <p className="mt-4 font-semibold">
             {view === 'pending' ? 'No labels in queue' : 'No labels in the last 7 days'}
@@ -191,7 +191,7 @@ export function PrintQueuePage() {
         </div>
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted">
               {total} label{total === 1 ? '' : 's'}
               {view === 'pending' ? ' pending' : ' in log'}
@@ -222,7 +222,7 @@ export function PrintQueuePage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="no-print rounded-2xl border border-border bg-card overflow-hidden">
             {view === 'pending' && (
               <div className="border-b border-border px-4 py-3">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -286,7 +286,7 @@ export function PrintQueuePage() {
       )}
 
       {labelsToPrint.length > 0 && (
-        <div aria-hidden className="pointer-events-none fixed left-[-9999px] top-0 opacity-0 print:pointer-events-auto print:static print:opacity-100">
+        <div className="print-labels-root pointer-events-none fixed left-[-9999px] top-0 opacity-0 print:pointer-events-auto print:static print:opacity-100">
           {labelsToPrint.map((pkg) => (
             <ShippingLabel key={pkg.id} pkg={pkg} customer={labelCustomer(pkg)} />
           ))}
@@ -294,7 +294,7 @@ export function PrintQueuePage() {
       )}
 
       {error && (
-        <p className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
+        <p className="no-print mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
       )}
     </div>
   )

@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
 import { SocialLinks } from '../landing/SocialLinks'
 
-export function Footer() {
+export function Footer({ className = '' }: { className?: string }) {
   return (
-    <footer className="border-t border-border bg-background">
+    <footer className={`border-t border-border bg-background ${className}`}>
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-3">
         <div>
           <p className="text-xl font-black italic">

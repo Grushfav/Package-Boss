@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/spa-fallback.mjs",
+    "start": "serve dist -s -l ${PORT:-3000}",
     "lint": "eslint .",
     "preview": "vite preview",
     "icons": "node scripts/generate-icons.mjs"
@@ -21,7 +22,8 @@
     "react-dom": "^19.2.6",
     "react-helmet-async": "^3.0.0",
     "react-router-dom": "^7.17.0",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "serve": "^14.2.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
