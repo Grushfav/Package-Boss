@@ -12,9 +12,10 @@ if (!existsSync(indexPath)) {
 }
 
 /**
- * Paths that may be opened directly (sitemap, bookmarks, shared links).
- * Single-segment paths become extensionless files (dist/rates).
- * Multi-segment paths become nested extensionless files (dist/dashboard/packages).
+ * Client routes that may be opened directly (bookmarks, shared links, sitemap).
+ * Each becomes dist/<route>/index.html so static hosts serve real HTML with a
+ * text/html content type. Extensionless files must NOT be used: Render serves
+ * them as binary/octet-stream, which makes browsers download the page.
  */
 const routes = [
   'about',
@@ -28,12 +29,14 @@ const routes = [
   'forgot-password',
   'reset-password',
   'track',
+  'dashboard',
   'dashboard/profile',
   'dashboard/pre-alerts',
   'dashboard/packages',
   'dashboard/rates',
   'dashboard/notifications',
   'pre-alerts/new',
+  'warehouse',
   'warehouse/customers',
   'warehouse/receive',
   'warehouse/unidentified',
@@ -41,55 +44,26 @@ const routes = [
   'warehouse/print-queue',
   'warehouse/status',
   'warehouse/activity',
+  'admin',
   'admin/operations',
   'admin/clerks',
   'staff/receive',
 ]
 
-/** Parent paths that also need index.html so /dashboard/ resolves. */
-const directoryIndexes = new Set(['dashboard', 'warehouse', 'admin', 'pre-alerts'])
+for (const route of routes) {
+  const dir = join(dist, route)
 
-function removePathIfExists(path) {
-  if (!existsSync(path)) return
-  rmSync(path, { recursive: true, force: true })
-}
-
-function writeRouteFile(route) {
+  // Clear leftover extensionless files from prior builds at any path segment.
   const segments = route.split('/')
-
-  if (segments.length === 1) {
-    const target = join(dist, segments[0])
-    removePathIfExists(target)
-    cpSync(indexPath, target)
-    return
-  }
-
-  const parentDir = join(dist, ...segments.slice(0, -1))
-  const target = join(parentDir, segments.at(-1))
-  mkdirSync(parentDir, { recursive: true })
-  if (existsSync(target)) {
-    try {
-      if (statSync(target).isDirectory()) {
-        removePathIfExists(target)
-      }
-    } catch {
-      removePathIfExists(target)
+  for (let i = 1; i <= segments.length; i += 1) {
+    const partial = join(dist, ...segments.slice(0, i))
+    if (existsSync(partial) && statSync(partial).isFile()) {
+      rmSync(partial, { force: true })
     }
   }
-  cpSync(indexPath, target)
+
+  mkdirSync(dir, { recursive: true })
+  cpSync(indexPath, join(dir, 'index.html'))
 }
 
-for (const route of routes) {
-  writeRouteFile(route)
-}
-
-for (const dir of directoryIndexes) {
-  const dirPath = join(dist, dir)
-  mkdirSync(dirPath, { recursive: true })
-  const indexFile = join(dirPath, 'index.html')
-  if (!existsSync(indexFile)) {
-    cpSync(indexPath, indexFile)
-  }
-}
-
-console.log(`spa-fallback: wrote index.html shells for ${routes.length} client routes`)
+console.log(`spa-fallback: wrote ${routes.length} route index.html files`)
