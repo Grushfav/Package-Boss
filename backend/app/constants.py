@@ -95,6 +95,12 @@ SHIPPERS = [
     {"code": "fedex", "label": "FedEx"},
     {"code": "dhl", "label": "DHL"},
     {"code": "amazon", "label": "Amazon"},
+    {"code": "gofo_express", "label": "GoFo Express"},
+    {"code": "lasership", "label": "Lasership"},
+    {"code": "uniuni", "label": "UniUni"},
+    {"code": "swift", "label": "Swift"},
+    {"code": "veho", "label": "Veho"},
+    {"code": "yanwen", "label": "Yanwen"},
     {"code": "other", "label": "Other"},
 ]
 

@@ -8,6 +8,11 @@ if (!match) throw new Error('No embedded PNG in favicon.svg')
 
 const src = Buffer.from(match[1], 'base64')
 const outDir = 'public'
+const backendAssetDir = path.join('..', 'backend', 'app', 'assets')
+
+// Wide logo artwork (~2.64:1); transparent background for HTML email.
+const EMAIL_LOGO_WIDTH = 320
+const EMAIL_LOGO_HEIGHT = 122
 
 async function writePng(name, width, height = width) {
   await sharp(src)
@@ -20,6 +25,23 @@ async function writePng(name, width, height = width) {
   console.log('wrote', name)
 }
 
+async function writeEmailLogo() {
+  const emailLogo = await sharp(src)
+    .resize(EMAIL_LOGO_WIDTH, EMAIL_LOGO_HEIGHT, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer()
+
+  await sharp(emailLogo).toFile(path.join(outDir, 'email-logo.png'))
+  console.log('wrote email-logo.png')
+
+  fs.mkdirSync(backendAssetDir, { recursive: true })
+  await sharp(emailLogo).toFile(path.join(backendAssetDir, 'email-logo.png'))
+  console.log('wrote backend/app/assets/email-logo.png')
+}
+
 const logo512 = await sharp(src)
   .resize(420, 420, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
   .png()
@@ -29,7 +51,7 @@ await writePng('icon-192.png', 192)
 await writePng('icon-512.png', 512)
 await writePng('favicon-96x96.png', 96)
 await writePng('apple-touch-icon.png', 180)
-await writePng('email-logo.png', 256)
+await writeEmailLogo()
 
 await sharp({
   create: {

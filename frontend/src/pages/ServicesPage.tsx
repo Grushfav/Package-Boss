@@ -15,7 +15,7 @@ export function ServicesPage() {
     <div className="px-4 py-12">
       <Seo {...PAGE_SEO.services} />
       <div className="mx-auto max-w-4xl">
-        <p className="text-xs font-semibold uppercase tracking-widest text-boss-gold">Services</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-boss-green">Services</p>
         <h1 className="mt-2 text-3xl font-black uppercase md:text-4xl">
           How we <span className="italic text-boss-gold">ship it</span>
         </h1>

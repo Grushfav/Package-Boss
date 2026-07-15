@@ -14,6 +14,8 @@ BG_CARD = "#ffffff"
 TEXT_PRIMARY = "#0f172a"
 TEXT_MUTED = "#64748b"
 BORDER = "#e2e8f0"
+EMAIL_LOGO_WIDTH = 160
+EMAIL_LOGO_HEIGHT = 61
 
 
 def _esc(value: str) -> str:
@@ -36,8 +38,8 @@ def render_layout(
         logo_block = f"""
           <tr>
             <td align="center" style="padding:28px 32px 8px;">
-              <img src="{safe_logo}" alt="{_esc(BRAND_NAME)}" width="72" height="72"
-                   style="display:block;border:0;border-radius:12px;" />
+              <img src="{safe_logo}" alt="{_esc(BRAND_NAME)}" width="{EMAIL_LOGO_WIDTH}" height="{EMAIL_LOGO_HEIGHT}"
+                   style="display:block;border:0;" />
             </td>
           </tr>"""
     else:

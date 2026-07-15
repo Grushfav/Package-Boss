@@ -14,7 +14,7 @@ export function AboutPreview() {
           <p className="mt-4 text-sm leading-relaxed text-muted md:text-base">
             {ABOUT_PARAGRAPHS[0]}
           </p>
-          <blockquote className="mt-5 border-l-4 border-boss-gold pl-4 text-sm font-semibold italic text-boss-gold md:text-base">
+          <blockquote className="mt-5 border-l-4 border-boss-green pl-4 text-sm font-semibold italic text-boss-green md:text-base">
             {TAGLINE}
           </blockquote>
           <p className="mt-5 text-sm leading-relaxed text-muted">{ABOUT_PARAGRAPHS[1]}</p>

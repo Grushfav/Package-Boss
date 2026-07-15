@@ -1,60 +1,15 @@
 # Render Blueprint — Dashboard > Blueprints > Sync after pushing changes.
 #
-# SPA routing on Render static sites: URLs without a trailing slash (/rates) can
-# return an empty 200 body unless you redirect them or run serve -s (Node web).
-# Option A (recommended): Node web service below — serve -s rewrites all paths.
-# Option B: Keep static site — use staticPublishPath + routes (see comments).
+# Frontend SPA routing: npm run build runs scripts/spa-fallback.mjs, which copies
+# index.html to dist/<route>/index.html for every client route. Render static sites
+# serve those as real HTML — no dashboard rewrite rules needed.
+#
+# Do NOT add /* -> /index.html rewrites on Render static; they can return empty
+# 200 bodies for paths like /rates and /login.
 
 services:
-  # --- Option A: Node web with SPA fallback (recommended) ---
   - type: web
     name: package-boss-frontend
-    runtime: node
+    runtime: static
     buildCommand: cd frontend && npm ci && npm run build
-    startCommand: cd frontend && npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
-
-  # --- Option B: Static site (uncomment and disable Option A if you prefer CDN) ---
-  # - type: web
-  #   name: package-boss-frontend
-  #   runtime: static
-  #   buildCommand: cd frontend && npm ci && npm run build
-  #   staticPublishPath: frontend/dist
-  #   routes:
-  #     # Trailing-slash redirects — Render static returns empty bodies for /rates
-  #     # without a slash even when /* -> /index.html rewrite is configured.
-  #     - type: redirect
-  #       source: /about
-  #       destination: /about/
-  #     - type: redirect
-  #       source: /services
-  #       destination: /services/
-  #     - type: redirect
-  #       source: /rates
-  #       destination: /rates/
-  #     - type: redirect
-  #       source: /login
-  #       destination: /login/
-  #     - type: redirect
-  #       source: /signup
-  #       destination: /signup/
-  #     - type: redirect
-  #       source: /terms
-  #       destination: /terms/
-  #     - type: redirect
-  #       source: /privacy
-  #       destination: /privacy/
-  #     - type: redirect
-  #       source: /data-protection
-  #       destination: /data-protection/
-  #     - type: redirect
-  #       source: /forgot-password
-  #       destination: /forgot-password/
-  #     - type: redirect
-  #       source: /reset-password
-  #       destination: /reset-password/
-  #     - type: rewrite
-  #       source: /*
-  #       destination: /index.html
+    staticPublishPath: frontend/dist

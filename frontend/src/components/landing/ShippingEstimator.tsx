@@ -137,7 +137,7 @@ export function ShippingEstimator() {
           other charges may apply after invoice review.
         </p>
         <Link to="/rates">
-          <Button variant="outline" className="!border-boss-gold !text-boss-gold hover:!bg-boss-gold/10">
+          <Button variant="outline" className="!border-boss-green !text-boss-green hover:!bg-boss-green/10">
             View Full Rate Table
           </Button>
         </Link>
