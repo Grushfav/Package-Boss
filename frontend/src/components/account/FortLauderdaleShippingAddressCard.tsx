@@ -54,11 +54,29 @@ export function FortLauderdaleShippingAddressCard() {
       </p>
 
       {address ? (
-        <div className="mt-6 rounded-lg border-[3px] border-dashed border-boss-gold/55 bg-background p-6 shadow-sm shadow-boss-gold/30">
-          <pre className="whitespace-pre-wrap font-mono text-base leading-relaxed text-foreground sm:text-lg">
-            {address.formatted}
-          </pre>
-        </div>
+        <>
+          <div className="mt-6 rounded-lg border-[3px] border-dashed border-boss-gold/55 bg-background p-6 shadow-sm shadow-boss-gold/30">
+            <address className="not-italic font-mono text-base leading-relaxed sm:text-lg">
+              <p className="font-bold text-foreground">{address.line1}</p>
+              {address.line2 && (
+                <p className="mt-1 text-xl font-black tracking-wide text-boss-gold sm:text-2xl">
+                  {address.line2}
+                </p>
+              )}
+              <p className="mt-1 font-bold text-foreground">
+                {address.city}, {address.state} {address.zip}
+              </p>
+              <p className="mt-1 font-bold text-foreground">{address.country}</p>
+            </address>
+          </div>
+          {address.line2 && (
+            <p className="mt-4 text-sm text-muted">
+              Your BOSS ID is{' '}
+              <span className="font-mono font-bold text-boss-gold">{address.line2}</span> — put this
+              on address line 2 when you check out.
+            </p>
+          )}
+        </>
       ) : (
         <p className="mt-6 text-muted">
           {offline

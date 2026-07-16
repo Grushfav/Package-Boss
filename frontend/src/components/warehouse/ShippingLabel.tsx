@@ -37,7 +37,7 @@ export function ShippingLabel({ pkg, customer, className = '', preview = false }
         <img
           src="/logo-bw.svg"
           alt="Package Boss"
-          className="mx-auto h-14 max-w-full w-auto object-contain print:h-[0.75in] print:max-w-[3.2in]"
+          className="mx-auto h-24 max-w-full w-auto object-contain print:h-[1.15in] print:max-w-[3.75in]"
         />
         <p className="mt-0.5 text-[10px] uppercase tracking-widest text-gray-600 print:text-[8px]">
           Fort Lauderdale → Kingston
