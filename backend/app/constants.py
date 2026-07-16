@@ -157,6 +157,13 @@ PAYMENT_METHOD_LABELS = {
     "bank_transfer": "Bank Transfer",
 }
 
+BANK_TRANSFER_PROOF_STATUSES = ["pending", "confirmed", "rejected"]
+BANK_TRANSFER_PROOF_STATUS_LABELS = {
+    "pending": "Pending review",
+    "confirmed": "Confirmed",
+    "rejected": "Rejected",
+}
+
 INVOICE_REQUEST_CHANNELS = ["email", "whatsapp", "both"]
 
 # Clerk granular permissions (admin assigns; defaults on create)
@@ -177,7 +184,7 @@ CLERK_PERMISSION_LABELS = {
     "activity": "Activity log",
     "pre_alerts": "View pre-alerts",
     "directory": "Customer directory",
-    "status_transit": "Status: received → in transit (Fort Lauderdale)",
+    "status_transit": "Status: received → in transit + departures (Fort Lauderdale)",
     "status_customs": "Status: customs updates",
     "status_pickup": "Status: ready for pickup / delivered",
     "billing": "Billing & payments",
@@ -185,6 +192,18 @@ CLERK_PERMISSION_LABELS = {
 }
 
 DEFAULT_CLERK_PERMISSIONS = ["receive", "activity", "pre_alerts"]
+
+RECEIVE_BATCH_STATUSES = ["open", "closed"]
+RECEIVE_BATCH_STATUS_LABELS = {
+    "open": "Open",
+    "closed": "Closed",
+}
+
+SHIPMENT_STATUSES = ["open", "departed"]
+SHIPMENT_STATUS_LABELS = {
+    "open": "Open",
+    "departed": "Departed",
+}
 
 # Allowed status transitions per permission (admin bypasses)
 STATUS_TRANSITIONS_BY_PERMISSION = {

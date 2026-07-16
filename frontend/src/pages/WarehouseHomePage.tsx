@@ -2,6 +2,7 @@ import {
   Bell,
   PackagePlus,
   PackageSearch,
+  Plane,
   Printer,
   RefreshCw,
   Warehouse,
@@ -48,6 +49,13 @@ export function WarehouseHomePage() {
           description="Packages with no matching customer — assign owners when identified."
           count={counts?.unidentified_count}
           urgent
+        />
+        <HubCard
+          to="/warehouse/departures"
+          icon={Plane}
+          title="Departures"
+          description="Group received packages by shipment before marking in transit."
+          count={counts?.open_shipments}
         />
         <HubCard
           to="/warehouse/status?preset=received"

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DashboardPackageStatsCard } from '../../components/account/DashboardPackageStatsCard'
+import { BankTransferDetailsModal, bankTransferGridCardClassName } from '../../components/account/BankTransferDetailsCard'
 import { FortLauderdaleShippingAddressCard } from '../../components/account/FortLauderdaleShippingAddressCard'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from '../../components/ui/Button'
@@ -9,6 +10,7 @@ import { SHIPPING_FREQUENCY_SHORT } from '../../content/marketing'
 export function DashboardHomePage() {
   const { user } = useAuth()
   const [copiedId, setCopiedId] = useState(false)
+  const [bankTransferOpen, setBankTransferOpen] = useState(false)
 
   async function copyBossId() {
     if (!user?.shipping_id) return
@@ -43,7 +45,6 @@ export function DashboardHomePage() {
       
       <DashboardPackageStatsCard />
 
-
       <div className="grid gap-3 sm:grid-cols-2">
         <Link
           to="/pre-alerts/new"
@@ -63,7 +64,19 @@ export function DashboardHomePage() {
         >
           Manage delivery addresses →
         </Link>
+        <button
+          type="button"
+          onClick={() => setBankTransferOpen(true)}
+          className={bankTransferGridCardClassName}
+        >
+          Bank transfer details →
+        </button>
       </div>
+
+      <BankTransferDetailsModal
+        open={bankTransferOpen}
+        onClose={() => setBankTransferOpen(false)}
+      />
     </div>
   )
 }

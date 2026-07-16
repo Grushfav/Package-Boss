@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   PackagePlus,
   PackageSearch,
+  Plane,
   Printer,
   RefreshCw,
   Search,
@@ -72,6 +73,13 @@ function WarehouseShell() {
       label: 'Unidentified',
       badge: counts?.unidentified_count,
       permission: 'receive',
+    },
+    {
+      to: '/warehouse/departures',
+      icon: Plane,
+      label: 'Departures',
+      badge: counts?.open_shipments,
+      permission: 'status_transit',
     },
     {
       to: '/warehouse/status',

@@ -8,6 +8,7 @@ export interface WarehouseSummary {
   received_count: number
   packages_today: number
   pending_pre_alerts: number
+  open_shipments?: number
   status_counts?: Record<string, number>
 }
 
@@ -135,6 +136,7 @@ export async function receivePackage(payload: {
   carrier_tracking?: string
   photo_keys?: string[]
   note?: string
+  receive_batch_id?: string
 }): Promise<{ package: Package; pre_alert_matched?: PreAlert }> {
   const { data } = await api.post<{ package: Package; pre_alert_matched?: PreAlert }>(
     '/staff/packages/receive',
@@ -151,6 +153,7 @@ export async function receiveUnidentifiedPackage(payload: {
   label_boss_id?: string
   photo_keys?: string[]
   note?: string
+  receive_batch_id?: string
 }): Promise<Package> {
   const { data } = await api.post<{ package: Package }>(
     '/staff/packages/receive-unidentified',
@@ -458,4 +461,149 @@ export async function openPackageBillInvoice(packageId: string): Promise<void> {
 export async function openCheckoutBillInvoice(checkoutId: string): Promise<void> {
   const html = await fetchAuthedHtml(`/staff/checkouts/${checkoutId}/bill-invoice`)
   openHtmlInNewTab(html)
+}
+
+export interface ShipmentSummary {
+  id: string
+  reference: string
+  departure_date: string
+  status: 'open' | 'departed'
+  status_label: string
+  note?: string | null
+  created_by_id?: string | null
+  created_by_name?: string | null
+  departed_at?: string | null
+  package_count: number
+  total_weight_lbs: number
+  created_at: string
+  updated_at: string
+  packages?: Package[]
+}
+
+export async function fetchShipments(options: {
+  status?: 'open' | 'departed'
+  limit?: number
+  offset?: number
+} = {}): Promise<{ shipments: ShipmentSummary[]; total: number }> {
+  const { data } = await api.get<{ shipments: ShipmentSummary[]; total: number }>(
+    '/staff/shipments',
+    {
+      params: {
+        status: options.status || undefined,
+        limit: options.limit,
+        offset: options.offset,
+      },
+    },
+  )
+  return data
+}
+
+export async function createShipment(payload: {
+  reference: string
+  departure_date: string
+  note?: string
+}): Promise<ShipmentSummary> {
+  const { data } = await api.post<{ shipment: ShipmentSummary }>('/staff/shipments', payload)
+  return data.shipment
+}
+
+export async function fetchShipment(shipmentId: string): Promise<ShipmentSummary> {
+  const { data } = await api.get<{ shipment: ShipmentSummary }>(
+    `/staff/shipments/${shipmentId}`,
+  )
+  return data.shipment
+}
+
+export async function addPackageToShipment(
+  shipmentId: string,
+  trackingNumber: string,
+): Promise<Package> {
+  const { data } = await api.post<{ package: Package }>(
+    `/staff/shipments/${shipmentId}/packages`,
+    { tracking_number: trackingNumber },
+  )
+  return data.package
+}
+
+export async function removePackageFromShipment(
+  shipmentId: string,
+  packageId: string,
+): Promise<void> {
+  await api.delete(`/staff/shipments/${shipmentId}/packages/${packageId}`)
+}
+
+export interface DepartShipmentResult {
+  shipment: ShipmentSummary
+  updated: number
+  packages: Package[]
+  failed: { id: string; tracking_number?: string; error: string }[]
+}
+
+export async function departShipment(
+  shipmentId: string,
+  note?: string,
+): Promise<DepartShipmentResult> {
+  const { data } = await api.post<DepartShipmentResult>(
+    `/staff/shipments/${shipmentId}/depart`,
+    { note },
+  )
+  return data
+}
+
+export async function batchDepartPackages(payload: {
+  packageIds: string[]
+  shipmentId?: string
+  reference?: string
+  departureDate?: string
+  note?: string
+}): Promise<DepartShipmentResult> {
+  const { data } = await api.post<DepartShipmentResult>('/staff/shipments/batch-depart', {
+    package_ids: payload.packageIds,
+    shipment_id: payload.shipmentId,
+    reference: payload.reference,
+    departure_date: payload.departureDate,
+    note: payload.note,
+  })
+  return data
+}
+
+export interface ReceiveBatchSummary {
+  id: string
+  batch_code: string
+  reference: string
+  receive_date: string
+  status: 'open' | 'closed'
+  status_label: string
+  note?: string | null
+  package_count: number
+  created_by_name?: string | null
+  created_at: string
+}
+
+export async function fetchReceiveBatches(options: {
+  status?: 'open' | 'closed'
+  limit?: number
+} = {}): Promise<{ receive_batches: ReceiveBatchSummary[]; total: number }> {
+  const { data } = await api.get<{ receive_batches: ReceiveBatchSummary[]; total: number }>(
+    '/staff/receive-batches',
+    {
+      params: {
+        status: options.status || undefined,
+        limit: options.limit,
+      },
+    },
+  )
+  return data
+}
+
+export async function createReceiveBatch(payload: {
+  reference?: string
+  receive_date?: string
+  note?: string
+}): Promise<ReceiveBatchSummary> {
+  const { data } = await api.post<{ receive_batch: ReceiveBatchSummary }>(
+    '/staff/receive-batches',
+    payload,
+  )
+  return data.receive_batch
 }

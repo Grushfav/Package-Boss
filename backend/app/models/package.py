@@ -35,6 +35,10 @@ class Package(db.Model):
     rate_tier_label = db.Column(db.String(50))
 
     status = db.Column(db.String(50), nullable=False, default="received")
+    receive_batch_id = db.Column(
+        db.UUID(as_uuid=True), db.ForeignKey("receive_batches.id"), nullable=True, index=True
+    )
+    shipment_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("shipments.id"), nullable=True, index=True)
     label_printed_at = db.Column(db.DateTime, nullable=True)
     received_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -43,6 +47,8 @@ class Package(db.Model):
     )
 
     customer = db.relationship("User", backref="packages")
+    receive_batch = db.relationship("ReceiveBatch", back_populates="packages")
+    shipment = db.relationship("Shipment", back_populates="packages")
     delivery_address = db.relationship("DeliveryAddress", backref="packages")
     photos = db.relationship("PackagePhoto", backref="package", lazy=True, cascade="all, delete-orphan")
     events = db.relationship(
@@ -98,8 +104,29 @@ class Package(db.Model):
             "rate_tier_label": self.rate_tier_label,
             "label_printed_at": self.label_printed_at.isoformat() if self.label_printed_at else None,
             "received_at": self.received_at.isoformat() if self.received_at else None,
+            "receive_batch_id": str(self.receive_batch_id) if self.receive_batch_id else None,
+            "shipment_id": str(self.shipment_id) if self.shipment_id else None,
             "created_at": self.created_at.isoformat(),
         }
+        if self.receive_batch:
+            data["receive_batch"] = {
+                "id": str(self.receive_batch.id),
+                "batch_code": self.receive_batch.batch_code,
+                "reference": self.receive_batch.reference,
+                "receive_date": self.receive_batch.receive_date.isoformat(),
+                "status": self.receive_batch.status,
+            }
+        else:
+            data["receive_batch"] = None
+        if self.shipment:
+            data["shipment"] = {
+                "id": str(self.shipment.id),
+                "reference": self.shipment.reference,
+                "departure_date": self.shipment.departure_date.isoformat(),
+                "status": self.shipment.status,
+            }
+        else:
+            data["shipment"] = None
         if include_events:
             data["events"] = [e.to_dict() for e in self.events]
         if include_photos:

@@ -3,12 +3,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import {
+  batchDepartPackages,
   bulkRequestPackageInvoices,
   bulkUpdatePackageStatus,
   fetchPackageByTracking,
+  fetchShipments,
   fetchWarehousePackages,
   updatePackageStatus,
   type BulkStatusResult,
+  type ShipmentSummary,
 } from '../api/staff'
 import { PackageStaffModal } from '../components/warehouse/PackageStaffModal'
 import {
@@ -127,6 +130,15 @@ export function StatusUpdatePage() {
   const [bulkNote, setBulkNote] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkResult, setBulkResult] = useState<BulkStatusResult | null>(null)
+  const [departResult, setDepartResult] = useState<{ updated: number; reference: string } | null>(
+    null,
+  )
+  const [openShipments, setOpenShipments] = useState<ShipmentSummary[]>([])
+  const [openShipmentsLoading, setOpenShipmentsLoading] = useState(false)
+  const [batchMode, setBatchMode] = useState<'new' | 'existing'>('new')
+  const [batchShipmentId, setBatchShipmentId] = useState('')
+  const [batchReference, setBatchReference] = useState('')
+  const [batchDepartureDate, setBatchDepartureDate] = useState(today)
   const [releaseOpen, setReleaseOpen] = useState(false)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const [actionSuccess, setActionSuccess] = useState('')
@@ -212,6 +224,7 @@ export function StatusUpdatePage() {
   const handleLoad = useCallback(async () => {
     setError('')
     setBulkResult(null)
+    setDepartResult(null)
     setActionSuccess('')
     setLoadLoading(true)
     try {
@@ -261,6 +274,32 @@ export function StatusUpdatePage() {
     setReviewOpen(false)
   }
 
+  const primaryAdvance = selection.nextAdvance
+  const isTransitAdvance = primaryAdvance?.value === 'in_transit'
+
+  useEffect(() => {
+    if (!reviewOpen || !isTransitAdvance) return
+
+    setOpenShipmentsLoading(true)
+    fetchShipments({ status: 'open', limit: 50 })
+      .then(({ shipments }) => {
+        setOpenShipments(shipments)
+        if (shipments.length > 0) {
+          setBatchMode('existing')
+          setBatchShipmentId(shipments[0].id)
+        } else {
+          setBatchMode('new')
+          setBatchShipmentId('')
+        }
+      })
+      .catch(() => {
+        setOpenShipments([])
+        setBatchMode('new')
+        setBatchShipmentId('')
+      })
+      .finally(() => setOpenShipmentsLoading(false))
+  }, [reviewOpen, isTransitAdvance])
+
   async function executeBulkAdvance(targetStatus: string, packageIds?: string[]) {
     let ids = packageIds ?? Array.from(selectedIds)
     if (targetStatus === 'delivered') {
@@ -277,7 +316,41 @@ export function StatusUpdatePage() {
     setBulkLoading(true)
     setError('')
     setBulkResult(null)
+    setDepartResult(null)
     try {
+      if (targetStatus === 'in_transit') {
+        if (batchMode === 'existing') {
+          if (!batchShipmentId) {
+            setError('Select an open departure batch.')
+            setBulkLoading(false)
+            return
+          }
+        } else if (!batchReference.trim()) {
+          setError('Enter a departure reference (flight, vessel, or batch name).')
+          setBulkLoading(false)
+          return
+        }
+
+        const result = await batchDepartPackages({
+          packageIds: ids,
+          shipmentId: batchMode === 'existing' ? batchShipmentId : undefined,
+          reference: batchMode === 'new' ? batchReference.trim() : undefined,
+          departureDate: batchMode === 'new' ? batchDepartureDate : undefined,
+          note: bulkNote || undefined,
+        })
+        setDepartResult({
+          updated: result.updated,
+          reference: result.shipment.reference,
+        })
+        setReviewOpen(false)
+        setBulkNote('')
+        setBatchReference('')
+        setBatchDepartureDate(today)
+        await handleLoad()
+        refreshCounts()
+        return
+      }
+
       const result = await bulkUpdatePackageStatus({
         packageIds: ids,
         status: targetStatus,
@@ -364,8 +437,6 @@ export function StatusUpdatePage() {
     }
   }
 
-  const primaryAdvance = selection.nextAdvance
-
   return (
     <div className="px-4 py-8 pb-40">
       <div className="mb-6 flex items-center gap-2.5">
@@ -405,6 +476,12 @@ export function StatusUpdatePage() {
                 {scanPackage.customer && (
                   <span className="text-xs text-muted">
                     {scanPackage.customer.full_name} · {scanPackage.customer.shipping_id}
+                  </span>
+                )}
+                {scanPackage.shipment && (
+                  <span className="text-xs text-muted">
+                    Departure {scanPackage.shipment.reference} (
+                    {scanPackage.shipment.departure_date})
                   </span>
                 )}
               </div>
@@ -597,6 +674,7 @@ export function StatusUpdatePage() {
                   <th className="pb-3 pr-3 w-10" />
                   <th className="pb-3 pr-3">Tracking</th>
                   <th className="pb-3 pr-3">Customer</th>
+                  <th className="pb-3 pr-3">Departure</th>
                   <th className="pb-3 pr-3">Status</th>
                   <th className="pb-3 pr-3">Invoice</th>
                   <th className="pb-3 pr-3">Billing</th>
@@ -630,6 +708,13 @@ export function StatusUpdatePage() {
                             <p className="font-medium">{pkg.customer.full_name}</p>
                             <p className="text-xs text-muted">{pkg.customer.shipping_id}</p>
                           </>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3 text-xs">
+                        {pkg.shipment ? (
+                          <span title={pkg.shipment.departure_date}>{pkg.shipment.reference}</span>
                         ) : (
                           <span className="text-muted">—</span>
                         )}
@@ -686,6 +771,15 @@ export function StatusUpdatePage() {
         </p>
       )}
 
+      {departResult && (
+        <div className="mt-4 rounded-lg border border-border bg-card p-4">
+          <p className="font-semibold text-boss-gold">
+            {departResult.updated} package{departResult.updated === 1 ? '' : 's'} departed on{' '}
+            <span className="font-bold">{departResult.reference}</span>
+          </p>
+        </div>
+      )}
+
       {bulkResult && (
         <div className="mt-4 rounded-lg border border-border bg-card p-4">
           <p className="font-semibold text-boss-gold">
@@ -719,37 +813,117 @@ export function StatusUpdatePage() {
                 {selection.mode === 'payment_required' && (
                   <p className="mt-1 text-xs text-muted">Only paid packages will be marked delivered.</p>
                 )}
-                <div className="mt-3 flex flex-wrap items-end gap-3">
-                  <div className="min-w-[200px] flex-1">
-                    <Input
-                      label="Note (optional)"
-                      placeholder="Flight departed, etc."
-                      value={bulkNote}
-                      onChange={(e) => setBulkNote(e.target.value)}
-                    />
+                {isTransitAdvance && (
+                  <p className="mt-1 text-xs text-muted">
+                    Group selected packages into a departure batch, then mark them in transit.
+                  </p>
+                )}
+                <div className="mt-3 space-y-3">
+                  {isTransitAdvance && (
+                    <>
+                      {openShipments.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setBatchMode('new')}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                              batchMode === 'new'
+                                ? 'bg-boss-gold/20 text-boss-gold'
+                                : 'bg-background text-muted hover:text-foreground'
+                            }`}
+                          >
+                            New departure
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBatchMode('existing')}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                              batchMode === 'existing'
+                                ? 'bg-boss-gold/20 text-boss-gold'
+                                : 'bg-background text-muted hover:text-foreground'
+                            }`}
+                          >
+                            Add to open batch
+                          </button>
+                        </div>
+                      )}
+                      {openShipmentsLoading ? (
+                        <p className="text-xs text-muted">Loading open departures…</p>
+                      ) : batchMode === 'existing' && openShipments.length > 0 ? (
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-muted">
+                            Open departure
+                          </label>
+                          <select
+                            value={batchShipmentId}
+                            onChange={(e) => setBatchShipmentId(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                          >
+                            {openShipments.map((shipment) => (
+                              <option key={shipment.id} value={shipment.id}>
+                                {shipment.reference} · {shipment.departure_date} ·{' '}
+                                {shipment.package_count} pkg
+                                {shipment.package_count === 1 ? '' : 's'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Input
+                            label="Departure reference"
+                            placeholder="Flight, vessel, or batch name"
+                            value={batchReference}
+                            onChange={(e) => setBatchReference(e.target.value)}
+                          />
+                          <Input
+                            label="Departure date"
+                            type="date"
+                            value={batchDepartureDate}
+                            onChange={(e) => setBatchDepartureDate(e.target.value)}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-[200px] flex-1">
+                      <Input
+                        label="Note (optional)"
+                        placeholder={
+                          isTransitAdvance ? 'Internal note for this departure' : 'Flight departed, etc.'
+                        }
+                        value={bulkNote}
+                        onChange={(e) => setBulkNote(e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={bulkLoading}
+                      onClick={() =>
+                        executeBulkAdvance(
+                          primaryAdvance.value,
+                          selection.mode === 'payment_required'
+                            ? packages
+                                .filter(
+                                  (pkg) =>
+                                    selectedIds.has(pkg.id) && packagePaymentConfirmed(pkg),
+                                )
+                                .map((pkg) => pkg.id)
+                            : undefined,
+                        )
+                      }
+                    >
+                      {bulkLoading
+                        ? 'Updating…'
+                        : isTransitAdvance
+                          ? 'Depart batch'
+                          : 'Confirm'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setReviewOpen(false)}>
+                      Cancel
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    disabled={bulkLoading}
-                    onClick={() =>
-                      executeBulkAdvance(
-                        primaryAdvance.value,
-                        selection.mode === 'payment_required'
-                          ? packages
-                              .filter(
-                                (pkg) =>
-                                  selectedIds.has(pkg.id) && packagePaymentConfirmed(pkg),
-                              )
-                              .map((pkg) => pkg.id)
-                          : undefined,
-                      )
-                    }
-                  >
-                    {bulkLoading ? 'Updating…' : 'Confirm'}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setReviewOpen(false)}>
-                    Cancel
-                  </Button>
                 </div>
               </div>
             )}

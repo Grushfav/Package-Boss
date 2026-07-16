@@ -16,6 +16,7 @@ const COMMANDS: CommandItem[] = [
   { id: 'inbox', label: 'Floor', path: '/warehouse', keywords: 'home dashboard operations' },
   { id: 'print', label: 'Print queue', path: '/warehouse/print-queue', keywords: 'labels' },
   { id: 'unidentified', label: 'Unidentified queue', path: '/warehouse/unidentified', keywords: 'misc assign' },
+  { id: 'departures', label: 'Departures', path: '/warehouse/departures', keywords: 'shipment group transit flight' },
   { id: 'status', label: 'Update status', path: '/warehouse/status', keywords: 'bulk transit' },
   { id: 'customers', label: 'Customer directory', path: '/warehouse/customers', keywords: 'browse search' },
   { id: 'activity', label: 'Activity log', path: '/warehouse/activity', keywords: 'history audit' },

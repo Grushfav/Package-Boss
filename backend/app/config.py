@@ -65,9 +65,20 @@ class Config:
     DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "info@packagebossja.com")
     EMAIL_LOGO_URL = os.environ.get("EMAIL_LOGO_URL", "").strip()
     WHATSAPP_PROVIDER = os.environ.get("WHATSAPP_PROVIDER", "console")
+    WHATSAPP_ACCESS_TOKEN = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
+    WHATSAPP_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
+    WHATSAPP_API_VERSION = os.environ.get("WHATSAPP_API_VERSION", "v21.0")
 
     # Optional base URL when DB stores object keys instead of full B2 URLs
     STORAGE_PUBLIC_URL = os.environ.get("STORAGE_PUBLIC_URL", "").strip().rstrip("/")
+
+    # Local filesystem uploads when the B2 worker is not configured (development only)
+    LOCAL_UPLOADS_ENABLED = os.environ.get("LOCAL_UPLOADS_ENABLED", "true").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+    LOCAL_UPLOAD_ROOT = os.environ.get("LOCAL_UPLOAD_ROOT", "").strip()
 
     ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").strip().lower()
     CLERK_EMAIL = os.environ.get("CLERK_EMAIL", "").strip().lower()

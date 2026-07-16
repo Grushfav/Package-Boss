@@ -12,11 +12,16 @@ from app.services.image_upload_service import (
     complete_presigned_upload,
     create_presigned_upload,
     create_upload_presign,
+    is_allowed_local_object_key,
     is_image_upload_configured,
+    is_local_upload_enabled,
     is_storage_configured,
     key_from_public_url,
+    local_file_path,
+    local_public_url,
     parse_content_length,
     parse_presign_fields,
+    save_local_upload,
 )
 from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
 from app.utils.auth_decorators import resolve_jwt_user, staff_required
@@ -27,6 +32,8 @@ _ALLOWED_UPLOAD_HOST_SUFFIXES = (".backblazeb2.com",)
 
 
 def _is_allowed_upload_url(url: str) -> bool:
+    if url == "local":
+        return is_local_upload_enabled()
     host = urlparse(url).netloc.lower()
     return any(host.endswith(suffix) for suffix in _ALLOWED_UPLOAD_HOST_SUFFIXES)
 
@@ -60,8 +67,8 @@ def proxy_upload_url():
     if limited:
         return limited
 
-    if not is_image_upload_configured():
-        return jsonify({"error": "Image upload worker is not configured"}), 503
+    if not is_storage_configured():
+        return jsonify({"error": "Image upload is not configured"}), 503
 
     data = request.get_json(silent=True) or {}
     content_type = (data.get("content_type") or data.get("contentType") or "").strip().lower()
@@ -118,6 +125,19 @@ def proxy_presigned_put():
     if len(file_bytes) > MAX_INVOICE_SIZE_BYTES:
         return jsonify({"error": "File exceeds maximum allowed size"}), 400
 
+    if upload_url == "local":
+        if not object_key:
+            object_key = key_from_public_url(public_url) if public_url else ""
+        if not object_key or not is_allowed_local_object_key(object_key):
+            return jsonify({"error": "Invalid object_key for local upload"}), 400
+        try:
+            save_local_upload(object_key, file_bytes)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except OSError as exc:
+            return _presign_error(exc, status=500)
+        return jsonify({"public_url": local_public_url(object_key), "object_key": object_key})
+
     try:
         upload_headers = json.loads(request.form.get("upload_headers") or "{}")
         if not isinstance(upload_headers, dict):
@@ -139,6 +159,23 @@ def proxy_presigned_put():
         object_key = key_from_public_url(public_url)
 
     return jsonify({"public_url": public_url, "object_key": object_key})
+
+
+@uploads_bp.route("/uploads/files/<path:object_key>", methods=["GET"])
+def serve_local_upload(object_key: str):
+    if not is_local_upload_enabled():
+        return jsonify({"error": "Not found"}), 404
+    if not is_allowed_local_object_key(object_key):
+        return jsonify({"error": "Not found"}), 404
+    try:
+        path = local_file_path(object_key)
+    except ValueError:
+        return jsonify({"error": "Not found"}), 404
+    if not path.is_file():
+        return jsonify({"error": "Not found"}), 404
+    from flask import send_file
+
+    return send_file(path)
 
 
 @uploads_bp.route("/uploads/presign", methods=["POST"])

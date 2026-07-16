@@ -118,7 +118,10 @@ def receive_package(
     shipper: str | None = None,
     photo_keys: list[str] | None = None,
     note: str | None = None,
+    receive_batch_id: str | None = None,
 ) -> tuple[Package, PreAlert | None]:
+    from app.services.receive_batch_service import assign_package_to_receive_batch, resolve_receive_batch_id
+
     quote = calculate_receive_quote(actual_weight_lbs)
     tracking_number = generate_tracking_number()
     normalized_carrier = normalize_carrier_tracking(carrier_tracking) if carrier_tracking else None
@@ -141,6 +144,10 @@ def receive_package(
     )
     db.session.add(package)
     db.session.flush()
+
+    receive_batch = resolve_receive_batch_id(receive_batch_id)
+    if receive_batch:
+        assign_package_to_receive_batch(package, receive_batch)
 
     add_package_event(
         package,
@@ -174,8 +181,10 @@ def receive_unidentified_package(
     label_boss_id: str | None = None,
     photo_keys: list[str] | None = None,
     note: str | None = None,
+    receive_batch_id: str | None = None,
 ) -> Package:
     from app.services.unidentified_service import ensure_unidentified_holder
+    from app.services.receive_batch_service import assign_package_to_receive_batch, resolve_receive_batch_id
 
     holder = ensure_unidentified_holder()
     quote = calculate_receive_quote(actual_weight_lbs)
@@ -211,6 +220,10 @@ def receive_unidentified_package(
     )
     db.session.add(package)
     db.session.flush()
+
+    receive_batch = resolve_receive_batch_id(receive_batch_id)
+    if receive_batch:
+        assign_package_to_receive_batch(package, receive_batch)
 
     label_bits = []
     if normalized_label_name:
@@ -508,6 +521,7 @@ def get_tracking_timeline(package: Package) -> list[dict]:
 def get_warehouse_summary() -> dict:
     from app.constants import WORKFLOW_STATUSES
     from app.models.pre_alert import PreAlert
+    from app.services.shipment_service import count_open_shipments
 
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     print_cutoff = datetime.utcnow() - timedelta(days=7)
@@ -527,5 +541,6 @@ def get_warehouse_summary() -> dict:
         "received_count": status_counts["received"],
         "packages_today": Package.query.filter(Package.received_at >= today_start).count(),
         "pending_pre_alerts": PreAlert.query.filter_by(status="pending").count(),
+        "open_shipments": count_open_shipments(),
         "status_counts": status_counts,
     }

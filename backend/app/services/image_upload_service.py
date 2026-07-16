@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
@@ -21,6 +23,15 @@ _MIME_BY_EXT = {
     "jpeg": "image/jpeg",
     "webp": "image/webp",
 }
+
+_EXT_BY_MIME = {
+    "application/pdf": "pdf",
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+}
+
+_ALLOWED_LOCAL_PREFIXES = ("packages/", "invoices/", "transfer-proofs/")
 
 
 def guess_content_type(filename: str, default: str = "application/octet-stream") -> str:
@@ -63,11 +74,15 @@ def parse_presign_fields(
 
 def worker_base_url() -> str:
     base = (current_app.config.get("IMAGE_UPLOAD_WORKER_URL") or "").strip().rstrip("/")
+    if base.endswith("/upload-worker"):
+        base = base[: -len("/upload-worker")]
     if base:
         return base
     full = (current_app.config.get("IMAGE_UPLOAD_URL") or "").strip().rstrip("/")
     if full.endswith("/upload-url"):
         return full[: -len("/upload-url")]
+    if full.endswith("/upload-worker"):
+        return full[: -len("/upload-worker")]
     return full
 
 
@@ -83,8 +98,66 @@ def is_image_upload_configured() -> bool:
     return bool(worker_base_url() and worker_api_key())
 
 
+def is_local_upload_enabled() -> bool:
+    if is_image_upload_configured():
+        return False
+    return bool(current_app.config.get("LOCAL_UPLOADS_ENABLED", True))
+
+
+def local_upload_root() -> Path:
+    configured = (current_app.config.get("LOCAL_UPLOAD_ROOT") or "").strip()
+    if configured:
+        return Path(configured)
+    return Path(current_app.root_path).parent / "var" / "uploads"
+
+
 def is_storage_configured() -> bool:
-    return is_image_upload_configured()
+    return is_image_upload_configured() or is_local_upload_enabled()
+
+
+def is_allowed_local_object_key(object_key: str) -> bool:
+    normalized = object_key.replace("\\", "/").lstrip("/")
+    if not normalized or ".." in normalized.split("/"):
+        return False
+    return any(normalized.startswith(prefix) for prefix in _ALLOWED_LOCAL_PREFIXES)
+
+
+def local_public_url(object_key: str) -> str:
+    return f"/api/uploads/files/{object_key.lstrip('/')}"
+
+
+def local_file_path(object_key: str) -> Path:
+    if not is_allowed_local_object_key(object_key):
+        raise ValueError("Invalid upload object key")
+    return local_upload_root() / object_key.replace("\\", "/").lstrip("/")
+
+
+def save_local_upload(object_key: str, file_bytes: bytes) -> None:
+    path = local_file_path(object_key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(file_bytes)
+
+
+def create_local_presigned_upload(
+    *,
+    content_type: str,
+    content_length: int,
+    prefix: str,
+) -> dict:
+    if content_length <= 0:
+        raise ImageUploadError("content_length must be positive")
+
+    ext = _EXT_BY_MIME.get(content_type, "bin")
+    object_key = f"{prefix.strip('/')}/{uuid.uuid4()}.{ext}"
+    if not is_allowed_local_object_key(object_key):
+        raise ImageUploadError("Invalid upload prefix")
+
+    return {
+        "upload_url": "local",
+        "upload_headers": {},
+        "public_url": local_public_url(object_key),
+        "object_key": object_key,
+    }
 
 
 def key_from_public_url(public_url: str) -> str:
@@ -100,6 +173,12 @@ def resolve_stored_url(stored: str | None) -> str | None:
     public_base = (current_app.config.get("STORAGE_PUBLIC_URL") or "").strip().rstrip("/")
     if public_base:
         return f"{public_base}/{stored.lstrip('/')}"
+    if is_local_upload_enabled() and is_allowed_local_object_key(stored):
+        try:
+            if local_file_path(stored).is_file():
+                return local_public_url(stored)
+        except ValueError:
+            return None
     return None
 
 
@@ -131,6 +210,12 @@ def create_presigned_upload(
     base = worker_base_url()
     api_key = worker_api_key()
     if not base or not api_key:
+        if is_local_upload_enabled():
+            return create_local_presigned_upload(
+                content_type=content_type,
+                content_length=content_length,
+                prefix=prefix,
+            )
         raise ImageUploadError("Image upload worker is not configured")
 
     if content_length <= 0:
@@ -172,11 +257,15 @@ def create_presigned_upload(
     if not public_url or not upload_url:
         raise ImageUploadError("Presign response missing uploadUrl or publicUrl")
 
+    object_key = (data.get("key") or data.get("object_key") or "").strip()
+    if not object_key:
+        object_key = key_from_public_url(public_url)
+
     return {
         "upload_url": upload_url,
-        "upload_headers": data.get("headers") or {},
+        "upload_headers": data.get("headers") or data.get("upload_headers") or {},
         "public_url": public_url,
-        "object_key": key_from_public_url(public_url),
+        "object_key": object_key,
     }
 
 
@@ -236,3 +325,11 @@ def is_valid_invoice_reference(key: str, shipping_id: str | None = None) -> bool
     if shipping_id and key.startswith(f"invoices/{shipping_id}/"):
         return True
     return key.startswith("invoices/")
+
+
+def is_valid_transfer_proof_reference(key: str) -> bool:
+    if not key:
+        return False
+    if key.startswith(("http://", "https://")):
+        return True
+    return key.startswith("transfer-proofs/")

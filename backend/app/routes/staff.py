@@ -15,6 +15,7 @@ from app.services.audit_service import (
     ACTION_PACKAGE_STATUS_UPDATED,
     log_package_action,
 )
+from app.services.bank_transfer_proof_service import list_pending_customer_proofs
 from app.services.billing_service import (
     assign_delivery_address,
     request_package_invoice,
@@ -304,6 +305,10 @@ def customer_account(shipping_id: str):
         summary = compute_customer_billing_summary(packages)
         payload["checkouts"] = [c.to_dict(include_items=True) for c in checkouts]
         payload["summary"] = summary
+        pending_proofs = list_pending_customer_proofs(user)
+        payload["pending_transfer_proofs"] = [
+            p.to_dict(include_packages=True) for p in pending_proofs
+        ]
 
     return jsonify(payload)
 
@@ -575,6 +580,7 @@ def receive_package_endpoint():
             shipper=shipper,
             photo_keys=photo_keys,
             note=data.get("note"),
+            receive_batch_id=data.get("receive_batch_id"),
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -596,6 +602,8 @@ def receive_package_endpoint():
                 if package.estimated_freight_jmd
                 else None,
                 "pre_alert_matched": matched_pre_alert is not None,
+                "receive_batch_id": str(package.receive_batch_id) if package.receive_batch_id else None,
+                "receive_batch_code": package.receive_batch.batch_code if package.receive_batch else None,
             },
         )
 
@@ -639,6 +647,7 @@ def receive_unidentified_endpoint():
             label_boss_id=data.get("label_boss_id"),
             photo_keys=photo_keys,
             note=data.get("note"),
+            receive_batch_id=data.get("receive_batch_id"),
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -657,6 +666,8 @@ def receive_unidentified_endpoint():
                 "carrier_tracking": package.carrier_tracking,
                 "shipper": package.shipper,
                 "billable_weight_lbs": package.billable_weight_lbs,
+                "receive_batch_id": str(package.receive_batch_id) if package.receive_batch_id else None,
+                "receive_batch_code": package.receive_batch.batch_code if package.receive_batch else None,
             },
         )
 
@@ -1095,3 +1106,321 @@ def set_package_delivery_address(package_id: str):
         return jsonify({"error": str(exc)}), 400
 
     return jsonify({"package": package.to_dict()})
+
+
+@staff_bp.route("/staff/shipments", methods=["GET"])
+@permission_required("status_transit")
+def list_shipments_route():
+    from app.constants import SHIPMENT_STATUSES
+    from app.services.shipment_service import list_shipments
+
+    status = (request.args.get("status") or "").strip() or None
+    if status and status not in SHIPMENT_STATUSES:
+        return jsonify({"error": "Invalid status"}), 400
+
+    try:
+        limit = min(int(request.args.get("limit", 50)), 200)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        return jsonify({"error": "Invalid pagination"}), 400
+
+    shipments, total = list_shipments(status=status, limit=limit, offset=offset)
+    return jsonify(
+        {
+            "shipments": [s.to_dict() for s in shipments],
+            "total": total,
+        }
+    )
+
+
+@staff_bp.route("/staff/shipments", methods=["POST"])
+@permission_required("status_transit")
+def create_shipment_route():
+    from datetime import date as date_type
+
+    from app.services.shipment_service import create_shipment
+
+    data = request.get_json(silent=True) or {}
+    reference = (data.get("reference") or "").strip()
+    note = data.get("note")
+    raw_date = (data.get("departure_date") or "").strip()
+
+    if not reference:
+        return jsonify({"error": "reference is required"}), 400
+    if not raw_date:
+        return jsonify({"error": "departure_date is required"}), 400
+
+    try:
+        departure_date = date_type.fromisoformat(raw_date)
+    except ValueError:
+        return jsonify({"error": "departure_date must be YYYY-MM-DD"}), 400
+
+    actor = get_user_from_jwt()
+    try:
+        shipment = create_shipment(
+            reference=reference,
+            departure_date=departure_date,
+            note=note,
+            created_by=actor,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"shipment": shipment.to_dict()}), 201
+
+
+@staff_bp.route("/staff/shipments/<shipment_id>", methods=["GET"])
+@permission_required("status_transit")
+def get_shipment_route(shipment_id: str):
+    import uuid as uuid_lib
+
+    from app.services.shipment_service import get_shipment
+
+    try:
+        sid = uuid_lib.UUID(shipment_id)
+    except ValueError:
+        return jsonify({"error": "Invalid shipment ID"}), 400
+
+    shipment = get_shipment(sid)
+    if not shipment:
+        return jsonify({"error": "Departure not found"}), 404
+
+    return jsonify({"shipment": shipment.to_dict(include_packages=True)})
+
+
+@staff_bp.route("/staff/shipments/<shipment_id>/packages", methods=["POST"])
+@permission_required("status_transit")
+def add_shipment_packages_route(shipment_id: str):
+    import uuid as uuid_lib
+
+    from app.services.shipment_service import add_package_by_tracking, add_packages_to_shipment, get_shipment
+
+    try:
+        sid = uuid_lib.UUID(shipment_id)
+    except ValueError:
+        return jsonify({"error": "Invalid shipment ID"}), 400
+
+    shipment = get_shipment(sid)
+    if not shipment:
+        return jsonify({"error": "Departure not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    tracking = (data.get("tracking_number") or "").strip()
+    package_ids = data.get("package_ids") or []
+    actor = get_user_from_jwt()
+
+    try:
+        if tracking:
+            package = add_package_by_tracking(shipment, tracking, actor=actor)
+            from app.services.package_service import warehouse_package_to_dict
+
+            return jsonify({"package": warehouse_package_to_dict(package)})
+        if not isinstance(package_ids, list) or not package_ids:
+            return jsonify({"error": "tracking_number or package_ids is required"}), 400
+        added, failed = add_packages_to_shipment(shipment, package_ids, actor=actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    from app.services.package_service import warehouse_package_to_dict
+
+    return jsonify(
+        {
+            "added": len(added),
+            "packages": [warehouse_package_to_dict(p) for p in added],
+            "failed": failed,
+        }
+    )
+
+
+@staff_bp.route("/staff/shipments/<shipment_id>/packages/<package_id>", methods=["DELETE"])
+@permission_required("status_transit")
+def remove_shipment_package_route(shipment_id: str, package_id: str):
+    import uuid as uuid_lib
+
+    from app.services.shipment_service import get_shipment, remove_package_from_shipment
+
+    try:
+        sid = uuid_lib.UUID(shipment_id)
+        pid = uuid_lib.UUID(package_id)
+    except ValueError:
+        return jsonify({"error": "Invalid ID"}), 400
+
+    shipment = get_shipment(sid)
+    if not shipment:
+        return jsonify({"error": "Departure not found"}), 404
+
+    package = Package.query.get(pid)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    actor = get_user_from_jwt()
+    try:
+        remove_package_from_shipment(shipment, package, actor=actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"ok": True})
+
+
+@staff_bp.route("/staff/shipments/<shipment_id>/depart", methods=["POST"])
+@permission_required("status_transit")
+def depart_shipment_route(shipment_id: str):
+    import uuid as uuid_lib
+
+    from app.services.shipment_service import depart_shipment, get_shipment
+
+    try:
+        sid = uuid_lib.UUID(shipment_id)
+    except ValueError:
+        return jsonify({"error": "Invalid shipment ID"}), 400
+
+    shipment = get_shipment(sid)
+    if not shipment:
+        return jsonify({"error": "Departure not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    note = data.get("note")
+    actor = get_user_from_jwt()
+
+    if actor and actor.role == "clerk":
+        try:
+            assert_status_transition_allowed(actor, "received", "in_transit")
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 403
+
+    try:
+        updated, failed = depart_shipment(shipment, actor=actor, note=note)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    from app.services.package_service import warehouse_package_to_dict
+
+    return jsonify(
+        {
+            "shipment": shipment.to_dict(include_packages=True),
+            "updated": len(updated),
+            "packages": [warehouse_package_to_dict(p) for p in updated],
+            "failed": failed,
+        }
+    )
+
+
+@staff_bp.route("/staff/shipments/batch-depart", methods=["POST"])
+@permission_required("status_transit")
+def batch_depart_packages_route():
+    import uuid as uuid_lib
+    from datetime import date as date_type
+
+    from app.services.shipment_service import batch_depart_packages
+
+    data = request.get_json(silent=True) or {}
+    package_ids = data.get("package_ids") or []
+    note = data.get("note")
+    raw_shipment_id = (data.get("shipment_id") or "").strip()
+    reference = (data.get("reference") or "").strip()
+    raw_date = (data.get("departure_date") or "").strip()
+
+    if not isinstance(package_ids, list) or not package_ids:
+        return jsonify({"error": "package_ids must be a non-empty array"}), 400
+
+    shipment_id = None
+    if raw_shipment_id:
+        try:
+            shipment_id = uuid_lib.UUID(raw_shipment_id)
+        except ValueError:
+            return jsonify({"error": "Invalid shipment_id"}), 400
+
+    departure_date = None
+    if raw_date:
+        try:
+            departure_date = date_type.fromisoformat(raw_date)
+        except ValueError:
+            return jsonify({"error": "departure_date must be YYYY-MM-DD"}), 400
+
+    actor = get_user_from_jwt()
+    if actor and actor.role == "clerk":
+        try:
+            assert_status_transition_allowed(actor, "received", "in_transit")
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 403
+
+    try:
+        shipment, updated = batch_depart_packages(
+            package_ids,
+            shipment_id=shipment_id,
+            reference=reference or None,
+            departure_date=departure_date,
+            note=note,
+            actor=actor,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    from app.services.package_service import warehouse_package_to_dict
+
+    return jsonify(
+        {
+            "shipment": shipment.to_dict(include_packages=True),
+            "updated": len(updated),
+            "packages": [warehouse_package_to_dict(p) for p in updated],
+            "failed": [],
+        }
+    )
+
+
+@staff_bp.route("/staff/receive-batches", methods=["GET"])
+@permission_required("receive")
+def list_receive_batches_route():
+    from app.constants import RECEIVE_BATCH_STATUSES
+    from app.services.receive_batch_service import list_receive_batches
+
+    status = (request.args.get("status") or "").strip() or None
+    if status and status not in RECEIVE_BATCH_STATUSES:
+        return jsonify({"error": "Invalid status"}), 400
+
+    try:
+        limit = min(int(request.args.get("limit", 50)), 200)
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except ValueError:
+        return jsonify({"error": "Invalid pagination"}), 400
+
+    batches, total = list_receive_batches(status=status, limit=limit, offset=offset)
+    return jsonify(
+        {
+            "receive_batches": [batch.to_dict() for batch in batches],
+            "total": total,
+        }
+    )
+
+
+@staff_bp.route("/staff/receive-batches", methods=["POST"])
+@permission_required("receive")
+def create_receive_batch_route():
+    from datetime import date as date_type
+
+    from app.services.receive_batch_service import create_receive_batch
+
+    data = request.get_json(silent=True) or {}
+    reference = (data.get("reference") or "").strip() or None
+    note = data.get("note")
+    raw_date = (data.get("receive_date") or "").strip()
+
+    receive_date = None
+    if raw_date:
+        try:
+            receive_date = date_type.fromisoformat(raw_date)
+        except ValueError:
+            return jsonify({"error": "receive_date must be YYYY-MM-DD"}), 400
+
+    actor = get_user_from_jwt()
+    try:
+        batch = create_receive_batch(
+            reference=reference,
+            receive_date=receive_date,
+            note=note,
+            created_by=actor,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"receive_batch": batch.to_dict()}), 201

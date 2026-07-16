@@ -40,6 +40,7 @@ import { PrintQueuePage } from './pages/PrintQueuePage'
 import { UnidentifiedQueuePage } from './pages/UnidentifiedQueuePage'
 import { WarehouseHomePage } from './pages/WarehouseHomePage'
 import { WarehousePreAlertsPage } from './pages/WarehousePreAlertsPage'
+import { DeparturesPage } from './pages/DeparturesPage'
 
 function App() {
   return (
@@ -90,6 +91,8 @@ function App() {
                   <Route path="/warehouse/pre-alerts" element={<WarehousePreAlertsPage />} />
                   <Route path="/warehouse/print-queue" element={<PrintQueuePage />} />
                   <Route path="/warehouse/status" element={<StatusUpdatePage />} />
+                  <Route path="/warehouse/departures" element={<DeparturesPage />} />
+                  <Route path="/warehouse/departures/:shipmentId" element={<DeparturesPage />} />
                   <Route path="/warehouse/activity" element={<AdminActivityPage />} />
                 </Route>
               </Route>

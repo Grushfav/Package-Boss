@@ -105,6 +105,21 @@ export interface PackagePhoto {
   created_at: string
 }
 
+export interface PackageReceiveBatchInfo {
+  id: string
+  batch_code: string
+  reference: string
+  receive_date: string
+  status: 'open' | 'closed'
+}
+
+export interface PackageShipmentInfo {
+  id: string
+  reference: string
+  departure_date: string
+  status: 'open' | 'departed'
+}
+
 export interface Shipper {
   code: string
   label: string
@@ -142,6 +157,10 @@ export interface Package {
   rate_tier_label?: string | null
   label_printed_at?: string | null
   received_at?: string | null
+  receive_batch_id?: string | null
+  receive_batch?: PackageReceiveBatchInfo | null
+  shipment_id?: string | null
+  shipment?: PackageShipmentInfo | null
   created_at: string
   events?: PackageEvent[]
   photos?: PackagePhoto[]
@@ -199,6 +218,32 @@ export interface CustomerAccount {
   packages: Package[]
   checkouts: PaymentCheckout[]
   summary: CustomerAccountSummary
+  pending_transfer_proofs?: BankTransferProof[]
+}
+
+export interface BankTransferProofPackage {
+  id: string
+  proof_id: string
+  package_id: string
+  tracking_number?: string
+  total_due_jmd?: number | null
+}
+
+export interface BankTransferProof {
+  id: string
+  customer_id: string
+  proof_object_key: string
+  proof_url?: string | null
+  transfer_reference?: string | null
+  amount_jmd?: number | null
+  notes?: string | null
+  status: 'pending' | 'confirmed' | 'rejected'
+  status_label: string
+  submitted_at: string
+  reviewed_at?: string | null
+  reviewed_by_name?: string | null
+  package_count?: number
+  packages?: BankTransferProofPackage[]
 }
 
 /** @deprecated use PackagePaymentSummary */

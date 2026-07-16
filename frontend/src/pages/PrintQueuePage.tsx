@@ -1,4 +1,4 @@
-import { Printer } from 'lucide-react'
+import { Eye, Printer, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
@@ -36,6 +36,7 @@ export function PrintQueuePage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
   const [printIds, setPrintIds] = useState<string[]>([])
+  const [previewPackage, setPreviewPackage] = useState<Package | null>(null)
 
   const loadQueue = useCallback(async () => {
     setLoading(true)
@@ -268,16 +269,28 @@ export function PrintQueuePage() {
                       )}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={actionLoading}
-                    onClick={() => handlePrintOne(pkg)}
-                    className="!text-xs inline-flex items-center gap-1"
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    {pkg.label_printed_at ? 'Reprint' : 'Print'}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={actionLoading}
+                      onClick={() => setPreviewPackage(pkg)}
+                      className="!text-xs inline-flex items-center gap-1"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={actionLoading}
+                      onClick={() => handlePrintOne(pkg)}
+                      className="!text-xs inline-flex items-center gap-1"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      {pkg.label_printed_at ? 'Reprint' : 'Print'}
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -295,6 +308,51 @@ export function PrintQueuePage() {
 
       {error && (
         <p className="no-print mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
+      )}
+
+      {previewPackage && (
+        <div
+          className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setPreviewPackage(null)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-wide">Label preview</p>
+                <p className="font-mono text-xs text-muted">{previewPackage.tracking_number}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPackage(null)}
+                className="rounded-lg p-1.5 text-muted hover:bg-background hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <ShippingLabel pkg={previewPackage} customer={labelCustomer(previewPackage)} />
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                className="inline-flex flex-1 items-center justify-center gap-2"
+                disabled={actionLoading}
+                onClick={() => {
+                  handlePrintOne(previewPackage)
+                  setPreviewPackage(null)
+                }}
+              >
+                <Printer className="h-4 w-4" />
+                {previewPackage.label_printed_at ? 'Reprint' : 'Print'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setPreviewPackage(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

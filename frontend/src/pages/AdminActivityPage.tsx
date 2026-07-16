@@ -8,6 +8,10 @@ import type { AuditLogEntry } from '../types'
 const ACTION_LABELS: Record<string, string> = {
   'package.received': 'Package received',
   'package.status_updated': 'Status updated',
+  'shipment.created': 'Departure created',
+  'shipment.package_added': 'Package added to departure',
+  'shipment.package_removed': 'Package removed from departure',
+  'shipment.departed': 'Departure shipped',
 }
 
 export function AdminActivityPage() {

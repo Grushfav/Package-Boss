@@ -11,6 +11,7 @@ from app.services.unidentified_service import ensure_unidentified_holder
 from app.routes import (
     admin_bp,
     auth_bp,
+    bank_transfer_proofs_bp,
     health_bp,
     me_bp,
     packages_bp,
@@ -72,6 +73,7 @@ def create_app(config_class=None):
     app.register_blueprint(pre_alerts_bp, url_prefix="/api")
     app.register_blueprint(rates_bp, url_prefix="/api")
     app.register_blueprint(packages_bp, url_prefix="/api")
+    app.register_blueprint(bank_transfer_proofs_bp, url_prefix="/api")
     app.register_blueprint(staff_bp, url_prefix="/api")
     app.register_blueprint(uploads_bp, url_prefix="/api")
     app.register_blueprint(admin_bp, url_prefix="/api")

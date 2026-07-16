@@ -180,7 +180,7 @@ export function CustomerAccountPage() {
     )
   }
 
-  const { customer, packages, checkouts, summary } = account
+  const { customer, packages, checkouts, summary, pending_transfer_proofs = [] } = account
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -369,6 +369,54 @@ export function CustomerAccountPage() {
           )}
         </div>
       </section>
+
+      {canManageBilling && pending_transfer_proofs.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide">
+            Pending bank transfer proofs
+          </h2>
+          <div className="space-y-3">
+            {pending_transfer_proofs.map((proof) => (
+              <div
+                key={proof.id}
+                className="rounded-2xl border border-amber-500/30 bg-card p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {new Date(proof.submitted_at).toLocaleString()}
+                    </p>
+                    {proof.amount_jmd != null && (
+                      <p className="mt-1 text-sm text-muted">{formatJmd(proof.amount_jmd)}</p>
+                    )}
+                    {proof.transfer_reference && (
+                      <p className="mt-1 font-mono text-xs text-muted">
+                        Ref: {proof.transfer_reference}
+                      </p>
+                    )}
+                    {proof.packages && proof.packages.length > 0 && (
+                      <p className="mt-2 text-xs text-muted">
+                        Packages:{' '}
+                        {proof.packages.map((pkg) => pkg.tracking_number).filter(Boolean).join(', ')}
+                      </p>
+                    )}
+                  </div>
+                  {proof.proof_url && (
+                    <a
+                      href={proof.proof_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:border-boss-gold/40"
+                    >
+                      View proof
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide">Payment history</h2>

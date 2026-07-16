@@ -10,7 +10,7 @@ from app.services.delivery_address_service import build_invoice_upload_url, get_
 from app.services.email_service import EmailServiceError, send_invoice_request_email
 from app.services.image_upload_service import is_valid_invoice_reference
 from app.services.package_service import add_package_event
-from app.services.whatsapp_service import send_invoice_request_whatsapp
+from app.services.whatsapp_service import WhatsAppServiceError, send_invoice_request_whatsapp
 
 
 def _decimal(value) -> Decimal | None:
@@ -112,7 +112,7 @@ def request_package_invoice(
                     note,
                 )
                 channels_sent.append("whatsapp")
-            except NotImplementedError as exc:
+            except (NotImplementedError, WhatsAppServiceError) as exc:
                 if channel == "whatsapp":
                     raise ValueError(f"Failed to send WhatsApp message: {exc}") from exc
                 current_app.logger.warning(

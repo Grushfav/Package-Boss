@@ -3,6 +3,7 @@ import {
   Camera,
   Clock,
   Keyboard,
+  Layers,
   PackagePlus,
   Printer,
   RotateCcw,
@@ -15,7 +16,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import {
+  createReceiveBatch,
   fetchMyRecentReceives,
+  fetchReceiveBatches,
   fetchShippers,
   lookupCustomer,
   lookupPreAlertByTracking,
@@ -24,6 +27,7 @@ import {
   receiveUnidentifiedPackage,
   searchCustomers,
   type ClerkRecentReceive,
+  type ReceiveBatchSummary,
 } from '../api/staff'
 import type { PreAlertLookupMatch } from '../api/staff'
 import type { PreAlert } from '../types'
@@ -42,6 +46,24 @@ type IdleInputMode = 'scan' | 'search'
 
 const RUSH_MODE_KEY = 'boss:warehouse:rush-mode'
 const LAST_SHIPPER_KEY = 'boss:warehouse:last-shipper'
+const ACTIVE_RECEIVE_BATCH_KEY = 'boss:warehouse:active-receive-batch'
+
+function readActiveReceiveBatchId(): string {
+  try {
+    return localStorage.getItem(ACTIVE_RECEIVE_BATCH_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function storeActiveReceiveBatchId(id: string) {
+  try {
+    if (id) localStorage.setItem(ACTIVE_RECEIVE_BATCH_KEY, id)
+    else localStorage.removeItem(ACTIVE_RECEIVE_BATCH_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 function readRushMode(): boolean {
   try {
@@ -102,6 +124,57 @@ export function ReceivePage() {
   const [searchKeyboardReady, setSearchKeyboardReady] = useState(false)
   const [receivingSearchKeyboardReady, setReceivingSearchKeyboardReady] = useState(false)
 
+  const [receiveBatches, setReceiveBatches] = useState<ReceiveBatchSummary[]>([])
+  const [activeReceiveBatch, setActiveReceiveBatch] = useState<ReceiveBatchSummary | null>(null)
+  const [receiveBatchesLoading, setReceiveBatchesLoading] = useState(false)
+  const [showNewBatchForm, setShowNewBatchForm] = useState(false)
+  const [newBatchReference, setNewBatchReference] = useState('')
+  const [newBatchLoading, setNewBatchLoading] = useState(false)
+
+  const loadReceiveBatches = useCallback(async () => {
+    setReceiveBatchesLoading(true)
+    try {
+      const { receive_batches } = await fetchReceiveBatches({ status: 'open', limit: 50 })
+      setReceiveBatches(receive_batches)
+
+      const storedId = readActiveReceiveBatchId()
+      const stored = receive_batches.find((batch) => batch.id === storedId)
+      const next = stored ?? receive_batches[0] ?? null
+      setActiveReceiveBatch(next)
+      if (next) storeActiveReceiveBatchId(next.id)
+      else storeActiveReceiveBatchId('')
+    } catch {
+      setReceiveBatches([])
+      setActiveReceiveBatch(null)
+    } finally {
+      setReceiveBatchesLoading(false)
+    }
+  }, [])
+
+  function selectReceiveBatch(batch: ReceiveBatchSummary) {
+    setActiveReceiveBatch(batch)
+    storeActiveReceiveBatchId(batch.id)
+    setShowNewBatchForm(false)
+  }
+
+  async function handleCreateReceiveBatch() {
+    setNewBatchLoading(true)
+    setError('')
+    try {
+      const batch = await createReceiveBatch({
+        reference: newBatchReference.trim() || undefined,
+      })
+      setNewBatchReference('')
+      setShowNewBatchForm(false)
+      await loadReceiveBatches()
+      selectReceiveBatch(batch)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setNewBatchLoading(false)
+    }
+  }
+
   const loadRecentReceives = useCallback(async () => {
     setRecentLoading(true)
     try {
@@ -117,7 +190,8 @@ export function ReceivePage() {
   useEffect(() => {
     fetchShippers().then(setShippers).catch(() => {})
     loadRecentReceives()
-  }, [loadRecentReceives])
+    loadReceiveBatches()
+  }, [loadRecentReceives, loadReceiveBatches])
 
   useEffect(() => {
     const shippingId = searchParams.get('shipping_id')?.trim().toUpperCase()
@@ -383,6 +457,15 @@ export function ReceivePage() {
       billable_weight_lbs: billableWeight(lbs),
       received_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
+      receive_batch: activeReceiveBatch
+        ? {
+            id: activeReceiveBatch.id,
+            batch_code: activeReceiveBatch.batch_code,
+            reference: activeReceiveBatch.reference,
+            receive_date: activeReceiveBatch.receive_date,
+            status: activeReceiveBatch.status,
+          }
+        : null,
     }
   }
 
@@ -462,6 +545,12 @@ export function ReceivePage() {
     setSuccess('')
     setSubmitLoading(true)
 
+    if (!activeReceiveBatch) {
+      setError('Start or select a receive batch before confirming receival.')
+      setSubmitLoading(false)
+      return
+    }
+
     try {
       const photoKeys: string[] = []
       if (photoFile) {
@@ -481,6 +570,7 @@ export function ReceivePage() {
           label_boss_id: labelBossId.trim() || undefined,
           photo_keys: photoKeys,
           note: note || undefined,
+          receive_batch_id: activeReceiveBatch.id,
         })
       } else {
         const { package: pkg, pre_alert_matched } = await receivePackage({
@@ -490,6 +580,7 @@ export function ReceivePage() {
           carrier_tracking: carrierTracking.trim() || undefined,
           photo_keys: photoKeys,
           note: note || undefined,
+          receive_batch_id: activeReceiveBatch.id,
         })
         savedPackage = pkg
         setMatchedPreAlert(pre_alert_matched ?? null)
@@ -498,6 +589,7 @@ export function ReceivePage() {
 
       refreshCounts()
       loadRecentReceives()
+      loadReceiveBatches()
 
       if (skipLabelView) {
         const tracking = savedPackage.tracking_number
@@ -570,6 +662,104 @@ export function ReceivePage() {
         <p className="no-print mb-4 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-3 text-sm text-boss-green">
           {success}
         </p>
+      )}
+
+      {step !== 'complete' && (
+        <div className="no-print mb-6 rounded-2xl border border-boss-gold/30 bg-card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-boss-gold" />
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide">Receive batch</h2>
+                <p className="text-xs text-muted">Printed on labels for warehouse tracking</p>
+              </div>
+            </div>
+            {activeReceiveBatch && (
+              <span className="rounded-full bg-boss-gold/15 px-2.5 py-1 font-mono text-xs font-bold text-boss-gold">
+                {activeReceiveBatch.batch_code}
+              </span>
+            )}
+          </div>
+
+          {receiveBatchesLoading ? (
+            <p className="mt-3 text-sm text-muted">Loading batches…</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {receiveBatches.length > 0 && !showNewBatchForm && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Active batch
+                  </label>
+                  <select
+                    value={activeReceiveBatch?.id ?? ''}
+                    onChange={(e) => {
+                      const batch = receiveBatches.find((row) => row.id === e.target.value)
+                      if (batch) selectReceiveBatch(batch)
+                    }}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    {receiveBatches.map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.batch_code}
+                        {batch.reference !== batch.batch_code ? ` · ${batch.reference}` : ''} ·{' '}
+                        {batch.package_count} pkg{batch.package_count === 1 ? '' : 's'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {showNewBatchForm ? (
+                <div className="space-y-3 rounded-xl border border-border bg-background/50 p-4">
+                  <Input
+                    label="Batch label (optional)"
+                    placeholder="e.g. Tuesday AM dock, Pallet A"
+                    value={newBatchReference}
+                    onChange={(e) => setNewBatchReference(e.target.value)}
+                  />
+                  <p className="text-xs text-muted">
+                    A short code like RB-0715-01 is assigned automatically and printed on labels.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      disabled={newBatchLoading}
+                      onClick={() => void handleCreateReceiveBatch()}
+                    >
+                      {newBatchLoading ? 'Creating…' : 'Start batch'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowNewBatchForm(false)
+                        setNewBatchReference('')
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="inline-flex items-center gap-2"
+                  onClick={() => setShowNewBatchForm(true)}
+                >
+                  <Layers className="h-4 w-4" />
+                  New receive batch
+                </Button>
+              )}
+
+              {!activeReceiveBatch && !showNewBatchForm && (
+                <p className="text-sm text-amber-400">
+                  Start a receive batch before scanning packages — the batch code prints on every label.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {error && step !== 'complete' && (
