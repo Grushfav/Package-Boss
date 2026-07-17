@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 JAMAICA_PARISHES = [
     "Kingston",
     "St. Andrew",
@@ -110,6 +112,16 @@ SHIPPER_LABELS = {s["code"]: s["label"] for s in SHIPPERS}
 # Kingston & Portmore delivery area
 DELIVERY_PARISHES = ["Kingston", "St. Andrew", "St. Catherine"]
 MAX_DELIVERY_ADDRESSES = 4
+DELIVERY_FEE_JMD = Decimal("800.00")
+
+DELIVERY_REQUEST_STATUSES = ["pending", "in_progress", "completed", "cancelled"]
+DELIVERY_REQUEST_STATUS_LABELS = {
+    "pending": "Pending",
+    "in_progress": "In progress",
+    "completed": "Delivered",
+    "cancelled": "Cancelled",
+}
+DELIVERY_REQUEST_OPEN_STATUSES = ("pending", "in_progress")
 
 MAX_AUTHORIZED_PICKUPS = 5
 
@@ -157,12 +169,14 @@ PAYMENT_METHOD_LABELS = {
     "bank_transfer": "Bank Transfer",
 }
 
-BANK_TRANSFER_PROOF_STATUSES = ["pending", "confirmed", "rejected"]
+BANK_TRANSFER_PROOF_STATUSES = ["pending", "in_progress", "confirmed", "rejected"]
 BANK_TRANSFER_PROOF_STATUS_LABELS = {
     "pending": "Pending review",
+    "in_progress": "In progress",
     "confirmed": "Confirmed",
     "rejected": "Rejected",
 }
+BANK_TRANSFER_PROOF_OPEN_STATUSES = ("pending", "in_progress")
 
 INVOICE_REQUEST_CHANNELS = ["email", "whatsapp", "both"]
 

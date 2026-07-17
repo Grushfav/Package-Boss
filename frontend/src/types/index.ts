@@ -154,6 +154,7 @@ export interface Package {
   declared_value_usd?: number | null
   delivery_address_id?: string | null
   delivery_address?: DeliveryAddress | null
+  pending_delivery_request?: PendingDeliveryRequest | null
   rate_tier_label?: string | null
   label_printed_at?: string | null
   received_at?: string | null
@@ -168,6 +169,54 @@ export interface Package {
   origin?: string
   destination?: string
   payment?: PackagePaymentSummary | null
+}
+
+export interface PendingDeliveryRequest {
+  id: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  status_label: string
+  delivery_fee_jmd: number
+  requested_at?: string | null
+}
+
+export interface DeliveryRequestPackage {
+  id: string
+  delivery_request_id: string
+  package_id: string
+  tracking_number?: string
+  total_due_jmd?: number | null
+  billing_status?: string
+  status?: string
+  status_label?: string
+}
+
+export interface DeliveryRequest {
+  id: string
+  customer_id: string
+  delivery_address_id: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  status_label: string
+  delivery_fee_jmd: number
+  notes?: string | null
+  requested_at: string
+  completed_at?: string | null
+  completed_by_name?: string | null
+  in_progress_at?: string | null
+  in_progress_by_name?: string | null
+  cancelled_at?: string | null
+  package_count?: number
+  customer_name?: string
+  shipping_id?: string
+  delivery_address?: DeliveryAddress
+  packages?: DeliveryRequestPackage[]
+}
+
+export interface PaymentTotalSummary {
+  packages_total_jmd: number
+  delivery_fee_jmd: number
+  delivery_request_id?: string | null
+  total_jmd: number
+  currency: 'JMD'
 }
 
 export interface PackagePaymentSummary {
@@ -201,6 +250,8 @@ export interface PaymentCheckout {
   notes?: string | null
   recorded_by_name?: string | null
   recorded_at: string
+  delivery_request_id?: string | null
+  delivery_fee_jmd?: number | null
   package_count: number
   items?: PaymentCheckoutItem[]
 }
@@ -219,6 +270,7 @@ export interface CustomerAccount {
   checkouts: PaymentCheckout[]
   summary: CustomerAccountSummary
   pending_transfer_proofs?: BankTransferProof[]
+  pending_delivery_requests?: DeliveryRequest[]
 }
 
 export interface BankTransferProofPackage {
@@ -232,12 +284,14 @@ export interface BankTransferProofPackage {
 export interface BankTransferProof {
   id: string
   customer_id: string
+  customer_name?: string
+  shipping_id?: string
   proof_object_key: string
   proof_url?: string | null
   transfer_reference?: string | null
   amount_jmd?: number | null
   notes?: string | null
-  status: 'pending' | 'confirmed' | 'rejected'
+  status: 'pending' | 'in_progress' | 'confirmed' | 'rejected'
   status_label: string
   submitted_at: string
   reviewed_at?: string | null

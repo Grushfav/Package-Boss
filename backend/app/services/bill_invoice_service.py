@@ -77,6 +77,14 @@ def render_checkout_invoice_html(
           </table>
         </div>"""
 
+    delivery_fee_block = ""
+    if checkout.delivery_fee_jmd is not None and float(checkout.delivery_fee_jmd) > 0:
+        delivery_fee_block = f"""
+    <div style="margin-top:16px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:14px;font-weight:600;color:#64748b;">Delivery fee (Kingston &amp; Portmore)</span>
+      <span style="font-size:15px;font-weight:700;">{_esc(_money_jmd(checkout.delivery_fee_jmd))}</span>
+    </div>"""
+
     payment_block = f"""
     <div style="margin-top:24px;padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
       <p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;color:#166534;">
@@ -127,6 +135,7 @@ def render_checkout_invoice_html(
       {len(packages)} package{"s" if len(packages) != 1 else ""}
     </p>
     {package_blocks}
+    {delivery_fee_block}
 
     <div style="margin-top:24px;padding-top:16px;border-top:2px solid #0f172a;display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:16px;font-weight:800;">Total (JMD)</span>

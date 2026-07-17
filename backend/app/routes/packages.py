@@ -14,6 +14,7 @@ from app.services.image_upload_service import (
     parse_presign_fields,
 )
 from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
+from app.services.delivery_request_service import package_pending_delivery_summary
 from app.utils.auth_decorators import resolve_jwt_user
 
 packages_bp = Blueprint("packages", __name__)
@@ -39,7 +40,14 @@ def list_my_packages():
         .order_by(Package.created_at.desc())
         .all()
     )
-    return jsonify({"packages": [p.to_dict() for p in packages]})
+    return jsonify(
+        {
+            "packages": [
+                {**p.to_dict(), "pending_delivery_request": package_pending_delivery_summary(p)}
+                for p in packages
+            ]
+        }
+    )
 
 
 @packages_bp.route("/me/packages/<package_id>", methods=["GET"])

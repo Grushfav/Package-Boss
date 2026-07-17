@@ -1,6 +1,6 @@
 import { api } from './client'
 import { presignFilePayload } from '../lib/normalizeUploadFile'
-import type { Package, PresignResponse, Shipper, StaffCustomer, PreAlert } from '../types'
+import type { Package, PresignResponse, Shipper, StaffCustomer, PreAlert, BankTransferProof } from '../types'
 
 export interface WarehouseSummary {
   print_queue_pending: number
@@ -8,6 +8,9 @@ export interface WarehouseSummary {
   received_count: number
   packages_today: number
   pending_pre_alerts: number
+  pending_delivery_requests?: number
+  pending_transfer_proofs?: number
+  pending_customer_requests?: number
   open_shipments?: number
   status_counts?: Record<string, number>
 }
@@ -606,4 +609,35 @@ export async function createReceiveBatch(payload: {
     payload,
   )
   return data.receive_batch
+}
+
+export async function fetchStaffBankTransferProofs(
+  status = 'active',
+): Promise<BankTransferProof[]> {
+  const { data } = await api.get<{ proofs: BankTransferProof[] }>(
+    '/staff/bank-transfer-proofs',
+    { params: { status } },
+  )
+  return data.proofs ?? []
+}
+
+export async function markStaffTransferInProgress(id: string): Promise<BankTransferProof> {
+  const { data } = await api.post<{ proof: BankTransferProof }>(
+    `/staff/bank-transfer-proofs/${id}/in-progress`,
+  )
+  return data.proof
+}
+
+export async function confirmStaffBankTransferProof(id: string): Promise<BankTransferProof> {
+  const { data } = await api.post<{ proof: BankTransferProof }>(
+    `/staff/bank-transfer-proofs/${id}/confirm`,
+  )
+  return data.proof
+}
+
+export async function rejectStaffBankTransferProof(id: string): Promise<BankTransferProof> {
+  const { data } = await api.post<{ proof: BankTransferProof }>(
+    `/staff/bank-transfer-proofs/${id}/reject`,
+  )
+  return data.proof
 }

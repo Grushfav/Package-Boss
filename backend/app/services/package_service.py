@@ -521,6 +521,8 @@ def get_tracking_timeline(package: Package) -> list[dict]:
 def get_warehouse_summary() -> dict:
     from app.constants import WORKFLOW_STATUSES
     from app.models.pre_alert import PreAlert
+    from app.services.delivery_request_service import count_open_delivery_requests
+    from app.services.bank_transfer_proof_service import count_open_transfer_proofs
     from app.services.shipment_service import count_open_shipments
 
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -542,5 +544,10 @@ def get_warehouse_summary() -> dict:
         "packages_today": Package.query.filter(Package.received_at >= today_start).count(),
         "pending_pre_alerts": PreAlert.query.filter_by(status="pending").count(),
         "open_shipments": count_open_shipments(),
+        "pending_delivery_requests": count_open_delivery_requests(),
+        "pending_transfer_proofs": count_open_transfer_proofs(),
+        "pending_customer_requests": (
+            count_open_delivery_requests() + count_open_transfer_proofs()
+        ),
         "status_counts": status_counts,
     }

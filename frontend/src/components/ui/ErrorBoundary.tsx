@@ -24,11 +24,20 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      const detail =
+        import.meta.env.DEV && this.state.error.message
+          ? this.state.error.message
+          : null
       return (
         <div className="mx-auto max-w-md px-4 py-16 text-center">
           <h1 className="text-xl font-bold uppercase text-red-400">
             {this.props.title || 'Something went wrong'}
           </h1>
+          {detail && (
+            <p className="mt-3 break-words text-left font-mono text-xs text-red-400/90">
+              {detail}
+            </p>
+          )}
           <p className="mt-4 text-sm text-muted">
             Try refreshing the page. If the problem continues, contact support.
           </p>

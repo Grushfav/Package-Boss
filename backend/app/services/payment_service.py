@@ -6,6 +6,7 @@ from app.extensions import db
 from app.models.package import Package
 from app.models.payment import PaymentCheckout, PaymentCheckoutItem
 from app.models.user import User
+from app.services.delivery_request_service import resolve_delivery_request_for_payment
 from app.services.package_service import add_package_event
 
 
@@ -145,6 +146,7 @@ def record_payment_checkout(
         raise ValueError("Invalid payment method")
 
     packages = _validate_checkout_packages(customer, package_ids)
+    delivery_request, delivery_fee = resolve_delivery_request_for_payment(customer, packages)
     total = Decimal("0")
     line_amounts: list[tuple[Package, Decimal]] = []
 
@@ -155,6 +157,9 @@ def record_payment_checkout(
         total += amount
         line_amounts.append((package, amount))
 
+    if delivery_fee > 0:
+        total += delivery_fee
+
     checkout = PaymentCheckout(
         customer_id=customer.id,
         invoice_number=generate_invoice_number(),
@@ -164,6 +169,8 @@ def record_payment_checkout(
         notes=(notes or "").strip() or None,
         recorded_by_id=recorded_by.id,
         recorded_at=datetime.utcnow(),
+        delivery_request_id=delivery_request.id if delivery_request else None,
+        delivery_fee_jmd=delivery_fee if delivery_fee > 0 else None,
     )
     db.session.add(checkout)
     db.session.flush()

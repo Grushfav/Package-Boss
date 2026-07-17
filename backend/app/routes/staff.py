@@ -15,7 +15,31 @@ from app.services.audit_service import (
     ACTION_PACKAGE_STATUS_UPDATED,
     log_package_action,
 )
-from app.services.bank_transfer_proof_service import list_pending_customer_proofs
+from app.services.delivery_request_service import (
+    cancel_delivery_request,
+    complete_delivery_request,
+    get_delivery_request,
+    list_all_delivery_requests,
+    list_delivery_request_history,
+    list_delivery_requests_by_status,
+    list_open_delivery_requests,
+    list_pending_customer_delivery_requests,
+    list_pending_delivery_requests,
+    mark_delivery_request_in_progress,
+)
+from app.services.bank_transfer_proof_service import (
+    confirm_transfer_proof,
+    list_all_transfer_proofs,
+    list_open_transfer_proofs,
+    list_pending_customer_proofs,
+    list_pending_transfer_proofs,
+    list_transfer_proof_history,
+    list_transfer_proofs_by_status,
+    get_transfer_proof,
+    mark_transfer_proof_in_progress,
+    proof_to_staff_dict,
+    reject_transfer_proof,
+)
 from app.services.billing_service import (
     assign_delivery_address,
     request_package_invoice,
@@ -308,6 +332,10 @@ def customer_account(shipping_id: str):
         pending_proofs = list_pending_customer_proofs(user)
         payload["pending_transfer_proofs"] = [
             p.to_dict(include_packages=True) for p in pending_proofs
+        ]
+        pending_deliveries = list_pending_customer_delivery_requests(user)
+        payload["pending_delivery_requests"] = [
+            item.to_dict(include_packages=True) for item in pending_deliveries
         ]
 
     return jsonify(payload)
@@ -1424,3 +1452,153 @@ def create_receive_batch_route():
         return jsonify({"error": str(exc)}), 400
 
     return jsonify({"receive_batch": batch.to_dict()}), 201
+
+
+@staff_bp.route("/staff/delivery-requests", methods=["GET"])
+@permission_required("status_pickup", "billing")
+def list_staff_delivery_requests():
+    status = (request.args.get("status") or "active").strip().lower()
+    if status == "pending":
+        requests = list_pending_delivery_requests()
+    elif status == "active":
+        requests = list_open_delivery_requests()
+    elif status == "all":
+        requests = list_all_delivery_requests()
+    elif status == "history":
+        requests = list_delivery_request_history()
+    elif status == "in_progress":
+        requests = list_delivery_requests_by_status("in_progress")
+    else:
+        requests = list_delivery_requests_by_status(status)
+    return jsonify(
+        {"delivery_requests": [item.to_dict(include_packages=True) for item in requests]}
+    )
+
+
+@staff_bp.route("/staff/delivery-requests/<request_id>/in-progress", methods=["POST"])
+@permission_required("status_pickup", "billing")
+def mark_staff_delivery_in_progress(request_id: str):
+    delivery_request = get_delivery_request(request_id)
+    if not delivery_request:
+        return jsonify({"error": "Delivery request not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        delivery_request = mark_delivery_request_in_progress(delivery_request, actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"delivery_request": delivery_request.to_dict(include_packages=True)})
+
+
+@staff_bp.route("/staff/delivery-requests/<request_id>/complete", methods=["POST"])
+@permission_required("status_pickup")
+def complete_staff_delivery_request(request_id: str):
+    delivery_request = get_delivery_request(request_id)
+    if not delivery_request:
+        return jsonify({"error": "Delivery request not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        delivery_request = complete_delivery_request(delivery_request, actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"delivery_request": delivery_request.to_dict(include_packages=True)})
+
+
+@staff_bp.route("/staff/delivery-requests/<request_id>/cancel", methods=["POST"])
+@permission_required("status_pickup", "billing")
+def cancel_staff_delivery_request(request_id: str):
+    delivery_request = get_delivery_request(request_id)
+    if not delivery_request:
+        return jsonify({"error": "Delivery request not found"}), 404
+
+    try:
+        delivery_request = cancel_delivery_request(delivery_request, by_customer=False)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"delivery_request": delivery_request.to_dict(include_packages=True)})
+
+
+@staff_bp.route("/staff/bank-transfer-proofs", methods=["GET"])
+@permission_required("billing")
+def list_staff_bank_transfer_proofs():
+    status = (request.args.get("status") or "active").strip().lower()
+    if status == "pending":
+        proofs = list_pending_transfer_proofs()
+    elif status == "active":
+        proofs = list_open_transfer_proofs()
+    elif status == "all":
+        proofs = list_all_transfer_proofs()
+    elif status == "history":
+        proofs = list_transfer_proof_history()
+    elif status == "in_progress":
+        proofs = list_transfer_proofs_by_status("in_progress")
+    else:
+        proofs = list_transfer_proofs_by_status(status)
+    return jsonify({"proofs": [proof_to_staff_dict(proof) for proof in proofs]})
+
+
+@staff_bp.route("/staff/bank-transfer-proofs/<proof_id>/in-progress", methods=["POST"])
+@permission_required("billing")
+def mark_staff_transfer_in_progress(proof_id: str):
+    proof = get_transfer_proof(proof_id)
+    if not proof:
+        return jsonify({"error": "Transfer proof not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        proof = mark_transfer_proof_in_progress(proof, actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"proof": proof_to_staff_dict(proof)})
+
+
+@staff_bp.route("/staff/bank-transfer-proofs/<proof_id>/confirm", methods=["POST"])
+@permission_required("billing")
+def confirm_staff_bank_transfer_proof(proof_id: str):
+    proof = get_transfer_proof(proof_id)
+    if not proof:
+        return jsonify({"error": "Transfer proof not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        proof = confirm_transfer_proof(proof, actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"proof": proof_to_staff_dict(proof)})
+
+
+@staff_bp.route("/staff/bank-transfer-proofs/<proof_id>/reject", methods=["POST"])
+@permission_required("billing")
+def reject_staff_bank_transfer_proof(proof_id: str):
+    proof = get_transfer_proof(proof_id)
+    if not proof:
+        return jsonify({"error": "Transfer proof not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        proof = reject_transfer_proof(proof, actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"proof": proof_to_staff_dict(proof)})

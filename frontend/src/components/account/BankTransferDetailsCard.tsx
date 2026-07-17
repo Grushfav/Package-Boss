@@ -5,6 +5,7 @@ import {
   fetchMyBankTransferProofs,
   submitBankTransferProof,
 } from '../../api/bankTransferProofs'
+import { fetchPaymentTotal } from '../../api/deliveryRequests'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import {
@@ -37,13 +38,35 @@ function BankTransferProofUpload() {
   const [transferReference, setTransferReference] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
   const [recentProofs, setRecentProofs] = useState<BankTransferProof[]>([])
+  const [selectedTotal, setSelectedTotal] = useState(0)
+  const [deliveryFee, setDeliveryFee] = useState(0)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const paymentTotal = selectedTotal + deliveryFee
 
-  const selectedTotal = sumJmd(
-    payablePackages.filter((pkg) => selectedIds.includes(pkg.id)).map((pkg) => pkg.total_due_jmd),
-  )
+  useEffect(() => {
+    if (selectedIds.length === 0) {
+      setSelectedTotal(0)
+      setDeliveryFee(0)
+      return
+    }
+    fetchPaymentTotal(selectedIds)
+      .then((totals) => {
+        setSelectedTotal(totals.packages_total_jmd)
+        setDeliveryFee(totals.delivery_fee_jmd)
+      })
+      .catch(() => {
+        setSelectedTotal(
+          sumJmd(
+            payablePackages
+              .filter((pkg) => selectedIds.includes(pkg.id))
+              .map((pkg) => pkg.total_due_jmd),
+          ),
+        )
+        setDeliveryFee(0)
+      })
+  }, [payablePackages, selectedIds])
 
   useEffect(() => {
     fetchMyBankTransferProofs()
@@ -72,7 +95,7 @@ function BankTransferProofUpload() {
         proof_object_key: proofKey,
         package_ids: selectedIds.length > 0 ? selectedIds : undefined,
         transfer_reference: transferReference.trim() || undefined,
-        amount_jmd: selectedIds.length > 0 ? selectedTotal : undefined,
+        amount_jmd: selectedIds.length > 0 ? paymentTotal : undefined,
       })
       setRecentProofs((prev) => [proof, ...prev])
       setProofFile(null)
@@ -145,9 +168,22 @@ function BankTransferProofUpload() {
             ))}
           </div>
           {selectedIds.length > 0 && (
-            <p className="text-xs text-muted">
-              Selected total: <span className="font-semibold text-foreground">{formatJmd(selectedTotal)}</span>
-            </p>
+            <div className="space-y-1 text-xs text-muted">
+              <p>
+                Package bills:{' '}
+                <span className="font-semibold text-foreground">{formatJmd(selectedTotal)}</span>
+              </p>
+              {deliveryFee > 0 && (
+                <p>
+                  Delivery fee:{' '}
+                  <span className="font-semibold text-foreground">{formatJmd(deliveryFee)}</span>
+                </p>
+              )}
+              <p>
+                Total due:{' '}
+                <span className="font-semibold text-foreground">{formatJmd(paymentTotal)}</span>
+              </p>
+            </div>
           )}
         </div>
       )}

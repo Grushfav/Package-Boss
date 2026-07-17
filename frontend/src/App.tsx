@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { RequireAdmin, RequireAuth, RequireWarehouse } from './components/auth/RouteGuards'
 import { Layout } from './components/layout/Layout'
 import { ScrollToTop } from './components/routing/ScrollToTop'
@@ -41,78 +41,89 @@ import { UnidentifiedQueuePage } from './pages/UnidentifiedQueuePage'
 import { WarehouseHomePage } from './pages/WarehouseHomePage'
 import { WarehousePreAlertsPage } from './pages/WarehousePreAlertsPage'
 import { DeparturesPage } from './pages/DeparturesPage'
+import { StaffRequestsPage } from './pages/StaffRequestsPage'
+
+function AppRoutes() {
+  const location = useLocation()
+
+  return (
+    <ErrorBoundary key={location.pathname}>
+      <Routes location={location}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/services" element={<ServicesPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/rates" element={<RatesPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/data-protection" element={<DataProtectionPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/track" element={<Navigate to="/dashboard/packages" replace />} />
+
+        <Route element={<RequireAuth />}>
+          <Route path="/dashboard" element={<CustomerDashboardLayout />}>
+            <Route index element={<DashboardHomePage />} />
+            <Route path="profile" element={<DashboardProfilePage />} />
+            <Route path="delivery-address" element={<Navigate to="/dashboard/profile" replace />} />
+            <Route path="authorized-pickups" element={<Navigate to="/dashboard/profile" replace />} />
+            <Route path="track" element={<Navigate to="/dashboard/packages" replace />} />
+            <Route path="pre-alerts" element={<DashboardPreAlertsPage />} />
+            <Route path="packages" element={<DashboardPackagesPage />} />
+            <Route path="rates" element={<DashboardRatesPage />} />
+            <Route path="notifications" element={<DashboardNotificationsPage />} />
+          </Route>
+          <Route path="/pre-alerts/new" element={<NewPreAlertPage />} />
+          <Route path="/packages/:packageId/upload-invoice" element={<PackageInvoiceUploadPage />} />
+        </Route>
+
+        <Route element={<RequireWarehouse />}>
+          <Route element={<WarehouseLayout />}>
+            <Route path="/warehouse" element={<WarehouseHomePage />} />
+            <Route path="/warehouse/customers" element={<CustomersPage />} />
+            <Route path="/warehouse/customers/:shippingId" element={<CustomerAccountPage />} />
+            <Route path="/warehouse/receive" element={<ReceivePage />} />
+            <Route path="/warehouse/unidentified" element={<UnidentifiedQueuePage />} />
+            <Route path="/warehouse/pre-alerts" element={<WarehousePreAlertsPage />} />
+            <Route path="/warehouse/print-queue" element={<PrintQueuePage />} />
+            <Route path="/warehouse/requests" element={<StaffRequestsPage />} />
+            <Route path="/warehouse/delivery-queue" element={<Navigate to="/warehouse/requests" replace />} />
+            <Route path="/warehouse/status" element={<StatusUpdatePage />} />
+            <Route path="/warehouse/departures" element={<DeparturesPage />} />
+            <Route path="/warehouse/departures/:shipmentId" element={<DeparturesPage />} />
+            <Route path="/warehouse/activity" element={<AdminActivityPage />} />
+          </Route>
+        </Route>
+
+        <Route element={<RequireAdmin />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminHubPage />} />
+            <Route path="operations" element={<AdminOperationsPage />} />
+            <Route path="clerks" element={<AdminClerksPage />} />
+          </Route>
+        </Route>
+
+        <Route path="/admin/activity" element={<Navigate to="/warehouse/activity" replace />} />
+
+        <Route path="/staff/receive" element={<Navigate to="/warehouse/receive" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ErrorBoundary>
+  )
+}
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <CustomerDataProvider>
-        <BrowserRouter>
-          <ScrollToTop />
-          <Layout>
-            <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/services" element={<ServicesPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/rates" element={<RatesPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/data-protection" element={<DataProtectionPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/track" element={<Navigate to="/dashboard/packages" replace />} />
-
-              <Route element={<RequireAuth />}>
-                <Route path="/dashboard" element={<CustomerDashboardLayout />}>
-                  <Route index element={<DashboardHomePage />} />
-                  <Route path="profile" element={<DashboardProfilePage />} />
-                  <Route path="delivery-address" element={<Navigate to="/dashboard/profile" replace />} />
-                  <Route path="authorized-pickups" element={<Navigate to="/dashboard/profile" replace />} />
-                  <Route path="track" element={<Navigate to="/dashboard/packages" replace />} />
-                  <Route path="pre-alerts" element={<DashboardPreAlertsPage />} />
-                  <Route path="packages" element={<DashboardPackagesPage />} />
-                  <Route path="rates" element={<DashboardRatesPage />} />
-                  <Route path="notifications" element={<DashboardNotificationsPage />} />
-                </Route>
-                <Route path="/pre-alerts/new" element={<NewPreAlertPage />} />
-                <Route path="/packages/:packageId/upload-invoice" element={<PackageInvoiceUploadPage />} />
-              </Route>
-
-              <Route element={<RequireWarehouse />}>
-                <Route element={<WarehouseLayout />}>
-                  <Route path="/warehouse" element={<WarehouseHomePage />} />
-                  <Route path="/warehouse/customers" element={<CustomersPage />} />
-                  <Route path="/warehouse/customers/:shippingId" element={<CustomerAccountPage />} />
-                  <Route path="/warehouse/receive" element={<ReceivePage />} />
-                  <Route path="/warehouse/unidentified" element={<UnidentifiedQueuePage />} />
-                  <Route path="/warehouse/pre-alerts" element={<WarehousePreAlertsPage />} />
-                  <Route path="/warehouse/print-queue" element={<PrintQueuePage />} />
-                  <Route path="/warehouse/status" element={<StatusUpdatePage />} />
-                  <Route path="/warehouse/departures" element={<DeparturesPage />} />
-                  <Route path="/warehouse/departures/:shipmentId" element={<DeparturesPage />} />
-                  <Route path="/warehouse/activity" element={<AdminActivityPage />} />
-                </Route>
-              </Route>
-
-              <Route element={<RequireAdmin />}>
-                <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<AdminHubPage />} />
-                  <Route path="operations" element={<AdminOperationsPage />} />
-                  <Route path="clerks" element={<AdminClerksPage />} />
-                </Route>
-              </Route>
-
-              <Route path="/admin/activity" element={<Navigate to="/warehouse/activity" replace />} />
-
-              <Route path="/staff/receive" element={<Navigate to="/warehouse/receive" replace />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            </ErrorBoundary>
-          </Layout>
-        </BrowserRouter>
+          <BrowserRouter>
+            <ScrollToTop />
+            <Layout>
+              <AppRoutes />
+            </Layout>
+          </BrowserRouter>
         </CustomerDataProvider>
       </AuthProvider>
     </ThemeProvider>

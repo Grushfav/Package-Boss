@@ -1,11 +1,12 @@
 from datetime import datetime
 from decimal import Decimal
 
-from app.constants import PAYMENT_ELIGIBLE_STATUS
+from app.constants import BANK_TRANSFER_PROOF_OPEN_STATUSES, PAYMENT_ELIGIBLE_STATUS
 from app.extensions import db
 from app.models.bank_transfer_proof import BankTransferProof, BankTransferProofPackage
 from app.models.package import Package
 from app.models.user import User
+from app.services.delivery_request_service import compute_payment_total_with_delivery
 from app.services.image_upload_service import is_valid_transfer_proof_reference
 
 
@@ -24,13 +25,136 @@ def list_customer_proofs(customer: User, limit: int = 50) -> list[BankTransferPr
     )
 
 
-def list_pending_customer_proofs(customer: User, limit: int = 50) -> list[BankTransferProof]:
+def list_open_customer_proofs(customer: User, limit: int = 50) -> list[BankTransferProof]:
     return (
-        BankTransferProof.query.filter_by(customer_id=customer.id, status="pending")
+        BankTransferProof.query.filter(
+            BankTransferProof.customer_id == customer.id,
+            BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES),
+        )
         .order_by(BankTransferProof.submitted_at.desc())
         .limit(limit)
         .all()
     )
+
+
+def list_pending_customer_proofs(customer: User, limit: int = 50) -> list[BankTransferProof]:
+    return list_open_customer_proofs(customer, limit=limit)
+
+
+def list_open_transfer_proofs(limit: int = 200) -> list[BankTransferProof]:
+    return (
+        BankTransferProof.query.filter(BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES))
+        .order_by(BankTransferProof.submitted_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+
+def list_all_transfer_proofs(limit: int = 200) -> list[BankTransferProof]:
+    return (
+        BankTransferProof.query.order_by(BankTransferProof.submitted_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def list_transfer_proofs_by_status(status: str, limit: int = 200) -> list[BankTransferProof]:
+    return (
+        BankTransferProof.query.filter_by(status=status)
+        .order_by(BankTransferProof.submitted_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def list_pending_transfer_proofs(limit: int = 100) -> list[BankTransferProof]:
+    return (
+        BankTransferProof.query.filter_by(status="pending")
+        .order_by(BankTransferProof.submitted_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+
+def list_transfer_proof_history(limit: int = 200) -> list[BankTransferProof]:
+    return (
+        BankTransferProof.query.filter(~BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES))
+        .order_by(BankTransferProof.submitted_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def count_open_transfer_proofs() -> int:
+    return BankTransferProof.query.filter(BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES)).count()
+
+
+def count_pending_transfer_proofs() -> int:
+    return BankTransferProof.query.filter_by(status="pending").count()
+
+
+def get_transfer_proof(proof_id) -> BankTransferProof | None:
+    import uuid
+
+    try:
+        pid = uuid.UUID(str(proof_id))
+    except ValueError:
+        return None
+    return BankTransferProof.query.get(pid)
+
+
+def proof_to_staff_dict(proof: BankTransferProof) -> dict:
+    data = proof.to_dict(include_packages=True)
+    if proof.customer:
+        data["customer_name"] = proof.customer.full_name
+        data["shipping_id"] = proof.customer.shipping_id
+    return data
+
+
+def mark_transfer_proof_in_progress(proof: BankTransferProof, staff_user: User) -> BankTransferProof:
+    if proof.status != "pending":
+        raise ValueError("Only pending transfer proofs can be marked in progress")
+
+    proof.status = "in_progress"
+    proof.reviewed_at = datetime.utcnow()
+    proof.reviewed_by_id = staff_user.id
+    db.session.commit()
+    return proof
+
+
+def confirm_transfer_proof(proof: BankTransferProof, staff_user: User) -> BankTransferProof:
+    if proof.status not in BANK_TRANSFER_PROOF_OPEN_STATUSES:
+        raise ValueError("Only open transfer proofs can be confirmed")
+
+    package_ids = [str(link.package_id) for link in proof.package_links if link.package_id]
+    if package_ids:
+        from app.services.payment_service import record_payment_checkout
+
+        record_payment_checkout(
+            proof.customer,
+            package_ids,
+            method="bank_transfer",
+            recorded_by=staff_user,
+            reference=proof.transfer_reference,
+            notes=proof.notes,
+        )
+
+    proof.status = "confirmed"
+    proof.reviewed_at = datetime.utcnow()
+    proof.reviewed_by_id = staff_user.id
+    db.session.commit()
+    return proof
+
+
+def reject_transfer_proof(proof: BankTransferProof, staff_user: User) -> BankTransferProof:
+    if proof.status not in BANK_TRANSFER_PROOF_OPEN_STATUSES:
+        raise ValueError("Only open transfer proofs can be rejected")
+
+    proof.status = "rejected"
+    proof.reviewed_at = datetime.utcnow()
+    proof.reviewed_by_id = staff_user.id
+    db.session.commit()
+    return proof
 
 
 def _validate_proof_packages(customer: User, package_ids: list) -> list[Package]:
@@ -84,13 +208,15 @@ def submit_bank_transfer_proof(
     if amount is not None and amount <= 0:
         raise ValueError("amount_jmd must be greater than zero")
 
-    if packages and amount is None:
-        total = Decimal("0")
-        for package in packages:
-            if package.total_due_jmd is not None:
-                total += package.total_due_jmd
-        if total > 0:
-            amount = total.quantize(Decimal("0.01"))
+    if packages:
+        expected = compute_payment_total_with_delivery(customer, [str(p.id) for p in packages])
+        expected_total = Decimal(str(expected["total_jmd"]))
+        if amount is None:
+            amount = expected_total
+        elif amount != expected_total:
+            raise ValueError(
+                f"amount_jmd must match the total due ({float(expected_total):.2f} JMD including delivery fee if applicable)"
+            )
 
     reference = (transfer_reference or "").strip() or None
     note_text = (notes or "").strip() or None

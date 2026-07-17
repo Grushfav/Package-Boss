@@ -2,6 +2,7 @@ import {
   Activity,
   Bell,
   ChevronLeft,
+  Inbox,
   LayoutDashboard,
   PackagePlus,
   PackageSearch,
@@ -66,6 +67,13 @@ function WarehouseShell() {
       label: 'Print',
       badge: counts?.print_queue_pending,
       permission: 'receive',
+    },
+    {
+      to: '/warehouse/requests',
+      icon: Inbox,
+      label: 'Requests',
+      badge: counts?.pending_customer_requests,
+      permission: ['status_pickup', 'billing'],
     },
     {
       to: '/warehouse/unidentified',

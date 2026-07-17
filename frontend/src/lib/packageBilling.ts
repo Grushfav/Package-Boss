@@ -53,8 +53,17 @@ export function packageEligibleForPayment(pkg: Package): boolean {
   return pkg.status === 'ready_for_pickup' && pkg.billing_status === 'ready'
 }
 
-export function packageEligibleForDelivery(pkg: Package): boolean {
+export function packageEligibleForDeliveryRequest(pkg: Package): boolean {
+  return pkg.status === 'ready_for_pickup' && !pkg.pending_delivery_request
+}
+
+export function packageEligibleForDeliveryRelease(pkg: Package): boolean {
   return pkg.status === 'ready_for_pickup' && pkg.billing_status === 'paid'
+}
+
+/** @deprecated use packageEligibleForDeliveryRelease */
+export function packageEligibleForDelivery(pkg: Package): boolean {
+  return packageEligibleForDeliveryRelease(pkg)
 }
 
 export function packagePaymentConfirmed(pkg: Package): boolean {
