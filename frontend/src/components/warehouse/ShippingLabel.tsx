@@ -26,20 +26,22 @@ export function ShippingLabel({ pkg, customer, className = '', preview = false }
 
   return (
     <div
-      className={`shipping-label mx-auto w-full max-w-md border-2 border-black bg-white p-4 text-black print:max-w-none print:border print:p-0 ${className}`}
+      className={`shipping-label mx-auto w-full max-w-md border-2 border-black bg-white px-4 pb-4 pt-2 text-black print:max-w-none print:border print:p-0 ${className}`}
     >
       {preview && (
         <p className="no-print mb-3 rounded border border-amber-400 bg-amber-50 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider text-amber-800">
           Label preview — confirm receival to assign tracking
         </p>
       )}
-      <div className="border-b border-black pb-1.5 text-center print:pb-1">
-        <img
-          src="/logo-bw.svg"
-          alt="Package Boss"
-          className="mx-auto h-24 max-w-full w-auto object-contain print:h-[1.15in] print:max-w-[3.75in]"
-        />
-        <p className="mt-0.5 text-[10px] uppercase tracking-widest text-gray-600 print:text-[8px]">
+      <div className="border-b border-black pb-0.5 text-center print:pb-0.5">
+        <div className="mx-auto h-[8.75rem] max-w-full overflow-hidden leading-none print:h-[1.35in]">
+          <img
+            src="/logo-bw.svg"
+            alt="Package Boss"
+            className="mx-auto block h-48 w-auto max-w-full -translate-y-6 object-contain object-top print:h-[2.3in] print:max-w-[7.5in] print:-translate-y-[0.15in]"
+          />
+        </div>
+        <p className="-mt-1 text-[10px] uppercase tracking-widest text-gray-600 print:mt-0 print:text-[8px]">
           Fort Lauderdale → Kingston
         </p>
       </div>
@@ -61,7 +63,7 @@ export function ShippingLabel({ pkg, customer, className = '', preview = false }
         {preview ? 'Tracking assigned on confirm' : pkg.tracking_number}
       </p>
 
-      <div className="mt-2 space-y-1 border-t border-black py-2 text-xs print:mt-1 print:py-1.5 print:text-[9px]">
+      <div className="mt-2 space-y-1 border-t border-black py-2 text-center text-xs print:mt-1 print:py-1.5 print:text-[9px]">
         <p className="text-[10px] font-bold uppercase tracking-wider print:text-[9px]">Ship To</p>
         {customer ? (
           <>
