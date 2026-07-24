@@ -76,8 +76,6 @@ function getReceiveProgressStep(
   customer: StaffCustomer | null,
   showUnidentifiedSection: boolean,
   carrierTracking: string,
-  shipper: string,
-  weight: string,
   labelName: string,
   labelBossId: string,
 ): number {
@@ -224,8 +222,8 @@ export function ReceivePage() {
   const [completedPackage, setCompletedPackage] = useState<Package | null>(null)
   const [matchedPreAlert, setMatchedPreAlert] = useState<PreAlert | null>(null)
   const [suggestedPreAlert, setSuggestedPreAlert] = useState<PreAlert | null>(null)
-  const [preAlertMatches, setPreAlertMatches] = useState<PreAlertLookupMatch[]>([])
-  const [preAlertLookupLoading, setPreAlertLookupLoading] = useState(false)
+  const [, setPreAlertMatches] = useState<PreAlertLookupMatch[]>([])
+  const [, setPreAlertLookupLoading] = useState(false)
   const [recentReceives, setRecentReceives] = useState<ClerkRecentReceive[]>([])
   const [recentLoading, setRecentLoading] = useState(false)
   const [previewUnidentified, setPreviewUnidentified] = useState(false)
@@ -806,8 +804,6 @@ export function ReceivePage() {
     customer,
     showUnidentifiedSection,
     carrierTracking,
-    shipper,
-    weight,
     labelName,
     labelBossId,
   )

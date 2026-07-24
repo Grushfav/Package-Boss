@@ -335,7 +335,9 @@ export function AdminOperationsPage() {
                   cx="50%"
                   cy="42%"
                   outerRadius={72}
-                  label={({ count }) => (count > 0 ? String(count) : '')}
+                  label={({ value }) =>
+                    typeof value === 'number' && value > 0 ? String(value) : ''
+                  }
                 >
                   {statuses.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
