@@ -1216,6 +1216,11 @@ export function StatusUpdatePage() {
         <ReleaseFromCustomsModal
           packages={selectedCustomsPackages}
           onClose={() => setReleaseOpen(false)}
+          onPackageUpdated={(updated) => {
+            setPackages((prev) =>
+              prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)),
+            )
+          }}
           onCompleted={(result) => {
             setReleaseOpen(false)
             setActionSuccess(formatReleaseSummary(result))

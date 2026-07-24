@@ -1,7 +1,14 @@
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
 import { estimateRate } from '../../api/rates'
-import { releasePackagesFromCustoms, type ReleaseFromCustomsResult } from '../../api/staff'
+import {
+  releasePackagesFromCustoms,
+  requestPackageInvoice,
+  type ReleaseFromCustomsResult,
+} from '../../api/staff'
+import { useAuth } from '../../context/AuthContext'
+import { clerkHasPermission } from '../../lib/clerkPermissions'
 import { formatJmd } from '../../lib/money'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -18,6 +25,7 @@ interface ReleaseFromCustomsModalProps {
   packages: Package[]
   onClose: () => void
   onCompleted: (result: ReleaseFromCustomsResult) => void
+  onPackageUpdated?: (pkg: Package) => void
 }
 
 function emptyFees(): FeeFields {
@@ -43,19 +51,32 @@ export function ReleaseFromCustomsModal({
   packages,
   onClose,
   onCompleted,
+  onPackageUpdated,
 }: ReleaseFromCustomsModalProps) {
+  const { user } = useAuth()
+  const perms = user?.permissions || user?.clerk_permissions
+  const role = user?.role
+  const canRequestInvoice = clerkHasPermission(perms, 'invoice_request', role)
+
+  const [localPackages, setLocalPackages] = useState<Package[]>(() =>
+    packages.filter((pkg) => pkg.status === 'customs'),
+  )
   const [feesById, setFeesById] = useState<Record<string, FeeFields>>(() =>
     Object.fromEntries(packages.map((pkg) => [pkg.id, emptyFees()])),
   )
+  const [expandedFeeIds, setExpandedFeeIds] = useState<Set<string>>(new Set())
   const [freightById, setFreightById] = useState<Record<string, number | null>>({})
   const [loading, setLoading] = useState(false)
   const [estimating, setEstimating] = useState(false)
+  const [invoiceLoadingId, setInvoiceLoadingId] = useState<string | null>(null)
+  const [invoiceNotice, setInvoiceNotice] = useState('')
   const [error, setError] = useState('')
 
-  const customsPackages = useMemo(
-    () => packages.filter((pkg) => pkg.status === 'customs'),
-    [packages],
-  )
+  useEffect(() => {
+    setLocalPackages(packages.filter((pkg) => pkg.status === 'customs'))
+  }, [packages])
+
+  const customsPackages = localPackages
 
   useEffect(() => {
     let cancelled = false
@@ -114,6 +135,53 @@ export function ReleaseFromCustomsModal({
 
   function updateFees(id: string, patch: Partial<FeeFields>) {
     setFeesById((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
+  }
+
+  function toggleFeeFields(id: string) {
+    setExpandedFeeIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function hasExtraFeeFields(fees: FeeFields): boolean {
+    return Boolean(
+      fees.duties_jmd.trim() ||
+        fees.handling_jmd.trim() ||
+        fees.other_fees_jmd.trim() ||
+        fees.note.trim(),
+    )
+  }
+
+  function canRequestInvoiceForPackage(pkg: Package): boolean {
+    return pkg.invoice_status === 'pending' || pkg.invoice_status === 'requested'
+  }
+
+  async function handleRequestInvoice(packageId: string) {
+    setError('')
+    setInvoiceNotice('')
+    setInvoiceLoadingId(packageId)
+    try {
+      const result = await requestPackageInvoice(packageId, { channel: 'email' })
+      setLocalPackages((prev) =>
+        prev.map((pkg) => (pkg.id === packageId ? { ...pkg, ...result.package } : pkg)),
+      )
+      onPackageUpdated?.(result.package)
+      const parts: string[] = []
+      if (result.channels_sent.includes('email') && result.email_recipient) {
+        parts.push(`Email sent to ${result.email_recipient}`)
+      }
+      setInvoiceNotice(
+        parts.join(' · ') ||
+          `Invoice request sent for ${result.package.tracking_number}`,
+      )
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setInvoiceLoadingId(null)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -178,12 +246,19 @@ export function ReleaseFromCustomsModal({
           </button>
         </div>
 
+        {invoiceNotice && (
+          <p className="mt-4 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-3 text-sm text-boss-green">
+            {invoiceNotice}
+          </p>
+        )}
+
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
           {customsPackages.map((pkg) => {
             const fees = feesById[pkg.id] ?? emptyFees()
             const weight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
             const freight = freightById[pkg.id] ?? null
             const rowTotal = rowTotalJmd(freight, fees)
+            const feesExpanded = expandedFeeIds.has(pkg.id)
             return (
               <div key={pkg.id} className="rounded-xl border border-border p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -205,35 +280,79 @@ export function ReleaseFromCustomsModal({
                     )}
                   </div>
                 </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <Input
-                    label="Duties (JMD)"
-                    type="number"
-                    step="1"
-                    value={fees.duties_jmd}
-                    onChange={(e) => updateFees(pkg.id, { duties_jmd: e.target.value })}
-                  />
-                  <Input
-                    label="Handling (JMD)"
-                    type="number"
-                    step="1"
-                    value={fees.handling_jmd}
-                    onChange={(e) => updateFees(pkg.id, { handling_jmd: e.target.value })}
-                  />
-                  <Input
-                    label="Other fees (JMD)"
-                    type="number"
-                    step="1"
-                    value={fees.other_fees_jmd}
-                    onChange={(e) => updateFees(pkg.id, { other_fees_jmd: e.target.value })}
-                  />
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-muted">
+                    Invoice:{' '}
+                    <span className="font-semibold text-foreground">
+                      {pkg.invoice_status_label ?? '—'}
+                    </span>
+                  </p>
+                  {canRequestInvoice && canRequestInvoiceForPackage(pkg) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="!px-2.5 !py-1 !text-xs"
+                      disabled={invoiceLoadingId === pkg.id || loading}
+                      onClick={() => void handleRequestInvoice(pkg.id)}
+                    >
+                      {invoiceLoadingId === pkg.id
+                        ? 'Sending…'
+                        : pkg.invoice_status === 'requested'
+                          ? 'Resend invoice'
+                          : 'Request invoice'}
+                    </Button>
+                  )}
                 </div>
-                <Input
-                  label="Note (optional)"
-                  className="mt-3"
-                  value={fees.note}
-                  onChange={(e) => updateFees(pkg.id, { note: e.target.value })}
-                />
+                <button
+                  type="button"
+                  onClick={() => toggleFeeFields(pkg.id)}
+                  className="mt-3 flex w-full items-center justify-between rounded-lg border border-border bg-background/50 px-3 py-2 text-left transition-colors hover:border-boss-gold/40"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Duties &amp; optional fees
+                    {hasExtraFeeFields(fees) && !feesExpanded ? (
+                      <span className="ml-1 normal-case text-boss-gold">· added</span>
+                    ) : null}
+                  </span>
+                  {feesExpanded ? (
+                    <ChevronUp className="h-4 w-4 shrink-0 text-muted" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted" />
+                  )}
+                </button>
+                {feesExpanded && (
+                  <>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <Input
+                        label="Duties (JMD)"
+                        type="number"
+                        step="1"
+                        value={fees.duties_jmd}
+                        onChange={(e) => updateFees(pkg.id, { duties_jmd: e.target.value })}
+                      />
+                      <Input
+                        label="Handling (JMD)"
+                        type="number"
+                        step="1"
+                        value={fees.handling_jmd}
+                        onChange={(e) => updateFees(pkg.id, { handling_jmd: e.target.value })}
+                      />
+                      <Input
+                        label="Other fees (JMD)"
+                        type="number"
+                        step="1"
+                        value={fees.other_fees_jmd}
+                        onChange={(e) => updateFees(pkg.id, { other_fees_jmd: e.target.value })}
+                      />
+                    </div>
+                    <Input
+                      label="Note (optional)"
+                      className="mt-3"
+                      value={fees.note}
+                      onChange={(e) => updateFees(pkg.id, { note: e.target.value })}
+                    />
+                  </>
+                )}
               </div>
             )
           })}
