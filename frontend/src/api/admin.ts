@@ -1,5 +1,13 @@
 import { api } from './client'
-import type { AdminOverview, AuditLogEntry, ClerkPermission, User } from '../types'
+import type {
+  AdminOverview,
+  AuditLogEntry,
+  BankTransferProofSubmissionStats,
+  ClerkPermission,
+  CustomerSignupStats,
+  DeliveryRequestSubmissionStats,
+  User,
+} from '../types'
 
 export interface ClerkPermissionOption {
   code: ClerkPermission
@@ -64,7 +72,41 @@ export async function reactivateClerk(userId: string): Promise<User> {
 
 export async function fetchAdminOverview(): Promise<AdminOverview> {
   const { data } = await api.get<AdminOverview>('/admin/stats/overview')
-  return data
+  return {
+    ...data,
+    customers_today: data.customers_today ?? 0,
+    customers_7d: data.customers_7d ?? 0,
+    customers_total: data.customers_total ?? 0,
+  }
+}
+
+export async function fetchCustomerSignupStats(): Promise<CustomerSignupStats> {
+  const { data } = await api.get<CustomerSignupStats>('/admin/stats/customer-signups')
+  return {
+    customers_today: data.customers_today ?? 0,
+    customers_7d: data.customers_7d ?? 0,
+    customers_total: data.customers_total ?? 0,
+  }
+}
+
+export async function fetchDeliveryRequestSubmissionStats(): Promise<DeliveryRequestSubmissionStats> {
+  const { data } = await api.get<DeliveryRequestSubmissionStats>('/admin/stats/delivery-requests')
+  return {
+    delivery_requests_active: data.delivery_requests_active ?? 0,
+    delivery_requests_today: data.delivery_requests_today ?? 0,
+    delivery_requests_7d: data.delivery_requests_7d ?? 0,
+    delivery_requests_total: data.delivery_requests_total ?? 0,
+  }
+}
+
+export async function fetchBankTransferProofSubmissionStats(): Promise<BankTransferProofSubmissionStats> {
+  const { data } = await api.get<BankTransferProofSubmissionStats>('/admin/stats/bank-transfer-proofs')
+  return {
+    bank_transfer_proofs_active: data.bank_transfer_proofs_active ?? 0,
+    bank_transfer_proofs_today: data.bank_transfer_proofs_today ?? 0,
+    bank_transfer_proofs_7d: data.bank_transfer_proofs_7d ?? 0,
+    bank_transfer_proofs_total: data.bank_transfer_proofs_total ?? 0,
+  }
 }
 
 export async function fetchPackagesTimeline(days = 30): Promise<{ date: string; count: number }[]> {

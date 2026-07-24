@@ -42,6 +42,117 @@ import type { Package, Shipper, StaffCustomer } from '../types'
 
 type ReceiveStep = 'idle' | 'receiving' | 'preview' | 'complete'
 
+const RECEIVE_PROGRESS_STEPS = [
+  { id: 1, label: 'Customer' },
+  { id: 2, label: 'Tracking' },
+  { id: 3, label: 'Weight' },
+  { id: 4, label: 'Complete' },
+  { id: 5, label: 'Print' },
+] as const
+
+function hasReceiveCustomer(
+  customer: StaffCustomer | null,
+  showUnidentifiedSection: boolean,
+): boolean {
+  return Boolean(customer) || showUnidentifiedSection
+}
+
+function hasReceiveTracking(
+  customer: StaffCustomer | null,
+  showUnidentifiedSection: boolean,
+  carrierTracking: string,
+  labelName: string,
+  labelBossId: string,
+): boolean {
+  if (customer) return Boolean(carrierTracking.trim())
+  if (showUnidentifiedSection) {
+    return Boolean(carrierTracking.trim() || labelName.trim() || labelBossId.trim())
+  }
+  return false
+}
+
+function getReceiveProgressStep(
+  step: ReceiveStep,
+  customer: StaffCustomer | null,
+  showUnidentifiedSection: boolean,
+  carrierTracking: string,
+  shipper: string,
+  weight: string,
+  labelName: string,
+  labelBossId: string,
+): number {
+  if (step === 'complete') return 5
+  if (step === 'preview') return 4
+
+  const hasCustomer = hasReceiveCustomer(customer, showUnidentifiedSection)
+  if (!hasCustomer) return 1
+
+  const hasTracking = hasReceiveTracking(
+    customer,
+    showUnidentifiedSection,
+    carrierTracking,
+    labelName,
+    labelBossId,
+  )
+  if (!hasTracking) return 2
+
+  return 3
+}
+
+function ReceiveProgressBar({ activeStep }: { activeStep: number }) {
+  return (
+    <nav
+      aria-label="Receive progress"
+      className="no-print mb-6 rounded-2xl border border-border bg-card p-4"
+    >
+      <ol className="flex items-start">
+        {RECEIVE_PROGRESS_STEPS.map((item, index) => {
+          const done = activeStep > item.id
+          const active = activeStep === item.id
+          return (
+            <li key={item.id} className="flex min-w-0 flex-1 flex-col items-center">
+              <div className="flex w-full items-center">
+                {index > 0 && (
+                  <div
+                    className={`h-0.5 flex-1 ${activeStep > index ? 'bg-boss-gold' : 'bg-border'}`}
+                  />
+                )}
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black tabular-nums transition-colors ${
+                    done
+                      ? 'bg-boss-green text-white'
+                      : active
+                        ? 'bg-boss-gold text-black ring-2 ring-boss-gold/30'
+                        : 'border border-border bg-background text-muted'
+                  }`}
+                >
+                  {done ? '✓' : item.id}
+                </span>
+                {index < RECEIVE_PROGRESS_STEPS.length - 1 && (
+                  <div
+                    className={`h-0.5 flex-1 ${activeStep > item.id ? 'bg-boss-gold' : 'bg-border'}`}
+                  />
+                )}
+              </div>
+              <p
+                className={`mt-2 hidden text-center text-[10px] font-semibold uppercase leading-tight tracking-wide sm:block ${
+                  active ? 'text-boss-gold' : done ? 'text-boss-green' : 'text-muted'
+                }`}
+              >
+                {item.label}
+              </p>
+            </li>
+          )
+        })}
+      </ol>
+      <p className="mt-3 text-center text-xs font-semibold uppercase tracking-wide text-boss-gold sm:hidden">
+        Step {activeStep} of {RECEIVE_PROGRESS_STEPS.length}:{' '}
+        {RECEIVE_PROGRESS_STEPS[activeStep - 1]?.label}
+      </p>
+    </nav>
+  )
+}
+
 const RUSH_MODE_KEY = 'boss:warehouse:rush-mode'
 const LAST_SHIPPER_KEY = 'boss:warehouse:last-shipper'
 const ACTIVE_RECEIVE_BATCH_KEY = 'boss:warehouse:active-receive-batch'
@@ -86,6 +197,7 @@ export function ReceivePage() {
   const receivingSearchInputRef = useRef<HTMLInputElement>(null)
   const weightInputRef = useRef<HTMLInputElement>(null)
   const customerSearchRequestId = useRef(0)
+  const pendingAutoPrintId = useRef<string | null>(null)
 
   const [step, setStep] = useState<ReceiveStep>('idle')
   const [shippers, setShippers] = useState<Shipper[]>([])
@@ -197,9 +309,7 @@ export function ReceivePage() {
     lookupCustomer(shippingId)
       .then((selected) => {
         if (!cancelled) {
-          setCustomer(selected)
-          setStep('receiving')
-          setError('')
+          selectCustomer(selected)
         }
       })
       .catch(() => {
@@ -215,12 +325,15 @@ export function ReceivePage() {
 
   useEffect(() => {
     if (step === 'idle') {
+      focusInputForSoftKeyboard(receivingSearchInputRef.current)
+    }
+    if (step === 'receiving' && customer && !carrierTracking.trim()) {
       scanInputRef.current?.focus()
     }
-    if (step === 'receiving' && customer) {
+    if (step === 'receiving' && customer && carrierTracking.trim()) {
       weightInputRef.current?.focus()
     }
-  }, [step, customer])
+  }, [step, customer, carrierTracking])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -293,6 +406,7 @@ export function ReceivePage() {
     setPreviewUnidentified(false)
     setScanKeyboardReady(false)
     setReceivingSearchKeyboardReady(false)
+    pendingAutoPrintId.current = null
   }
 
   function applyPreAlertMatches(matches: PreAlertLookupMatch[]) {
@@ -334,6 +448,12 @@ export function ReceivePage() {
     setPreAlertLookupLoading(true)
     try {
       const matches = await lookupPreAlertByTracking(normalized)
+      if (customer) {
+        const matchForCustomer = matches.find((m) => m.customer.id === customer.id)
+        setSuggestedPreAlert(matchForCustomer?.pre_alert ?? null)
+        setPreAlertMatches([])
+        return
+      }
       applyPreAlertMatches(matches)
     } catch {
       setSuggestedPreAlert(null)
@@ -343,6 +463,34 @@ export function ReceivePage() {
     }
   }
 
+  function selectCustomer(selected: StaffCustomer) {
+    setCustomer(selected)
+    setShowUnidentifiedSection(false)
+    setSearchResults([])
+    setSearchQuery('')
+    setReceivingSearchKeyboardReady(false)
+    setSuggestedPreAlert(null)
+    setPreAlertMatches([])
+    setCarrierTracking('')
+    setScanValue('')
+    setScanKeyboardReady(false)
+    setStep('receiving')
+    setError('')
+    setSuccess('')
+  }
+
+  function startUnidentifiedReceiving() {
+    setCustomer(null)
+    setShowUnidentifiedSection(true)
+    setSuggestedPreAlert(null)
+    setPreAlertMatches([])
+    setCarrierTracking('')
+    setScanValue('')
+    setStep('receiving')
+    setError('')
+    setSuccess('')
+  }
+
   async function startFromScan() {
     const tracking = scanValue.trim()
     if (!tracking) return
@@ -350,11 +498,7 @@ export function ReceivePage() {
     setScanValue('')
     scanInputRef.current?.blur()
     setCarrierTracking(upper)
-    setCustomer(null)
-    setSuggestedPreAlert(null)
-    setPreAlertMatches([])
-    setStep('receiving')
-    setReceivingSearchKeyboardReady(false)
+    setScanKeyboardReady(false)
     setError('')
     setSuccess('')
     await resolvePreAlertForTracking(upper)
@@ -408,7 +552,7 @@ export function ReceivePage() {
   }
 
   useEffect(() => {
-    if (step !== 'receiving' || customer) return
+    if (step !== 'idle' && step !== 'receiving') return
 
     const q = searchQuery.trim()
     if (q.length < 2) {
@@ -423,7 +567,29 @@ export function ReceivePage() {
     }, 300)
 
     return () => window.clearTimeout(timer)
-  }, [searchQuery, step, customer])
+  }, [searchQuery, step])
+
+  useEffect(() => {
+    if (step !== 'complete' || !completedPackage) return
+    if (pendingAutoPrintId.current !== completedPackage.id) return
+
+    pendingAutoPrintId.current = null
+    const pkg = completedPackage
+    const timer = window.setTimeout(() => {
+      markPrintedAfterPrint(() => {
+        markLabelsPrinted([pkg.id]).catch(() => {})
+        const summary = pkg.is_unidentified
+          ? `Unidentified package ${pkg.tracking_number} printed and queued.`
+          : `Receival complete — ${pkg.tracking_number}. Label printed.`
+        resetAll()
+        setSuccess(summary)
+        window.setTimeout(() => focusInputForSoftKeyboard(receivingSearchInputRef.current), 0)
+      })
+    }, 150)
+
+    return () => window.clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when auto-print receival completes
+  }, [step, completedPackage])
 
   function parseWeightLbs(): number | null {
     const lbs = parseFloat(weight)
@@ -492,6 +658,10 @@ export function ReceivePage() {
       setError('Select a customer before completing receival.')
       return false
     }
+    if (!unidentified && !carrierTracking.trim()) {
+      setError('Scan or enter the carrier tracking number.')
+      return false
+    }
     if (unidentified) {
       const hasLabelInfo =
         labelName.trim() || labelBossId.trim() || carrierTracking.trim()
@@ -518,7 +688,7 @@ export function ReceivePage() {
   function handleCompleteDirectly() {
     const unidentified = showUnidentifiedSection && !customer
     if (!validateReceiveReady(unidentified)) return
-    void handleConfirmReceive({ skipLabelView: true })
+    void handleConfirmReceive({ autoPrint: true })
   }
 
   async function handleReceive(e: React.FormEvent) {
@@ -531,8 +701,8 @@ export function ReceivePage() {
     goToPreview(true)
   }
 
-  async function handleConfirmReceive(options: { skipLabelView?: boolean } = {}) {
-    const { skipLabelView = false } = options
+  async function handleConfirmReceive(options: { autoPrint?: boolean } = {}) {
+    const { autoPrint = false } = options
     const lbs = parseWeightLbs()
     if (lbs == null) {
       setError('Enter a valid weight in lbs.')
@@ -594,21 +764,17 @@ export function ReceivePage() {
       loadRecentReceives()
       loadReceiveBatches()
 
-      if (skipLabelView) {
-        const tracking = savedPackage.tracking_number
-        const summary = savedPackage.is_unidentified
-          ? `Unidentified package ${tracking} queued.`
-          : `Receival complete — ${tracking}. Label added to print queue.`
-        resetAll()
-        setSuccess(summary)
-        window.setTimeout(() => scanInputRef.current?.focus(), 0)
-        return
-      }
-
       setCompletedPackage(savedPackage)
       if (previewUnidentified) {
         setCustomer(null)
       }
+
+      if (autoPrint) {
+        pendingAutoPrintId.current = savedPackage.id
+        setStep('complete')
+        return
+      }
+
       setStep('complete')
     } catch (err) {
       setError(getErrorMessage(err))
@@ -618,7 +784,13 @@ export function ReceivePage() {
   }
 
   const lbs = parseWeightLbs()
-  const canPreviewCustomer = Boolean(customer && shipper && lbs != null && lbs <= MAX_RECEIVE_LBS)
+  const canPreviewCustomer = Boolean(
+    customer &&
+      carrierTracking.trim() &&
+      shipper &&
+      lbs != null &&
+      lbs <= MAX_RECEIVE_LBS,
+  )
   const canPreviewUnidentified = Boolean(
     showUnidentifiedSection &&
       shipper &&
@@ -628,6 +800,17 @@ export function ReceivePage() {
   )
   const requiresCustomQuote =
     lbs != null && billableWeight(lbs) > MAX_AUTO_RATE_LBS && lbs <= MAX_RECEIVE_LBS
+
+  const progressStep = getReceiveProgressStep(
+    step,
+    customer,
+    showUnidentifiedSection,
+    carrierTracking,
+    shipper,
+    weight,
+    labelName,
+    labelBossId,
+  )
 
   function handlePrintNow() {
     if (!completedPackage) return
@@ -661,6 +844,8 @@ export function ReceivePage() {
         </button>
       </div>
 
+      <ReceiveProgressBar activeStep={progressStep} />
+
       {success && (
         <p className="no-print mb-4 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-3 text-sm text-boss-green">
           {success}
@@ -669,99 +854,122 @@ export function ReceivePage() {
 
       {step === 'idle' && (
         <div className="no-print mb-4 rounded-2xl border border-boss-gold/30 bg-card p-6">
-          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
-            <Barcode className="h-4 w-4" />
-            Scan carrier barcode
-          </h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
+              <UserCheck className="h-4 w-4" />
+              Find customer
+            </h2>
+            <div className="shrink-0 text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Batch</p>
+              {receiveBatchesLoading ? (
+                <p className="text-xs text-muted">Loading…</p>
+              ) : activeReceiveBatch ? (
+                <p className="font-mono text-sm font-bold text-boss-gold">{activeReceiveBatch.batch_code}</p>
+              ) : (
+                <p className="text-xs font-semibold text-amber-400">None</p>
+              )}
+            </div>
+          </div>
           <p className="mt-2 text-sm text-muted">
-            Scan the USPS, UPS, or FedEx label on the incoming package.
+            Look up the customer first, then scan the carrier barcode on the package.
           </p>
-          {!scanKeyboardReady && (
-            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-              Using a handheld scanner? Scan directly into the field below. To type manually, tap{' '}
-              <strong>Show keyboard</strong>.
-            </p>
-          )}
-          <div className="mt-4 space-y-3">
-            <div className="space-y-1.5">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <div className="flex-1 space-y-1.5">
               <label
-                htmlFor="carrier-tracking-scan"
+                htmlFor="idle-customer-search"
                 className="block text-xs font-medium uppercase tracking-wider text-muted"
               >
-                Carrier tracking number
+                Customer search
               </label>
               <div className="relative">
                 <input
-                  ref={scanInputRef}
-                  id="carrier-tracking-scan"
+                  ref={receivingSearchInputRef}
+                  id="idle-customer-search"
                   type="text"
-                  inputMode={scanKeyboardReady ? 'text' : 'none'}
+                  inputMode={receivingSearchKeyboardReady ? 'search' : 'none'}
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
-                  placeholder="Scan or type tracking number"
-                  value={scanValue}
-                  onChange={(e) => setScanValue(e.target.value)}
-                  onKeyDown={handleScanKeyDown}
-                  onFocus={(e) => {
-                    if (scanKeyboardReady) e.target.select()
-                  }}
-                  tabIndex={!scanKeyboardReady ? -1 : 0}
-                  className={`w-full rounded-lg border border-border bg-input px-4 py-3 pr-11 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold ${
-                    !scanKeyboardReady ? 'pointer-events-none' : ''
+                  placeholder="Name or BOSS ID"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+                  tabIndex={!receivingSearchKeyboardReady ? -1 : 0}
+                  className={`w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold ${
+                    !receivingSearchKeyboardReady ? 'pointer-events-none' : ''
                   }`}
                 />
-                {!scanKeyboardReady && (
+                {!receivingSearchKeyboardReady && (
                   <button
                     type="button"
                     onPointerDown={(e) => {
                       e.preventDefault()
-                      enableScanKeyboard()
+                      enableReceivingSearchKeyboard()
                     }}
                     className="absolute inset-0 z-10 flex w-full items-center gap-2 rounded-lg border border-border bg-input px-4 py-3 text-left text-muted/70"
                   >
                     <Keyboard className="h-4 w-4 shrink-0" />
-                    <span className="truncate">
-                      {scanValue.trim() || 'Tap to type tracking number…'}
-                    </span>
-                  </button>
-                )}
-                {scanValue.trim() && (
-                  <button
-                    type="button"
-                    onClick={clearScanValue}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted hover:text-foreground"
-                    aria-label="Clear scan field"
-                  >
-                    <X className="h-4 w-4" />
+                    <span className="truncate">{searchQuery.trim() || 'Tap to type…'}</span>
                   </button>
                 )}
               </div>
+              {searchLoading && <p className="text-xs text-muted">Searching…</p>}
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:self-end">
               <Button
                 type="button"
                 variant="outline"
                 onPointerDown={(e) => {
                   e.preventDefault()
-                  enableScanKeyboard()
+                  enableReceivingSearchKeyboard()
                 }}
-                className="inline-flex flex-1 items-center justify-center gap-2 !text-xs sm:flex-none"
+                className="inline-flex items-center justify-center gap-2 !text-xs"
               >
                 <Keyboard className="h-4 w-4" />
                 Show keyboard
               </Button>
               <Button
                 type="button"
-                fullWidth
-                disabled={!scanValue.trim()}
-                onClick={startFromScan}
-                className="sm:flex-1"
+                onClick={handleSearch}
+                disabled={searchLoading || searchQuery.trim().length < 2}
               >
-                Start receival from scan
+                Search
               </Button>
             </div>
           </div>
+          {!receivingSearchKeyboardReady && (
+            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+              Tap <strong>Show keyboard</strong> to type a customer name or BOSS ID.
+            </p>
+          )}
+          {!searchLoading && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+            <p className="mt-2 text-xs text-muted">
+              No customers match. Try another name or BOSS ID.
+            </p>
+          )}
+          {searchResults.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {searchResults.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => selectCustomer(c)}
+                    className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-gold/40"
+                  >
+                    <p className="font-semibold">{c.full_name}</p>
+                    <p className="text-sm text-muted">{c.shipping_id}</p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            onClick={startUnidentifiedReceiving}
+            className="mt-4 text-sm text-amber-400 hover:underline"
+          >
+            Can&apos;t match owner? Receive as unidentified
+          </button>
         </div>
       )}
 
@@ -838,7 +1046,7 @@ export function ReceivePage() {
                 </select>
               ) : (
                 <p className="mt-2 text-xs text-amber-400">
-                  Start a receive batch before scanning — the code prints on every label.
+                  Start a receive batch before receiving — the code prints on every label.
                 </p>
               )}
             </>
@@ -898,16 +1106,26 @@ export function ReceivePage() {
         <div className="space-y-6">
           <div
             className={`rounded-lg border p-4 ${
-              customer ? 'border-boss-green/30 bg-boss-green/5' : 'border-boss-gold/30 bg-boss-gold/5'
+              customer ? 'border-boss-green/30 bg-boss-green/5' : 'border-amber-500/30 bg-amber-500/5'
             }`}
           >
-            <p
-              className={`text-xs font-bold uppercase tracking-wider ${
-                customer ? 'text-boss-green' : 'text-boss-gold'
-              }`}
-            >
-              Active receival
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <p
+                className={`text-xs font-bold uppercase tracking-wider ${
+                  customer ? 'text-boss-green' : 'text-amber-800 dark:text-amber-200'
+                }`}
+              >
+                Active receival
+              </p>
+              {activeReceiveBatch && (
+                <div className="shrink-0 text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Batch</p>
+                  <p className="font-mono text-sm font-bold text-boss-gold">
+                    {activeReceiveBatch.batch_code}
+                  </p>
+                </div>
+              )}
+            </div>
             {customer ? (
               <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -927,6 +1145,9 @@ export function ReceivePage() {
                     setPreAlertMatches([])
                     setShowUnidentifiedSection(false)
                     setReceivingSearchKeyboardReady(false)
+                    setCarrierTracking('')
+                    setScanValue('')
+                    setStep('idle')
                   }}
                   className="text-xs text-muted hover:text-foreground"
                 >
@@ -934,151 +1155,25 @@ export function ReceivePage() {
                 </button>
               </div>
             ) : (
-              <div className="mt-4">
-                <p className="text-sm text-muted">Find customer to attach this package.</p>
-                {preAlertLookupLoading && (
-                  <p className="mt-2 text-sm text-boss-gold">Looking up pre-alerts…</p>
-                )}
-                {!preAlertLookupLoading && preAlertMatches.length > 0 && (
-                  <div className="mt-3 rounded-lg border border-boss-gold/30 bg-boss-gold/5 p-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-boss-gold">
-                      Pre-alert matches
-                    </p>
-                    <p className="mt-1 text-sm text-muted">
-                      Multiple customers pre-alerted this tracking — select the correct one.
-                    </p>
-                    <ul className="mt-3 space-y-2">
-                      {preAlertMatches.map((match) => (
-                        <li key={match.pre_alert.id}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCustomer(match.customer)
-                              setSuggestedPreAlert(match.pre_alert)
-                              setPreAlertMatches([])
-                              setShowUnidentifiedSection(false)
-                            }}
-                            className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-gold/40"
-                          >
-                            <p className="font-semibold">{match.customer.full_name}</p>
-                            <p className="text-sm text-muted">
-                              {match.customer.shipping_id} · pre-alert {match.pre_alert.carrier_tracking}
-                              {match.pre_alert.invoice_url ? ' · invoice on file' : ''}
-                            </p>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                  <div className="flex-1 space-y-1.5">
-                    <label
-                      htmlFor="receiving-customer-search"
-                      className="block text-xs font-medium uppercase tracking-wider text-muted"
-                    >
-                      Customer search
-                    </label>
-                    <div className="relative">
-                      <input
-                        ref={receivingSearchInputRef}
-                        id="receiving-customer-search"
-                        type="text"
-                        inputMode={receivingSearchKeyboardReady ? 'search' : 'none'}
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        placeholder="Name or BOSS ID"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
-                        tabIndex={!receivingSearchKeyboardReady ? -1 : 0}
-                        className={`w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold ${
-                          !receivingSearchKeyboardReady ? 'pointer-events-none' : ''
-                        }`}
-                      />
-                      {!receivingSearchKeyboardReady && (
-                        <button
-                          type="button"
-                          onPointerDown={(e) => {
-                            e.preventDefault()
-                            enableReceivingSearchKeyboard()
-                          }}
-                          className="absolute inset-0 z-10 flex w-full items-center gap-2 rounded-lg border border-border bg-input px-4 py-3 text-left text-muted/70"
-                        >
-                          <Keyboard className="h-4 w-4 shrink-0" />
-                          <span className="truncate">
-                            {searchQuery.trim() || 'Tap to type…'}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                    {searchLoading && (
-                      <p className="text-xs text-muted">Searching…</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2 sm:self-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onPointerDown={(e) => {
-                        e.preventDefault()
-                        enableReceivingSearchKeyboard()
-                      }}
-                      className="inline-flex items-center justify-center gap-2 !text-xs"
-                    >
-                      <Keyboard className="h-4 w-4" />
-                      Show keyboard
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={handleSearch}
-                      disabled={searchLoading || searchQuery.trim().length < 2}
-                    >
-                      Search
-                    </Button>
-                  </div>
-                </div>
-                {!receivingSearchKeyboardReady && (
-                  <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                    Tap <strong>Show keyboard</strong> to type a customer name or BOSS ID.
-                  </p>
-                )}
-                {!searchLoading &&
-                  searchQuery.trim().length >= 2 &&
-                  searchResults.length === 0 && (
-                    <p className="mt-2 text-xs text-muted">
-                      No customers match. Try another name or BOSS ID, or use the unidentified
-                      queue below.
-                    </p>
-                  )}
-                {searchResults.length > 0 && (
-                  <ul className="mt-3 space-y-2">
-                    {searchResults.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomer(c)
-                            setShowUnidentifiedSection(false)
-                            setSearchResults([])
-                            setReceivingSearchKeyboardReady(false)
-                          }}
-                          className="w-full rounded-lg border border-border bg-background p-3 text-left hover:border-boss-gold/40"
-                        >
-                          <p className="font-semibold">{c.full_name}</p>
-                          <p className="text-sm text-muted">{c.shipping_id}</p>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <p className="mt-2 text-sm text-muted">Receiving as unidentified — no customer attached.</p>
             )}
 
             {carrierTracking && (
               <p className="mt-3 font-mono text-sm">
                 <span className="text-muted">Carrier:</span> {carrierTracking}
+                {customer && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCarrierTracking('')
+                      setScanValue('')
+                      setSuggestedPreAlert(null)
+                    }}
+                    className="ml-3 text-xs font-sans text-muted hover:text-foreground"
+                  >
+                    Rescan
+                  </button>
+                )}
               </p>
             )}
             {suggestedPreAlert && customer && (
@@ -1089,6 +1184,105 @@ export function ReceivePage() {
             )}
           </div>
 
+          {customer && !carrierTracking.trim() && (
+            <div className="no-print rounded-2xl border border-boss-gold/30 bg-card p-6">
+              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-boss-gold">
+                <Barcode className="h-4 w-4" />
+                Scan carrier barcode
+              </h2>
+              <p className="mt-2 text-sm text-muted">
+                Scan the USPS, UPS, or FedEx label on the incoming package.
+              </p>
+              {!scanKeyboardReady && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  Using a handheld scanner? Scan directly into the field below. To type manually, tap{' '}
+                  <strong>Show keyboard</strong>.
+                </p>
+              )}
+              <div className="mt-4 space-y-3">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="carrier-tracking-scan"
+                    className="block text-xs font-medium uppercase tracking-wider text-muted"
+                  >
+                    Carrier tracking number
+                  </label>
+                  <div className="relative">
+                    <input
+                      ref={scanInputRef}
+                      id="carrier-tracking-scan"
+                      type="text"
+                      inputMode={scanKeyboardReady ? 'text' : 'none'}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      placeholder="Scan or type tracking number"
+                      value={scanValue}
+                      onChange={(e) => setScanValue(e.target.value)}
+                      onKeyDown={handleScanKeyDown}
+                      onFocus={(e) => {
+                        if (scanKeyboardReady) e.target.select()
+                      }}
+                      tabIndex={!scanKeyboardReady ? -1 : 0}
+                      className={`w-full rounded-lg border border-border bg-input px-4 py-3 pr-11 text-foreground placeholder:text-muted/60 focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold ${
+                        !scanKeyboardReady ? 'pointer-events-none' : ''
+                      }`}
+                    />
+                    {!scanKeyboardReady && (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => {
+                          e.preventDefault()
+                          enableScanKeyboard()
+                        }}
+                        className="absolute inset-0 z-10 flex w-full items-center gap-2 rounded-lg border border-border bg-input px-4 py-3 text-left text-muted/70"
+                      >
+                        <Keyboard className="h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                          {scanValue.trim() || 'Tap to type tracking number…'}
+                        </span>
+                      </button>
+                    )}
+                    {scanValue.trim() && (
+                      <button
+                        type="button"
+                        onClick={clearScanValue}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted hover:text-foreground"
+                        aria-label="Clear scan field"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onPointerDown={(e) => {
+                      e.preventDefault()
+                      enableScanKeyboard()
+                    }}
+                    className="inline-flex flex-1 items-center justify-center gap-2 !text-xs sm:flex-none"
+                  >
+                    <Keyboard className="h-4 w-4" />
+                    Show keyboard
+                  </Button>
+                  <Button
+                    type="button"
+                    fullWidth
+                    disabled={!scanValue.trim()}
+                    onClick={() => void startFromScan()}
+                    className="sm:flex-1"
+                  >
+                    Continue with tracking
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(customer ? carrierTracking.trim() : showUnidentifiedSection) && (
           <form
             onSubmit={
               customer
@@ -1230,16 +1424,6 @@ export function ReceivePage() {
               </div>
             )}
 
-            {!customer && !showUnidentifiedSection && (
-              <button
-                type="button"
-                onClick={() => setShowUnidentifiedSection(true)}
-                className="text-sm text-amber-400 hover:underline"
-              >
-                Can't match owner? Receive as unidentified
-              </button>
-            )}
-
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button type="button" variant="outline" onClick={resetAll} className="inline-flex items-center justify-center gap-2">
                 <RotateCcw className="h-4 w-4" />
@@ -1281,14 +1465,15 @@ export function ReceivePage() {
                   {submitLoading
                     ? 'Completing…'
                     : customer
-                      ? 'Complete receival'
+                      ? 'Print & complete'
                       : showUnidentifiedSection
-                        ? 'Complete unidentified receival'
-                        : 'Complete receival'}
+                        ? 'Print & complete unidentified'
+                        : 'Print & complete'}
                 </Button>
               </div>
             </div>
           </form>
+          )}
         </div>
       )}
 

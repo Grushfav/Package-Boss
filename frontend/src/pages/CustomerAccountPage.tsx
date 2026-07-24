@@ -473,6 +473,10 @@ export function CustomerAccountPage() {
           pkg={managePkg}
           onClose={() => setManagePkg(null)}
           onUpdated={(updated) => handlePackageUpdated({ ...updated, customer })}
+          onUnassigned={() => {
+            setManagePkg(null)
+            loadAccount()
+          }}
         />
       )}
 

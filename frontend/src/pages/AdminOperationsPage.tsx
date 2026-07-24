@@ -1,5 +1,5 @@
-import { Activity, BarChart3 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Activity, BarChart3, Landmark, Truck, UserPlus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Bar,
@@ -19,13 +19,22 @@ import {
 import {
   fetchActivityLog,
   fetchAdminOverview,
+  fetchBankTransferProofSubmissionStats,
+  fetchCustomerSignupStats,
+  fetchDeliveryRequestSubmissionStats,
   fetchPackagesByStatus,
   fetchPackagesTimeline,
   fetchPreAlertsVsReceives,
   fetchWeightDistribution,
 } from '../api/admin'
 import { IconBadge } from '../components/ui/IconBadge'
-import type { AdminOverview, AuditLogEntry } from '../types'
+import type {
+  AdminOverview,
+  AuditLogEntry,
+  BankTransferProofSubmissionStats,
+  CustomerSignupStats,
+  DeliveryRequestSubmissionStats,
+} from '../types'
 
 const CHART_COLORS = ['#eab308', '#ca8a04', '#22c55e', '#3b82f6', '#a855f7', '#64748b']
 
@@ -33,18 +42,119 @@ function formatShortDate(dateStr: string) {
   return dateStr.slice(5)
 }
 
+function formatPercent(value: number) {
+  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`
+}
+
+function CompareStat({
+  label,
+  count,
+  percent,
+  colorClass,
+}: {
+  label: string
+  count: number
+  percent: number
+  colorClass: string
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-background/50 p-4">
+      <div className="flex items-center gap-2">
+        <span className={`h-2.5 w-2.5 rounded-full ${colorClass}`} />
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
+      </div>
+      <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">{count}</p>
+      <p className="mt-1 text-sm font-semibold tabular-nums text-boss-green">{formatPercent(percent)}</p>
+    </div>
+  )
+}
+
 function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
       <p className="mt-2 text-3xl font-black text-boss-green">{value}</p>
-      {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
+      {sub && <p className="mt-1 text-xs text-boss-green">{sub}</p>}
+    </div>
+  )
+}
+
+function ReceivedPackagesCard({
+  today,
+  week,
+  month,
+}: {
+  today: number
+  week: number
+  month: number
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted">Packages received</p>
+      <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">{today}</p>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted">
+        <p>
+          7d{' '}
+          <span className="font-semibold tabular-nums text-boss-green">{week}</span>
+        </p>
+        <p>
+          30d{' '}
+          <span className="font-semibold tabular-nums text-boss-green">{month}</span>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function SubmissionStatsSection({
+  title,
+  description,
+  icon: Icon,
+  active,
+  today,
+  total,
+  activeLabel = 'Active requests',
+}: {
+  title: string
+  description: string
+  icon: typeof Truck
+  active?: number
+  today?: number
+  total?: number
+  activeLabel?: string
+}) {
+  return (
+    <div>
+      <div className="mt-3 flex items-center gap-2">
+        <IconBadge icon={Icon} size="sm" />
+        <div className="min-w-0">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-boss-green">{title}</h3>
+          <p className="truncate text-[11px] text-muted">{description}</p>
+        </div>
+      </div>
+      <div className="mt-3 rounded-xl border border-border bg-background/50 p-4 text-center">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted">{activeLabel}</p>
+        <p className="mt-1 text-3xl font-black tabular-nums text-boss-green">{active ?? '—'}</p>
+        <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-0.5 text-xs text-muted">
+          <p>
+            Today{' '}
+            <span className="font-semibold tabular-nums text-boss-green">{today ?? '—'}</span>
+          </p>
+          <p>
+            Total{' '}
+            <span className="font-semibold tabular-nums text-boss-green">{total ?? '—'}</span>
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
 
 export function AdminOperationsPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null)
+  const [customerStats, setCustomerStats] = useState<CustomerSignupStats | null>(null)
+  const [deliveryRequestStats, setDeliveryRequestStats] = useState<DeliveryRequestSubmissionStats | null>(null)
+  const [bankTransferProofStats, setBankTransferProofStats] = useState<BankTransferProofSubmissionStats | null>(null)
   const [timeline, setTimeline] = useState<{ date: string; count: number }[]>([])
   const [statuses, setStatuses] = useState<{ label: string; count: number }[]>([])
   const [weights, setWeights] = useState<{ label: string; count: number }[]>([])
@@ -53,12 +163,27 @@ export function AdminOperationsPage() {
 
   useEffect(() => {
     fetchAdminOverview().then(setOverview).catch(() => {})
+    fetchCustomerSignupStats().then(setCustomerStats).catch(() => {})
+    fetchDeliveryRequestSubmissionStats().then(setDeliveryRequestStats).catch(() => {})
+    fetchBankTransferProofSubmissionStats().then(setBankTransferProofStats).catch(() => {})
     fetchPackagesTimeline(30).then(setTimeline).catch(() => {})
     fetchPackagesByStatus().then((s) => setStatuses(s.map((x) => ({ label: x.label, count: x.count })))).catch(() => {})
     fetchWeightDistribution().then(setWeights).catch(() => {})
     fetchPreAlertsVsReceives(30).then(setCompare).catch(() => {})
     fetchActivityLog(8, 0).then((d) => setRecentActivity(d.activity)).catch(() => {})
   }, [])
+
+  const preAlertsVsReceived = useMemo(() => {
+    const preAlerts = compare.reduce((sum, day) => sum + day.pre_alerts, 0)
+    const received = compare.reduce((sum, day) => sum + day.received, 0)
+    const total = preAlerts + received
+    return {
+      preAlerts,
+      received,
+      preAlertsPercent: total > 0 ? (preAlerts / total) * 100 : 0,
+      receivedPercent: total > 0 ? (received / total) * 100 : 0,
+    }
+  }, [compare])
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -80,14 +205,82 @@ export function AdminOperationsPage() {
       </div>
 
       {overview && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <KpiCard label="Received today" value={overview.packages_today} />
-          <KpiCard label="Received 7d" value={overview.packages_7d} />
-          <KpiCard label="Received 30d" value={overview.packages_30d} />
-          <KpiCard label="Pending pre-alerts" value={overview.pending_pre_alerts} />
-          <KpiCard label="In transit" value={overview.in_transit} sub={`$${overview.revenue_30d_usd.toFixed(0)} revenue (30d)`} />
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <ReceivedPackagesCard
+              today={overview.packages_today}
+              week={overview.packages_7d}
+              month={overview.packages_30d}
+            />
+            <KpiCard label="Pending pre-alerts" value={overview.pending_pre_alerts} />
+            <KpiCard
+              label="In transit"
+              value={overview.in_transit}
+              sub={`$${overview.revenue_30d_usd.toFixed(0)} revenue (30d)`}
+            />
+          </div>
+
+        </>
       )}
+
+      <div className="mt-4 rounded-2xl border border-border bg-card p-6">
+        <div className="flex items-center gap-2.5">
+          <IconBadge icon={UserPlus} size="sm" />
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+              New customers
+            </h2>
+            <p className="text-xs text-muted">Customer signups (excludes staff accounts)</p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          {[
+            { label: 'Today', value: customerStats?.customers_today },
+            { label: 'Last 7 days', value: customerStats?.customers_7d },
+            { label: 'Total', value: customerStats?.customers_total },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-xl border border-border bg-background/50 p-4"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                {stat.label}
+              </p>
+              <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">
+                {stat.value ?? '—'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-border bg-card p-6">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+          Customer requests
+        </h2>
+        <p className="mt-1 text-xs text-muted">
+          All submissions by request date (any status)
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <SubmissionStatsSection
+            title="Delivery requests"
+            description="Home delivery requests submitted by customers"
+            icon={Truck}
+            active={deliveryRequestStats?.delivery_requests_active}
+            today={deliveryRequestStats?.delivery_requests_today}
+            total={deliveryRequestStats?.delivery_requests_total}
+          />
+          <SubmissionStatsSection
+            title="Payment proofs"
+            description="Bank transfer proof uploads submitted by customers"
+            icon={Landmark}
+            active={bankTransferProofStats?.bank_transfer_proofs_active}
+            today={bankTransferProofStats?.bank_transfer_proofs_today}
+            total={bankTransferProofStats?.bank_transfer_proofs_total}
+            activeLabel="Active proofs"
+          />
+        </div>
+      </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6">
@@ -111,18 +304,20 @@ export function AdminOperationsPage() {
           <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
             Pre-alerts vs packages received (30d)
           </h2>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={compare}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fontSize: 10 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip labelFormatter={(l) => String(l)} />
-                <Legend />
-                <Bar dataKey="pre_alerts" fill="#eab308" name="Pre-alerts" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="received" fill="#22c55e" name="Received" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <p className="mt-1 text-xs text-muted">Share of activity in the last 30 days</p>
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <CompareStat
+              label="Pre-alerts"
+              count={preAlertsVsReceived.preAlerts}
+              percent={preAlertsVsReceived.preAlertsPercent}
+              colorClass="bg-boss-gold"
+            />
+            <CompareStat
+              label="Received"
+              count={preAlertsVsReceived.received}
+              percent={preAlertsVsReceived.receivedPercent}
+              colorClass="bg-boss-green"
+            />
           </div>
         </div>
       </div>
@@ -130,15 +325,28 @@ export function AdminOperationsPage() {
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6">
           <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">Packages by status</h2>
-          <div className="mt-4 h-64">
+          <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={statuses} dataKey="count" nameKey="label" cx="50%" cy="50%" outerRadius={80} label>
+                <Pie
+                  data={statuses}
+                  dataKey="count"
+                  nameKey="label"
+                  cx="50%"
+                  cy="42%"
+                  outerRadius={72}
+                  label={({ count }) => (count > 0 ? String(count) : '')}
+                >
                   {statuses.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
+                <Legend
+                  verticalAlign="bottom"
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>

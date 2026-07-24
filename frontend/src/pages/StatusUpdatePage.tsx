@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, RefreshCw, ScanLine } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronUp, Package as PackageIcon, Plane, RefreshCw, ScanLine, Search, Shield, ShoppingBag } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
@@ -101,6 +102,64 @@ const QUEUE_PRESETS: QueuePreset[] = [
   },
 ]
 
+const PRESET_ICONS: Record<QueuePresetId, LucideIcon> = {
+  today: CalendarDays,
+  received: PackageIcon,
+  'in-transit': Plane,
+  customs: Shield,
+  ready: ShoppingBag,
+  custom: Search,
+}
+
+function QueuePresetCard({
+  label,
+  description,
+  icon: Icon,
+  count,
+  active,
+  onClick,
+}: {
+  label: string
+  description: string
+  icon: LucideIcon
+  count?: number | null
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex min-h-[7.5rem] flex-col rounded-2xl border p-4 text-left transition-all ${
+        active
+          ? 'border-boss-gold bg-boss-gold/10 shadow-sm ring-2 ring-boss-gold/25'
+          : 'border-border bg-card hover:border-boss-gold/40 hover:bg-background/40'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span
+          className={`inline-flex rounded-xl p-2 ${
+            active ? 'bg-boss-gold/20 text-boss-gold' : 'bg-background/80 text-muted group-hover:text-boss-gold'
+          }`}
+        >
+          <Icon className="h-4 w-4" strokeWidth={2.25} />
+        </span>
+        {count != null && (
+          <span className="text-2xl font-black tabular-nums leading-none text-boss-green">{count}</span>
+        )}
+      </div>
+      <p
+        className={`mt-3 text-xs font-bold uppercase tracking-wide ${
+          active ? 'text-boss-gold' : 'text-foreground'
+        }`}
+      >
+        {label}
+      </p>
+      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted">{description}</p>
+    </button>
+  )
+}
+
 export function StatusUpdatePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
@@ -116,7 +175,6 @@ export function StatusUpdatePage() {
   const activePreset: QueuePresetId = QUEUE_PRESETS.some((p) => p.id === presetParam)
     ? presetParam
     : 'custom'
-
   const activeQueue = QUEUE_PRESETS.find((p) => p.id === activePreset)
 
   const [fromDate, setFromDate] = useState(defaultFromDate)
@@ -127,7 +185,6 @@ export function StatusUpdatePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const [loadLoading, setLoadLoading] = useState(false)
-  const [bulkNote, setBulkNote] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkResult, setBulkResult] = useState<BulkStatusResult | null>(null)
   const [departResult, setDepartResult] = useState<{ updated: number; reference: string } | null>(
@@ -195,69 +252,70 @@ export function StatusUpdatePage() {
     return null
   }
 
-  function presetLabel(preset: QueuePreset): string {
-    const count = presetCount(preset)
-    return count != null ? `${preset.label} (${count})` : preset.label
-  }
-
   const selectedCustomsPackages = useMemo(
     () => packages.filter((pkg) => selectedIds.has(pkg.id) && pkg.status === 'customs'),
     [packages, selectedIds],
   )
 
-  const applyPreset = useCallback(
-    (preset: QueuePresetId) => {
-      if (preset === 'custom') {
-        setSearchParams({})
-        return
+  const loadPackages = useCallback(
+    async (from: string, to: string, status: string) => {
+      setError('')
+      setBulkResult(null)
+      setDepartResult(null)
+      setActionSuccess('')
+      setLoadLoading(true)
+      try {
+        const { packages: pkgs, total: count } = await fetchWarehousePackages({
+          from,
+          to,
+          status: status || undefined,
+        })
+        setPackages(pkgs)
+        setTotal(count)
+        setSelectedIds(new Set())
+        setReviewOpen(false)
+      } catch (err) {
+        setError(getErrorMessage(err))
+        setPackages([])
+        setTotal(0)
+        setSelectedIds(new Set())
+      } finally {
+        setLoadLoading(false)
       }
-      const config = QUEUE_PRESETS.find((p) => p.id === preset)
-      if (!config) return
-      setFromDate(config.from ? config.from(today) : defaultFromDate())
-      setToDate(config.to ? config.to(today) : today)
-      setFilterStatus(config.status ?? '')
-      setSearchParams({ preset })
     },
-    [today, setSearchParams],
+    [],
   )
 
   const handleLoad = useCallback(async () => {
-    setError('')
-    setBulkResult(null)
-    setDepartResult(null)
-    setActionSuccess('')
-    setLoadLoading(true)
-    try {
-      const { packages: pkgs, total: count } = await fetchWarehousePackages({
-        from: fromDate,
-        to: toDate,
-        status: filterStatus || undefined,
-      })
-      setPackages(pkgs)
-      setTotal(count)
-      setSelectedIds(new Set())
-      setReviewOpen(false)
-    } catch (err) {
-      setError(getErrorMessage(err))
+    await loadPackages(fromDate, toDate, filterStatus)
+  }, [fromDate, toDate, filterStatus, loadPackages])
+
+  function selectPreset(preset: QueuePresetId) {
+    if (preset === 'custom') {
+      setSearchParams({})
       setPackages([])
       setTotal(0)
       setSelectedIds(new Set())
-    } finally {
-      setLoadLoading(false)
+      return
     }
-  }, [fromDate, toDate, filterStatus])
+    setSearchParams({ preset })
+  }
 
   useEffect(() => {
-    if (activePreset !== 'custom') {
-      applyPreset(activePreset)
-    }
-  }, [activePreset, applyPreset])
+    if (activePreset === 'custom') return
+    const config = QUEUE_PRESETS.find((p) => p.id === activePreset)
+    if (!config) return
 
-  useEffect(() => {
-    if (activePreset !== 'custom') {
-      handleLoad()
-    }
-  }, [fromDate, toDate, filterStatus, activePreset, handleLoad])
+    const nextFrom = config.from ? config.from(today) : defaultFromDate()
+    const nextTo = config.to ? config.to(today) : today
+    const nextStatus = config.status ?? ''
+
+    setFromDate(nextFrom)
+    setToDate(nextTo)
+    setFilterStatus(nextStatus)
+    setShowFilters(false)
+    void loadPackages(nextFrom, nextTo, nextStatus)
+  }, [activePreset, today, loadPackages])
 
   function toggleSelectAll(checked: boolean) {
     setSelectedIds(checked ? new Set(packages.map((p) => p.id)) : new Set())
@@ -336,14 +394,12 @@ export function StatusUpdatePage() {
           shipmentId: batchMode === 'existing' ? batchShipmentId : undefined,
           reference: batchMode === 'new' ? batchReference.trim() : undefined,
           departureDate: batchMode === 'new' ? batchDepartureDate : undefined,
-          note: bulkNote || undefined,
         })
         setDepartResult({
           updated: result.updated,
           reference: result.shipment.reference,
         })
         setReviewOpen(false)
-        setBulkNote('')
         setBatchReference('')
         setBatchDepartureDate(today)
         await handleLoad()
@@ -354,11 +410,9 @@ export function StatusUpdatePage() {
       const result = await bulkUpdatePackageStatus({
         packageIds: ids,
         status: targetStatus,
-        note: bulkNote || undefined,
       })
       setBulkResult(result)
       setReviewOpen(false)
-      setBulkNote('')
       await handleLoad()
       refreshCounts()
     } catch (err) {
@@ -537,73 +591,49 @@ export function StatusUpdatePage() {
         {scanSuccess && <p className="mt-3 text-sm text-boss-gold">{scanSuccess}</p>}
       </form>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {QUEUE_PRESETS.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            onClick={() => applyPreset(preset.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              activePreset === preset.id
-                ? 'bg-boss-gold text-black'
-                : 'border border-border bg-card text-muted hover:border-boss-gold/40'
-            }`}
-            title={preset.description}
-          >
-            {presetLabel(preset)}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => applyPreset('custom')}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-            activePreset === 'custom'
-              ? 'bg-boss-gold text-black'
-              : 'border border-border bg-card text-muted hover:border-boss-gold/40'
-          }`}
-        >
-          Search
-        </button>
+      <div className="mb-6">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Work queues</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {QUEUE_PRESETS.map((preset) => (
+            <QueuePresetCard
+              key={preset.id}
+              label={preset.label}
+              description={preset.description}
+              icon={PRESET_ICONS[preset.id]}
+              count={presetCount(preset)}
+              active={activePreset === preset.id}
+              onClick={() => selectPreset(preset.id)}
+            />
+          ))}
+          <QueuePresetCard
+            label="Search"
+            description="Filter by date range and any status"
+            icon={PRESET_ICONS.custom}
+            active={activePreset === 'custom'}
+            onClick={() => selectPreset('custom')}
+          />
+        </div>
       </div>
 
-      {activeQueue && (
-        <p className="mb-4 text-sm text-muted">{activeQueue.description}</p>
-      )}
-
-      <div className="rounded-2xl border border-border bg-card">
-        <button
-          type="button"
-          onClick={() => setShowFilters((v) => !v)}
-          className="flex w-full items-center justify-between p-4 text-left"
-        >
-          <span className="text-sm font-bold uppercase tracking-wide text-boss-gold">
-            {activePreset === 'custom' ? 'Filter packages' : 'Adjust date range'}
-          </span>
-          {showFilters || activePreset === 'custom' ? (
-            <ChevronUp className="h-5 w-5 text-muted" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-muted" />
-          )}
-        </button>
-        {(showFilters || activePreset === 'custom') && (
-          <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2 lg:grid-cols-4">
+      {activePreset === 'custom' && (
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="border-b border-border p-4">
+            <span className="text-sm font-bold uppercase tracking-wide text-boss-gold">
+              Filter packages
+            </span>
+          </div>
+          <div className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <Input
               label="Received from"
               type="date"
               value={fromDate}
-              onChange={(e) => {
-                setSearchParams({})
-                setFromDate(e.target.value)
-              }}
+              onChange={(e) => setFromDate(e.target.value)}
             />
             <Input
               label="Received to"
               type="date"
               value={toDate}
-              onChange={(e) => {
-                setSearchParams({})
-                setToDate(e.target.value)
-              }}
+              onChange={(e) => setToDate(e.target.value)}
             />
             <div className="space-y-1.5">
               <label className="block text-xs font-medium uppercase tracking-wider text-muted">
@@ -611,10 +641,7 @@ export function StatusUpdatePage() {
               </label>
               <select
                 value={filterStatus}
-                onChange={(e) => {
-                  setSearchParams({})
-                  setFilterStatus(e.target.value)
-                }}
+                onChange={(e) => setFilterStatus(e.target.value)}
                 className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold"
               >
                 <option value="">All statuses</option>
@@ -631,8 +658,79 @@ export function StatusUpdatePage() {
               </Button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {activePreset !== 'custom' && (
+        <div className="rounded-2xl border border-border bg-card">
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className="flex w-full items-center justify-between p-4 text-left"
+          >
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wide text-boss-gold">
+                {activeQueue?.label ?? 'Queue'}
+              </p>
+              {activeQueue && (
+                <p className="mt-0.5 text-xs text-muted">{activeQueue.description}</p>
+              )}
+            </div>
+            {showFilters ? (
+              <ChevronUp className="h-5 w-5 shrink-0 text-muted" />
+            ) : (
+              <ChevronDown className="h-5 w-5 shrink-0 text-muted" />
+            )}
+          </button>
+          {showFilters && (
+            <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Input
+                label="Received from"
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setSearchParams({})
+                  setFromDate(e.target.value)
+                }}
+              />
+              <Input
+                label="Received to"
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setSearchParams({})
+                  setToDate(e.target.value)
+                }}
+              />
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium uppercase tracking-wider text-muted">
+                  Status filter
+                </label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setSearchParams({})
+                    setFilterStatus(e.target.value)
+                  }}
+                  className="w-full rounded-lg border border-border bg-input px-4 py-3 text-foreground focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold"
+                >
+                  <option value="">All statuses</option>
+                  {WORKFLOW_STATUSES.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end">
+                <Button type="button" fullWidth onClick={handleLoad} disabled={loadLoading}>
+                  {loadLoading ? 'Loading…' : 'Reload queue'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {actionSuccess && (
         <p className="mt-4 rounded-lg border border-boss-green/30 bg-boss-green/10 px-4 py-3 text-sm text-boss-green">
@@ -644,7 +742,142 @@ export function StatusUpdatePage() {
         <p className="mt-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
       )}
 
-      {packages.length > 0 && (
+      {activePreset !== 'custom' && loadLoading && (
+        <p className="mt-6 text-center text-sm text-muted">Loading queue…</p>
+      )}
+
+      {activePreset !== 'custom' && !loadLoading && (
+        <div className="mt-6 rounded-2xl border border-border bg-card p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted">
+              {total} package{total === 1 ? '' : 's'}
+              {total > packages.length && ` (showing ${packages.length})`}
+              {packages.length > 0 && (
+                <>
+                  {' · '}
+                  {selectedIds.size} selected
+                </>
+              )}
+            </p>
+            {packages.length > 0 && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected
+                  }}
+                  onChange={(e) => toggleSelectAll(e.target.checked)}
+                  className="h-4 w-4 rounded border-border accent-boss-gold"
+                />
+                Select all in queue
+              </label>
+            )}
+          </div>
+
+          {packages.length === 0 ? (
+            <p className="mt-6 text-center text-sm text-muted">No packages in this queue.</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[960px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs uppercase tracking-wider text-muted">
+                  <th className="pb-3 pr-3 w-10" />
+                  <th className="pb-3 pr-3">Tracking</th>
+                  <th className="pb-3 pr-3">Customer</th>
+                  <th className="pb-3 pr-3">Departure</th>
+                  <th className="pb-3 pr-3">Status</th>
+                  <th className="pb-3 pr-3">Invoice</th>
+                  <th className="pb-3 pr-3">Billing</th>
+                  <th className="pb-3 pr-3">Age</th>
+                  <th className="pb-3 pr-3">Weight</th>
+                  <th className="pb-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {packages.map((pkg) => {
+                  const days = daysInCurrentStatus(pkg)
+                  return (
+                    <tr key={pkg.id} className="border-b border-border/60 last:border-0">
+                      <td className="py-3 pr-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(pkg.id)}
+                          onChange={() => togglePackage(pkg.id)}
+                          className="h-4 w-4 rounded border-border accent-boss-gold"
+                        />
+                      </td>
+                      <td className="py-3 pr-3">
+                        <p className="font-mono font-semibold">{pkg.tracking_number}</p>
+                        {pkg.carrier_tracking && (
+                          <p className="text-xs text-muted">{pkg.carrier_tracking}</p>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3">
+                        {pkg.customer ? (
+                          <>
+                            <p className="font-medium">{pkg.customer.full_name}</p>
+                            <p className="text-xs text-muted">{pkg.customer.shipping_id}</p>
+                          </>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3 text-xs">
+                        {pkg.shipment ? (
+                          <span title={pkg.shipment.departure_date}>{pkg.shipment.reference}</span>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <StatusBadge status={pkg.status} label={pkg.status_label} />
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span
+                          className={`text-xs ${
+                            INVOICE_BADGE_CLASS[pkg.invoice_status ?? 'pending'] ?? 'text-muted'
+                          }`}
+                        >
+                          {pkg.invoice_status_label ?? '—'}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className="text-xs">{pkg.billing_status_label ?? '—'}</span>
+                        {pkg.total_due_jmd != null && pkg.billing_status !== 'pending' && (
+                          <p className="text-xs font-semibold">{formatJmd(pkg.total_due_jmd)}</p>
+                        )}
+                      </td>
+                      <td className="py-3 pr-3 text-muted">
+                        {days != null ? `${days}d` : '—'}
+                      </td>
+                      <td className="py-3 pr-3">{pkg.billable_weight_lbs ?? '—'} lbs</td>
+                      <td className="py-3">
+                        <button
+                          type="button"
+                          disabled={!canManagePackages}
+                          title={
+                            canManagePackages
+                              ? undefined
+                              : 'Requires billing or invoice request permission'
+                          }
+                          onClick={() => setStaffPackage(pkg)}
+                          className="text-xs font-semibold text-boss-gold hover:underline disabled:cursor-not-allowed disabled:text-muted disabled:no-underline"
+                        >
+                          Manage
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activePreset === 'custom' && packages.length > 0 && (
         <div className="mt-6 rounded-2xl border border-border bg-card p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted">
@@ -765,7 +998,7 @@ export function StatusUpdatePage() {
         </div>
       )}
 
-      {packages.length === 0 && !loadLoading && total === 0 && (
+      {activePreset === 'custom' && packages.length === 0 && !loadLoading && total === 0 && (
         <p className="mt-6 text-center text-sm text-muted">
           Choose a work queue or load packages for a date range.
         </p>
@@ -886,17 +1119,7 @@ export function StatusUpdatePage() {
                       )}
                     </>
                   )}
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="min-w-[200px] flex-1">
-                      <Input
-                        label="Note (optional)"
-                        placeholder={
-                          isTransitAdvance ? 'Internal note for this departure' : 'Flight departed, etc.'
-                        }
-                        value={bulkNote}
-                        onChange={(e) => setBulkNote(e.target.value)}
-                      />
-                    </div>
+                  <div className="flex flex-wrap items-center gap-3">
                     <Button
                       type="button"
                       disabled={bulkLoading}
@@ -1010,6 +1233,13 @@ export function StatusUpdatePage() {
             setPackages((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)))
             setStaffPackage(updated)
             if (scanPackage?.id === updated.id) setScanPackage(updated)
+          }}
+          onUnassigned={() => {
+            const removedId = staffPackage.id
+            setStaffPackage(null)
+            setPackages((prev) => prev.filter((p) => p.id !== removedId))
+            if (scanPackage?.id === removedId) setScanPackage(null)
+            refreshCounts()
           }}
         />
       )}

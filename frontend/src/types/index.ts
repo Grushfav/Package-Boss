@@ -361,7 +361,30 @@ export interface AdminOverview {
   packages_30d: number
   pending_pre_alerts: number
   in_transit: number
+  customers_today: number
+  customers_7d: number
+  customers_total: number
   revenue_30d_usd: number
+}
+
+export interface CustomerSignupStats {
+  customers_today: number
+  customers_7d: number
+  customers_total: number
+}
+
+export interface DeliveryRequestSubmissionStats {
+  delivery_requests_active: number
+  delivery_requests_today: number
+  delivery_requests_7d: number
+  delivery_requests_total: number
+}
+
+export interface BankTransferProofSubmissionStats {
+  bank_transfer_proofs_active: number
+  bank_transfer_proofs_today: number
+  bank_transfer_proofs_7d: number
+  bank_transfer_proofs_total: number
 }
 
 export interface PreAlert {

@@ -246,6 +246,98 @@ def receive_unidentified_package(
     return package
 
 
+def unassign_package_from_customer(
+    package: Package,
+    *,
+    note: str | None = None,
+) -> tuple[Package, User]:
+    from app.constants import BANK_TRANSFER_PROOF_OPEN_STATUSES, DELIVERY_REQUEST_OPEN_STATUSES
+    from app.models.bank_transfer_proof import BankTransferProof, BankTransferProofPackage
+    from app.models.delivery_request import DeliveryRequest, DeliveryRequestPackage
+    from app.models.pre_alert import PreAlert
+    from app.services.unidentified_service import ensure_unidentified_holder, is_unidentified_holder
+
+    customer = package.customer
+    if not customer or is_unidentified_holder(customer):
+        raise ValueError("Package is not assigned to a customer")
+
+    if package.status == "unidentified":
+        raise ValueError("Package is already in the unidentified queue")
+
+    if package.status == "delivered":
+        raise ValueError("Delivered packages cannot be unassigned from a customer")
+
+    if package.billing_status == "paid":
+        raise ValueError(
+            "Paid packages cannot be unassigned. Contact support if this was recorded in error."
+        )
+
+    proof_link = (
+        BankTransferProofPackage.query.join(BankTransferProof)
+        .filter(
+            BankTransferProofPackage.package_id == package.id,
+            BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES),
+        )
+        .first()
+    )
+    if proof_link:
+        raise ValueError(
+            "Package is on a pending bank transfer proof. Reject or confirm the proof before unassigning."
+        )
+
+    delivery_link = (
+        DeliveryRequestPackage.query.join(DeliveryRequest)
+        .filter(
+            DeliveryRequestPackage.package_id == package.id,
+            DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES),
+        )
+        .first()
+    )
+    if delivery_link:
+        request = delivery_link.delivery_request
+        db.session.delete(delivery_link)
+        db.session.flush()
+        if DeliveryRequestPackage.query.filter_by(delivery_request_id=request.id).count() == 0:
+            request.status = "cancelled"
+            request.cancelled_at = datetime.utcnow()
+
+    if package.shipment_id:
+        package.shipment_id = None
+
+    pre_alert = PreAlert.query.filter_by(package_id=package.id).first()
+    if pre_alert:
+        pre_alert.package_id = None
+        pre_alert.status = "pending"
+        pre_alert.updated_at = datetime.utcnow()
+
+    package.delivery_address_id = None
+    if package.billing_status == "ready":
+        package.billing_status = "pending"
+        package.total_due_jmd = None
+
+    holder = ensure_unidentified_holder()
+    previous_shipping_id = customer.shipping_id
+    previous_name = customer.full_name
+
+    package.customer_id = holder.id
+    event_note = (
+        note
+        or f"Removed from {previous_shipping_id} ({previous_name}) — returned to unidentified queue"
+    )
+    db.session.add(
+        PackageEvent(
+            package_id=package.id,
+            status="unidentified",
+            note=event_note,
+        )
+    )
+    package.status = "unidentified"
+    package.updated_at = datetime.utcnow()
+
+    db.session.commit()
+    return package, customer
+
+
 def assign_unidentified_package(
     package: Package, customer: User, note: str | None = None
 ) -> tuple[Package, PreAlert | None]:

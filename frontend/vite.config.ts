@@ -58,6 +58,10 @@ export default defineConfig({
             handler: 'NetworkOnly',
           },
           {
+            urlPattern: /^\/api\/admin\/stats(?:\/|$)/i,
+            handler: 'NetworkOnly',
+          },
+          {
             urlPattern: /^\/api\/.*/i,
             handler: 'NetworkFirst',
             options: {

@@ -8,6 +8,9 @@ from app.extensions import db
 from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.services.admin_stats_service import (
+    get_bank_transfer_proof_submission_stats,
+    get_customer_signup_stats,
+    get_delivery_request_submission_stats,
     get_overview,
     get_packages_by_status,
     get_packages_timeline,
@@ -45,6 +48,24 @@ def _send_clerk_invite(user: User) -> None:
 @admin_required()
 def stats_overview():
     return jsonify(get_overview())
+
+
+@admin_bp.route("/admin/stats/customer-signups", methods=["GET"])
+@admin_required()
+def stats_customer_signups():
+    return jsonify(get_customer_signup_stats())
+
+
+@admin_bp.route("/admin/stats/delivery-requests", methods=["GET"])
+@admin_required()
+def stats_delivery_requests():
+    return jsonify(get_delivery_request_submission_stats())
+
+
+@admin_bp.route("/admin/stats/bank-transfer-proofs", methods=["GET"])
+@admin_required()
+def stats_bank_transfer_proofs():
+    return jsonify(get_bank_transfer_proof_submission_stats())
 
 
 @admin_bp.route("/admin/stats/packages-timeline", methods=["GET"])

@@ -5,10 +5,12 @@ import {
   releasePackagesFromCustoms,
   requestPackageInvoice,
   setPackageDeliveryAddress,
+  unassignPackageFromCustomer,
   updatePackageBilling,
 } from '../../api/staff'
 import { useAuth } from '../../context/AuthContext'
 import { clerkHasPermission } from '../../lib/clerkPermissions'
+import { isAdmin } from '../../lib/roles'
 import { formatJmd } from '../../lib/money'
 import { packageHasAdditionalFees } from '../../lib/packageBilling'
 import { RecordPaymentForm } from './RecordPaymentForm'
@@ -20,12 +22,14 @@ interface PackageStaffModalProps {
   pkg: Package
   onClose: () => void
   onUpdated: (pkg: Package) => void
+  onUnassigned?: () => void
 }
 
-export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModalProps) {
+export function PackageStaffModal({ pkg, onClose, onUpdated, onUnassigned }: PackageStaffModalProps) {
   const { user } = useAuth()
   const perms = user?.permissions || user?.clerk_permissions
   const role = user?.role
+  const adminUser = isAdmin(role)
   const canRequestInvoice = clerkHasPermission(perms, 'invoice_request', role)
   const canManageBilling = clerkHasPermission(perms, 'billing', role)
 
@@ -41,7 +45,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
   )
 
   const defaultTab = tabs.find((t) => t.enabled)?.id ?? 'invoice'
-  const [tab, setTab] = useState<'invoice' | 'billing' | 'payment' | 'delivery'>(defaultTab)
+  const [tab, setTab] = useState<'invoice' | 'billing' | 'payment' | 'delivery' | 'remove'>(defaultTab)
   const [note, setNote] = useState('')
   const [channel, setChannel] = useState<'email' | 'whatsapp' | 'both'>('email')
   const [error, setError] = useState('')
@@ -65,6 +69,30 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
   }, [pkg.customer?.shipping_id])
 
   const [success, setSuccess] = useState('')
+  const [unassignNote, setUnassignNote] = useState('')
+  const [confirmUnassign, setConfirmUnassign] = useState(false)
+
+  const canUnassignCustomer =
+    adminUser &&
+    pkg.status !== 'unidentified' &&
+    Boolean(pkg.customer?.shipping_id)
+
+  async function handleUnassignCustomer() {
+    setError('')
+    setSuccess('')
+    setLoading(true)
+    try {
+      await unassignPackageFromCustomer(pkg.id, unassignNote.trim() || undefined)
+      setConfirmUnassign(false)
+      setUnassignNote('')
+      onUnassigned?.()
+      onClose()
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function handleRequestInvoice() {
     setError('')
@@ -164,6 +192,19 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
               {t.label}
             </button>
           ))}
+          {canUnassignCustomer && (
+            <button
+              type="button"
+              onClick={() => setTab('remove')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase ${
+                tab === 'remove'
+                  ? 'bg-red-500/15 text-red-300'
+                  : 'text-red-400/80 hover:text-red-300'
+              }`}
+            >
+              Remove
+            </button>
+          )}
         </div>
 
         {!canRequestInvoice && !canManageBilling && (
@@ -402,6 +443,53 @@ export function PackageStaffModal({ pkg, onClose, onUpdated }: PackageStaffModal
                   <p className="mt-1 text-muted">{addr.formatted}</p>
                 </button>
               ))
+            )}
+          </div>
+        )}
+
+        {tab === 'remove' && canUnassignCustomer && (
+          <div className="mt-4 space-y-4 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+            <p className="text-sm font-semibold text-red-300">Wrong customer attached?</p>
+            <p className="text-sm text-muted">
+              Remove this package from {pkg.customer?.full_name} ({pkg.customer?.shipping_id}) and
+              return it to the unidentified queue for reassignment.
+            </p>
+            {!confirmUnassign ? (
+              <Button
+                variant="outline"
+                className="!border-red-500/40 !text-red-300 hover:!bg-red-500/10"
+                onClick={() => setConfirmUnassign(true)}
+              >
+                Remove customer
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <Input
+                  label="Reason (optional)"
+                  value={unassignNote}
+                  onChange={(e) => setUnassignNote(e.target.value)}
+                  placeholder="Assigned to wrong BOSS ID during receive"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setConfirmUnassign(false)
+                      setUnassignNote('')
+                    }}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="!bg-red-600 hover:!bg-red-500"
+                    onClick={handleUnassignCustomer}
+                    disabled={loading}
+                  >
+                    {loading ? 'Removing…' : 'Confirm remove customer'}
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         )}

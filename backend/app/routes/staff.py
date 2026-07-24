@@ -13,6 +13,7 @@ from app.services.audit_service import (
     ACTION_PACKAGE_RECEIVED,
     ACTION_PACKAGE_RECEIVED_UNIDENTIFIED,
     ACTION_PACKAGE_STATUS_UPDATED,
+    ACTION_PACKAGE_UNASSIGNED,
     log_package_action,
 )
 from app.services.delivery_request_service import (
@@ -62,6 +63,7 @@ from app.services.payment_service import (
 )
 from app.services.package_service import (
     assign_unidentified_package,
+    unassign_package_from_customer,
     bulk_update_package_status,
     get_warehouse_summary,
     list_clerk_receives_today,
@@ -76,7 +78,7 @@ from app.services.package_service import (
 )
 from app.services.package_search_service import MIN_PACKAGE_SEARCH_QUERY_LEN, search_packages
 from app.services.pre_alert_service import find_pending_pre_alerts_by_tracking
-from app.utils.auth_decorators import get_user_from_jwt, permission_required, warehouse_required
+from app.utils.auth_decorators import admin_required, get_user_from_jwt, permission_required, warehouse_required
 from app.services.clerk_permission_service import assert_status_transition_allowed, clerk_has_permission
 from app.services.unidentified_service import customer_query
 
@@ -770,6 +772,55 @@ def assign_unidentified(package_id: str):
     if matched_pre_alert:
         response["pre_alert_matched"] = matched_pre_alert.to_dict()
     return jsonify(response)
+
+
+@staff_bp.route("/staff/packages/<package_id>/unassign", methods=["POST"])
+@admin_required()
+def unassign_package_customer(package_id: str):
+    import uuid as uuid_lib
+
+    data = request.get_json(silent=True) or {}
+    note = (data.get("note") or "").strip() or None
+    if note and len(note) > 500:
+        return jsonify({"error": "note must be 500 characters or fewer"}), 400
+
+    try:
+        pid = uuid_lib.UUID(package_id)
+    except ValueError:
+        return jsonify({"error": "Invalid package ID"}), 400
+
+    package = Package.query.get(pid)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    previous_customer = package.customer
+
+    try:
+        package, previous_customer = unassign_package_from_customer(package, note=note)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    actor = get_user_from_jwt()
+    if actor:
+        log_package_action(
+            actor,
+            ACTION_PACKAGE_UNASSIGNED,
+            str(package.id),
+            f"Unassigned {package.tracking_number} from {previous_customer.shipping_id} ({previous_customer.full_name})",
+            metadata={
+                "tracking_number": package.tracking_number,
+                "previous_shipping_id": previous_customer.shipping_id,
+                "previous_customer_id": str(previous_customer.id),
+            },
+        )
+
+    pkg_data = package.to_dict(include_events=True, include_photos=True)
+    return jsonify(
+        {
+            "package": pkg_data,
+            "previous_customer": _customer_dict(previous_customer),
+        }
+    )
 
 
 @staff_bp.route("/staff/packages", methods=["GET"])

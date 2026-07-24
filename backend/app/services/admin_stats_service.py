@@ -2,10 +2,18 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import case, func
 
-from app.constants import STATUS_LABELS
+from app.constants import (
+    BANK_TRANSFER_PROOF_OPEN_STATUSES,
+    DELIVERY_REQUEST_OPEN_STATUSES,
+    STATUS_LABELS,
+    UNIDENTIFIED_HOLDER_SHIPPING_ID,
+)
 from app.extensions import db
+from app.models.bank_transfer_proof import BankTransferProof
+from app.models.delivery_request import DeliveryRequest
 from app.models.package import Package
 from app.models.pre_alert import PreAlert
+from app.models.user import User
 
 
 def _utc_now() -> datetime:
@@ -14,6 +22,58 @@ def _utc_now() -> datetime:
 
 def _start_of_day(dt: datetime) -> datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _customer_signups_query():
+    return User.query.filter(
+        User.role == "customer",
+        User.shipping_id != UNIDENTIFIED_HOLDER_SHIPPING_ID,
+    )
+
+
+def get_customer_signup_stats() -> dict:
+    now = _utc_now()
+    today_start = _start_of_day(now)
+    week_start = today_start - timedelta(days=7)
+
+    base = _customer_signups_query()
+    return {
+        "customers_today": base.filter(User.created_at >= today_start).count(),
+        "customers_7d": base.filter(User.created_at >= week_start).count(),
+        "customers_total": base.count(),
+    }
+
+
+def get_delivery_request_submission_stats() -> dict:
+    now = _utc_now()
+    today_start = _start_of_day(now)
+    week_start = today_start - timedelta(days=7)
+
+    base = DeliveryRequest.query
+    return {
+        "delivery_requests_active": base.filter(
+            DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES)
+        ).count(),
+        "delivery_requests_today": base.filter(DeliveryRequest.requested_at >= today_start).count(),
+        "delivery_requests_7d": base.filter(DeliveryRequest.requested_at >= week_start).count(),
+        "delivery_requests_total": base.count(),
+    }
+
+
+def get_bank_transfer_proof_submission_stats() -> dict:
+    now = _utc_now()
+    today_start = _start_of_day(now)
+    week_start = today_start - timedelta(days=7)
+
+    base = BankTransferProof.query
+    return {
+        "bank_transfer_proofs_active": base.filter(
+            BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES)
+        ).count(),
+        "bank_transfer_proofs_today": base.filter(BankTransferProof.submitted_at >= today_start).count(),
+        "bank_transfer_proofs_7d": base.filter(BankTransferProof.submitted_at >= week_start).count(),
+        "bank_transfer_proofs_total": base.count(),
+    }
 
 
 def get_overview() -> dict:
@@ -27,6 +87,10 @@ def get_overview() -> dict:
     packages_30d = Package.query.filter(Package.received_at >= month_start).count()
     pending_pre_alerts = PreAlert.query.filter_by(status="pending").count()
     in_transit = Package.query.filter_by(status="in_transit").count()
+
+    customer_stats = get_customer_signup_stats()
+    delivery_request_stats = get_delivery_request_submission_stats()
+    bank_transfer_proof_stats = get_bank_transfer_proof_submission_stats()
 
     revenue_30d = (
         db.session.query(
@@ -53,6 +117,9 @@ def get_overview() -> dict:
         "packages_30d": packages_30d,
         "pending_pre_alerts": pending_pre_alerts,
         "in_transit": in_transit,
+        **customer_stats,
+        **delivery_request_stats,
+        **bank_transfer_proof_stats,
         "revenue_30d_jmd": float(revenue_30d or 0),
         "revenue_30d_usd": float(revenue_30d or 0),
     }

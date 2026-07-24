@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type Context,
   type ReactNode,
 } from 'react'
 import { fetchWarehouseSummary, type WarehouseSummary } from '../api/staff'
@@ -14,7 +15,20 @@ interface WarehouseCountsContextValue {
   refresh: () => Promise<void>
 }
 
-const WarehouseCountsContext = createContext<WarehouseCountsContextValue | null>(null)
+const WAREHOUSE_COUNTS_CTX_KEY = '__packageBossWarehouseCountsContext__'
+
+function getWarehouseCountsContext(): Context<WarehouseCountsContextValue | null> {
+  const globalStore = globalThis as typeof globalThis & {
+    [WAREHOUSE_COUNTS_CTX_KEY]?: Context<WarehouseCountsContextValue | null>
+  }
+  if (!globalStore[WAREHOUSE_COUNTS_CTX_KEY]) {
+    globalStore[WAREHOUSE_COUNTS_CTX_KEY] =
+      createContext<WarehouseCountsContextValue | null>(null)
+  }
+  return globalStore[WAREHOUSE_COUNTS_CTX_KEY]
+}
+
+const WarehouseCountsContext = getWarehouseCountsContext()
 
 export function WarehouseCountsProvider({ children }: { children: ReactNode }) {
   const [counts, setCounts] = useState<WarehouseSummary | null>(null)

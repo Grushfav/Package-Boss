@@ -187,6 +187,17 @@ export async function assignUnidentifiedPackage(
   return data
 }
 
+export async function unassignPackageFromCustomer(
+  packageId: string,
+  note?: string,
+): Promise<{ package: Package; previous_customer: StaffCustomer }> {
+  const { data } = await api.post<{
+    package: Package
+    previous_customer: StaffCustomer
+  }>(`/staff/packages/${encodeURIComponent(packageId)}/unassign`, { note })
+  return data
+}
+
 export async function markLabelsPrinted(
   packageIds: string[],
 ): Promise<{ marked: number; package_ids: string[]; failed: { id: string; error: string }[] }> {
