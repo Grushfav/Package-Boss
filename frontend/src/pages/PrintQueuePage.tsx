@@ -1,5 +1,5 @@
 import { Eye, Printer, X } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import { fetchPrintQueue, markLabelsPrinted } from '../api/staff'
@@ -35,16 +35,20 @@ export function PrintQueuePage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
-  const [printIds, setPrintIds] = useState<string[]>([])
+  const [printQueue, setPrintQueue] = useState<Package[]>([])
   const [previewPackage, setPreviewPackage] = useState<Package | null>(null)
+  const printStartedRef = useRef(false)
 
-  const loadQueue = useCallback(async () => {
-    setLoading(true)
+  const loadQueue = useCallback(async (options: { silent?: boolean } = {}) => {
+    const { silent = false } = options
+    if (!silent) {
+      setLoading(true)
+    }
     setError('')
     try {
       const { packages: pkgs, total: count } = await fetchPrintQueue({
         days: 7,
-        limit: 200,
+        limit: 100,
         pending_only: view === 'pending',
       })
       setPackages(pkgs)
@@ -55,35 +59,43 @@ export function PrintQueuePage() {
       setPackages([])
       setTotal(0)
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
   }, [view])
 
   useEffect(() => {
-    loadQueue()
-    const interval = window.setInterval(loadQueue, 30_000)
+    void loadQueue()
+    const interval = window.setInterval(() => {
+      void loadQueue({ silent: true })
+    }, 30_000)
     return () => window.clearInterval(interval)
   }, [loadQueue])
 
   const allSelected = packages.length > 0 && selectedIds.size === packages.length
   const someSelected = selectedIds.size > 0 && selectedIds.size < packages.length
 
-  const labelsToPrint = printIds.length
-    ? packages.filter((p) => printIds.includes(p.id))
-    : []
-
   useEffect(() => {
-    if (printIds.length === 0 || labelsToPrint.length === 0) return
+    if (printQueue.length === 0 || printStartedRef.current) return
+
+    printStartedRef.current = true
+    const ids = printQueue.map((pkg) => pkg.id)
 
     const timer = window.setTimeout(() => {
       markPrintedAfterPrint(() => {
-        handleMarkPrinted(printIds)
+        printStartedRef.current = false
+        setPrintQueue([])
+        void handleMarkPrinted(ids)
       })
-    }, 150)
+    }, 200)
 
-    return () => window.clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- print after labels mount
-  }, [printIds, labelsToPrint.length])
+    return () => {
+      window.clearTimeout(timer)
+      printStartedRef.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- print once when queue is set
+  }, [printQueue])
 
   function toggleSelectAll(checked: boolean) {
     setSelectedIds(checked ? new Set(packages.map((p) => p.id)) : new Set())
@@ -107,7 +119,6 @@ export function PrintQueuePage() {
       if (result.failed.length > 0) {
         setError(`${result.marked} marked printed; ${result.failed.length} failed.`)
       }
-      setPrintIds([])
       await loadQueue()
       refreshCounts()
     } catch (err) {
@@ -117,21 +128,25 @@ export function PrintQueuePage() {
     }
   }
 
+  function queuePrint(pkgs: Package[]) {
+    if (pkgs.length === 0) return
+    printStartedRef.current = false
+    setPrintQueue(pkgs)
+  }
+
   function handlePrintSelected() {
-    const ids = Array.from(selectedIds)
-    if (ids.length === 0) return
-    setPrintIds(ids)
+    queuePrint(packages.filter((pkg) => selectedIds.has(pkg.id)))
   }
 
   function handlePrintOne(pkg: Package) {
-    setPrintIds([pkg.id])
+    queuePrint([pkg])
   }
 
   function handlePrintNext10() {
-    const ids = packages.slice(0, 10).map((p) => p.id)
-    if (ids.length === 0) return
-    setSelectedIds(new Set(ids))
-    setPrintIds(ids)
+    const pkgs = packages.slice(0, 10)
+    if (pkgs.length === 0) return
+    setSelectedIds(new Set(pkgs.map((p) => p.id)))
+    queuePrint(pkgs)
   }
 
   return (
@@ -298,9 +313,9 @@ export function PrintQueuePage() {
         </>
       )}
 
-      {labelsToPrint.length > 0 && (
+      {printQueue.length > 0 && (
         <div className="print-labels-root pointer-events-none fixed left-[-9999px] top-0 opacity-0 print:pointer-events-auto print:static print:opacity-100">
-          {labelsToPrint.map((pkg) => (
+          {printQueue.map((pkg) => (
             <ShippingLabel key={pkg.id} pkg={pkg} customer={labelCustomer(pkg)} />
           ))}
         </div>

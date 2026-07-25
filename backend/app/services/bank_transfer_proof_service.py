@@ -1,13 +1,27 @@
 from datetime import datetime
 from decimal import Decimal
 
-from app.constants import BANK_TRANSFER_PROOF_OPEN_STATUSES, PAYMENT_ELIGIBLE_STATUS
+from sqlalchemy.orm import selectinload
+
+from app.constants import BANK_TRANSFER_PROOF_OPEN_STATUSES, DELIVERY_FEE_JMD, PAYMENT_ELIGIBLE_STATUS, SENDER_BANKS
 from app.extensions import db
 from app.models.bank_transfer_proof import BankTransferProof, BankTransferProofPackage
 from app.models.package import Package
 from app.models.user import User
 from app.services.delivery_request_service import compute_payment_total_with_delivery
 from app.services.image_upload_service import is_valid_transfer_proof_reference
+
+
+def _transfer_proof_load_options():
+    return (
+        selectinload(BankTransferProof.customer),
+        selectinload(BankTransferProof.reviewed_by),
+        selectinload(BankTransferProof.package_links).selectinload(BankTransferProofPackage.package),
+    )
+
+
+def _transfer_proof_query():
+    return BankTransferProof.query.options(*_transfer_proof_load_options())
 
 
 def _decimal(value) -> Decimal | None:
@@ -41,26 +55,29 @@ def list_pending_customer_proofs(customer: User, limit: int = 50) -> list[BankTr
     return list_open_customer_proofs(customer, limit=limit)
 
 
-def list_open_transfer_proofs(limit: int = 200) -> list[BankTransferProof]:
+def list_open_transfer_proofs(limit: int = 100) -> list[BankTransferProof]:
     return (
-        BankTransferProof.query.filter(BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES))
+        _transfer_proof_query()
+        .filter(BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES))
         .order_by(BankTransferProof.submitted_at.asc())
         .limit(limit)
         .all()
     )
 
 
-def list_all_transfer_proofs(limit: int = 200) -> list[BankTransferProof]:
+def list_all_transfer_proofs(limit: int = 100) -> list[BankTransferProof]:
     return (
-        BankTransferProof.query.order_by(BankTransferProof.submitted_at.desc())
+        _transfer_proof_query()
+        .order_by(BankTransferProof.submitted_at.desc())
         .limit(limit)
         .all()
     )
 
 
-def list_transfer_proofs_by_status(status: str, limit: int = 200) -> list[BankTransferProof]:
+def list_transfer_proofs_by_status(status: str, limit: int = 100) -> list[BankTransferProof]:
     return (
-        BankTransferProof.query.filter_by(status=status)
+        _transfer_proof_query()
+        .filter_by(status=status)
         .order_by(BankTransferProof.submitted_at.desc())
         .limit(limit)
         .all()
@@ -69,16 +86,18 @@ def list_transfer_proofs_by_status(status: str, limit: int = 200) -> list[BankTr
 
 def list_pending_transfer_proofs(limit: int = 100) -> list[BankTransferProof]:
     return (
-        BankTransferProof.query.filter_by(status="pending")
+        _transfer_proof_query()
+        .filter_by(status="pending")
         .order_by(BankTransferProof.submitted_at.asc())
         .limit(limit)
         .all()
     )
 
 
-def list_transfer_proof_history(limit: int = 200) -> list[BankTransferProof]:
+def list_transfer_proof_history(limit: int = 100) -> list[BankTransferProof]:
     return (
-        BankTransferProof.query.filter(~BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES))
+        _transfer_proof_query()
+        .filter(~BankTransferProof.status.in_(BANK_TRANSFER_PROOF_OPEN_STATUSES))
         .order_by(BankTransferProof.submitted_at.desc())
         .limit(limit)
         .all()
@@ -187,13 +206,28 @@ def _validate_proof_packages(customer: User, package_ids: list) -> list[Package]
     return packages
 
 
+def _expected_proof_total(
+    customer: User,
+    packages: list,
+    *,
+    include_delivery_fee: bool = False,
+) -> Decimal:
+    expected = compute_payment_total_with_delivery(customer, [str(p.id) for p in packages])
+    total = Decimal(str(expected["total_jmd"]))
+    if include_delivery_fee and Decimal(str(expected["delivery_fee_jmd"])) == 0:
+        total += DELIVERY_FEE_JMD
+    return total.quantize(Decimal("0.01"))
+
+
 def submit_bank_transfer_proof(
     customer: User,
     *,
     proof_object_key: str,
     package_ids: list | None = None,
     transfer_reference: str | None = None,
+    sender_bank: str | None = None,
     amount_jmd=None,
+    include_delivery_fee: bool = False,
     notes: str | None = None,
 ) -> BankTransferProof:
     proof_key = (proof_object_key or "").strip()
@@ -209,8 +243,11 @@ def submit_bank_transfer_proof(
         raise ValueError("amount_jmd must be greater than zero")
 
     if packages:
-        expected = compute_payment_total_with_delivery(customer, [str(p.id) for p in packages])
-        expected_total = Decimal(str(expected["total_jmd"]))
+        expected_total = _expected_proof_total(
+            customer,
+            packages,
+            include_delivery_fee=include_delivery_fee,
+        )
         if amount is None:
             amount = expected_total
         elif amount != expected_total:
@@ -219,6 +256,11 @@ def submit_bank_transfer_proof(
             )
 
     reference = (transfer_reference or "").strip() or None
+    bank = (sender_bank or "").strip().lower() or None
+    if not bank:
+        raise ValueError("sender_bank is required")
+    if bank not in SENDER_BANKS:
+        raise ValueError("Invalid sender bank")
     note_text = (notes or "").strip() or None
     if note_text and len(note_text) > 500:
         raise ValueError("notes must be 500 characters or fewer")
@@ -227,6 +269,7 @@ def submit_bank_transfer_proof(
         customer_id=customer.id,
         proof_object_key=proof_key,
         transfer_reference=reference,
+        sender_bank=bank,
         amount_jmd=amount,
         notes=note_text,
         status="pending",

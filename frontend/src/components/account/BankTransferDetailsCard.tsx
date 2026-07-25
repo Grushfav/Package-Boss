@@ -5,12 +5,13 @@ import {
   fetchMyBankTransferProofs,
   submitBankTransferProof,
 } from '../../api/bankTransferProofs'
-import { fetchPaymentTotal } from '../../api/deliveryRequests'
+import { fetchPaymentTotal, DELIVERY_FEE_JMD } from '../../api/deliveryRequests'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import {
   BANK_TRANSFER_DETAILS,
-  formatBankTransferDetails,
+  SENDER_BANKS,
+  type SenderBank,
 } from '../../content/bankTransfer'
 import { packageEligibleForPayment } from '../../lib/packageBilling'
 import { formatJmd, sumJmd } from '../../lib/money'
@@ -35,26 +36,29 @@ function BankTransferProofUpload() {
     [packages],
   )
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [senderBank, setSenderBank] = useState<SenderBank | ''>('')
   const [transferReference, setTransferReference] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
   const [recentProofs, setRecentProofs] = useState<BankTransferProof[]>([])
   const [selectedTotal, setSelectedTotal] = useState(0)
   const [deliveryFee, setDeliveryFee] = useState(0)
+  const [includeDeliveryFee, setIncludeDeliveryFee] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const paymentTotal = selectedTotal + deliveryFee
 
   useEffect(() => {
     if (selectedIds.length === 0) {
       setSelectedTotal(0)
       setDeliveryFee(0)
+      setIncludeDeliveryFee(false)
       return
     }
     fetchPaymentTotal(selectedIds)
       .then((totals) => {
         setSelectedTotal(totals.packages_total_jmd)
         setDeliveryFee(totals.delivery_fee_jmd)
+        setIncludeDeliveryFee(totals.delivery_fee_jmd > 0)
       })
       .catch(() => {
         setSelectedTotal(
@@ -65,8 +69,16 @@ function BankTransferProofUpload() {
           ),
         )
         setDeliveryFee(0)
+        setIncludeDeliveryFee(false)
       })
   }, [payablePackages, selectedIds])
+
+  const appliedDeliveryFee = includeDeliveryFee
+    ? deliveryFee > 0
+      ? deliveryFee
+      : DELIVERY_FEE_JMD
+    : 0
+  const paymentTotal = selectedTotal + appliedDeliveryFee
 
   useEffect(() => {
     fetchMyBankTransferProofs()
@@ -87,6 +99,10 @@ function BankTransferProofUpload() {
       setError('Please choose a screenshot or photo of your transfer')
       return
     }
+    if (!senderBank) {
+      setError('Please select the bank you transferred from')
+      return
+    }
 
     setLoading(true)
     try {
@@ -95,10 +111,13 @@ function BankTransferProofUpload() {
         proof_object_key: proofKey,
         package_ids: selectedIds.length > 0 ? selectedIds : undefined,
         transfer_reference: transferReference.trim() || undefined,
+        sender_bank: senderBank,
         amount_jmd: selectedIds.length > 0 ? paymentTotal : undefined,
+        include_delivery_fee: selectedIds.length > 0 ? includeDeliveryFee : undefined,
       })
       setRecentProofs((prev) => [proof, ...prev])
       setProofFile(null)
+      setSenderBank('')
       setTransferReference('')
       setSelectedIds([])
       setSubmitted(true)
@@ -173,10 +192,28 @@ function BankTransferProofUpload() {
                 Package bills:{' '}
                 <span className="font-semibold text-foreground">{formatJmd(selectedTotal)}</span>
               </p>
-              {deliveryFee > 0 && (
+              <label className="flex items-start gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  checked={includeDeliveryFee}
+                  onChange={(e) => setIncludeDeliveryFee(e.target.checked)}
+                  disabled={deliveryFee > 0}
+                  className="mt-0.5 rounded border-border"
+                />
+                <span>
+                  Include delivery fee (
+                  {formatJmd(deliveryFee > 0 ? deliveryFee : DELIVERY_FEE_JMD)})
+                  {deliveryFee > 0
+                    ? ' — required for your delivery request'
+                    : ' — add home delivery to this transfer'}
+                </span>
+              </label>
+              {includeDeliveryFee && (
                 <p>
                   Delivery fee:{' '}
-                  <span className="font-semibold text-foreground">{formatJmd(deliveryFee)}</span>
+                  <span className="font-semibold text-foreground">
+                    {formatJmd(appliedDeliveryFee)}
+                  </span>
                 </p>
               )}
               <p>
@@ -187,6 +224,28 @@ function BankTransferProofUpload() {
           )}
         </div>
       )}
+
+      <div className="mt-4 space-y-1.5">
+        <label
+          htmlFor="sender-bank"
+          className="block text-xs font-medium uppercase tracking-wider text-muted"
+        >
+          Bank you transferred from
+        </label>
+        <select
+          id="sender-bank"
+          value={senderBank}
+          onChange={(e) => setSenderBank(e.target.value as SenderBank | '')}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm"
+        >
+          <option value="">Select your bank</option>
+          {SENDER_BANKS.map((bank) => (
+            <option key={bank.value} value={bank.value}>
+              {bank.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="mt-4">
         <Input
@@ -241,6 +300,9 @@ function BankTransferProofUpload() {
                 {proof.amount_jmd != null && (
                   <p className="mt-1 text-xs text-muted">{formatJmd(proof.amount_jmd)}</p>
                 )}
+                {proof.sender_bank_label && (
+                  <p className="mt-1 text-xs text-muted">From: {proof.sender_bank_label}</p>
+                )}
               </li>
             ))}
           </ul>
@@ -255,8 +317,8 @@ function BankTransferDetailsBody() {
   const [copied, setCopied] = useState(false)
   const b = BANK_TRANSFER_DETAILS
 
-  async function copyDetails() {
-    await navigator.clipboard.writeText(formatBankTransferDetails(user?.shipping_id))
+  async function copyAccountNumber() {
+    await navigator.clipboard.writeText(b.accountNumber)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -284,8 +346,8 @@ function BankTransferDetailsBody() {
         )}
       </div>
 
-      <Button onClick={copyDetails} className="mt-6">
-        {copied ? 'Copied!' : 'Copy bank details'}
+      <Button onClick={copyAccountNumber} className="mt-6">
+        {copied ? 'Copied!' : 'Copy account number'}
       </Button>
 
       <BankTransferProofUpload />

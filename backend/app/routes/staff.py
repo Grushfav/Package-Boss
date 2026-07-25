@@ -46,6 +46,7 @@ from app.services.billing_service import (
     request_package_invoice,
     update_package_billing,
 )
+from app.services.delivery_address_service import list_delivery_addresses
 from app.services.customs_release_service import (
     bulk_request_customs_invoices,
     release_packages_from_customs,
@@ -57,11 +58,13 @@ from app.services.payment_service import (
     get_package_checkout_item,
     list_customer_checkouts,
     list_customer_packages,
+    package_payment_summaries_for_packages,
     package_payment_summary,
     record_package_payment,
     record_payment_checkout,
 )
 from app.services.package_service import (
+    _warehouse_list_load_options,
     assign_unidentified_package,
     unassign_package_from_customer,
     bulk_update_package_status,
@@ -74,6 +77,7 @@ from app.services.package_service import (
     receive_package,
     receive_unidentified_package,
     update_package_status,
+    warehouse_package_list_to_dict,
     warehouse_package_to_dict,
 )
 from app.services.package_search_service import MIN_PACKAGE_SEARCH_QUERY_LEN, search_packages
@@ -315,11 +319,12 @@ def customer_account(shipping_id: str):
     actor = get_user_from_jwt()
     show_billing = actor and clerk_has_permission(actor, "billing")
 
+    payment_map = package_payment_summaries_for_packages(packages) if show_billing else {}
     package_rows = []
     for pkg in packages:
-        row = warehouse_package_to_dict(pkg)
+        row = warehouse_package_list_to_dict(pkg)
         if show_billing:
-            row["payment"] = package_payment_summary(pkg)
+            row["payment"] = payment_map.get(str(pkg.id))
         package_rows.append(row)
 
     payload = {
@@ -829,9 +834,9 @@ def list_packages():
     from_date = (request.args.get("from") or "").strip()
     to_date = (request.args.get("to") or "").strip()
     status = (request.args.get("status") or "").strip() or None
-    limit = request.args.get("limit", 200, type=int)
+    limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
-    limit = max(1, min(limit, 200))
+    limit = max(1, min(limit, 100))
     offset = max(0, offset)
 
     if status and status not in UPDATABLE_STATUSES:
@@ -847,7 +852,7 @@ def list_packages():
 
     return jsonify(
         {
-            "packages": [warehouse_package_to_dict(p) for p in packages],
+            "packages": [warehouse_package_list_to_dict(p) for p in packages],
             "total": total,
         }
     )
@@ -870,7 +875,11 @@ def search_packages_route():
 @permission_required("status_transit", "status_customs", "status_pickup", "billing", "receive")
 def lookup_package_by_tracking(tracking_number: str):
     tracking_number = tracking_number.strip().upper()
-    package = Package.query.filter_by(tracking_number=tracking_number).first()
+    package = (
+        Package.query.options(*_warehouse_list_load_options())
+        .filter_by(tracking_number=tracking_number)
+        .first()
+    )
     if not package:
         return jsonify({"error": "Package not found"}), 404
     return jsonify({"package": warehouse_package_to_dict(package)})
@@ -898,7 +907,7 @@ def get_print_queue():
     pending_only_raw = request.args.get("pending_only", "true")
     pending_only = str(pending_only_raw).lower() not in ("0", "false", "no")
     days = max(1, min(days, 30))
-    limit = max(1, min(limit, 200))
+    limit = max(1, min(limit, 100))
     offset = max(0, offset)
 
     packages, total = list_label_log(
@@ -906,7 +915,7 @@ def get_print_queue():
     )
     return jsonify(
         {
-            "packages": [warehouse_package_to_dict(p) for p in packages],
+            "packages": [warehouse_package_list_to_dict(p) for p in packages],
             "total": total,
         }
     )

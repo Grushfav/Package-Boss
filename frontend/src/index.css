@@ -43,7 +43,7 @@ body {
 
 @media print {
   @page {
-    size: 4in 6in;
+    size: 2in 3in;
     margin: 0;
   }
 
@@ -54,7 +54,7 @@ body {
     padding: 0 !important;
     min-height: 0 !important;
     height: auto !important;
-    width: 4in !important;
+    width: 2in !important;
     background: white !important;
     color: black !important;
   }
@@ -70,7 +70,7 @@ body {
     top: auto !important;
     opacity: 1 !important;
     visibility: visible !important;
-    width: 4in !important;
+    width: 2in !important;
     margin: 0 !important;
     padding: 0 !important;
     pointer-events: auto !important;
@@ -80,12 +80,12 @@ body {
     box-sizing: border-box;
     display: flex !important;
     flex-direction: column;
-    width: 4in !important;
-    height: 6in !important;
-    max-width: 4in !important;
-    max-height: 6in !important;
+    width: 2in !important;
+    height: 3in !important;
+    max-width: 2in !important;
+    max-height: 3in !important;
     margin: 0 !important;
-    padding: 0.12in !important;
+    padding: 0.06in !important;
     overflow: hidden !important;
     page-break-after: always;
     break-after: page;
@@ -94,6 +94,19 @@ body {
     border: 1px solid #000;
     background: white !important;
     color: black !important;
+    font-size: 6pt;
+    line-height: 1.15;
+  }
+
+  .shipping-label,
+  .shipping-label * {
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .shipping-label .text-red-700 {
+    color: #b91c1c !important;
   }
 
   .shipping-label:last-child {

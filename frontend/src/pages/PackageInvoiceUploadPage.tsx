@@ -19,7 +19,6 @@ export function PackageInvoiceUploadPage() {
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [skipUpload, setSkipUpload] = useState(false)
 
   useEffect(() => {
     if (!packageId) return
@@ -32,16 +31,13 @@ export function PackageInvoiceUploadPage() {
     e.preventDefault()
     if (!packageId) return
     setError('')
+    if (!invoiceFile) {
+      setError('Please select an invoice file to upload')
+      return
+    }
     setLoading(true)
     try {
-      let invoiceKey: string | undefined
-      if (invoiceFile && !skipUpload) {
-        invoiceKey = await uploadPackageInvoice(packageId, invoiceFile)
-      }
-      if (!invoiceKey) {
-        setError('Please select an invoice file to upload')
-        return
-      }
+      const invoiceKey = await uploadPackageInvoice(packageId, invoiceFile)
       await submitPackageInvoice(packageId, {
         invoice_object_key: invoiceKey,
         declared_value_usd: declaredValue ? parseFloat(declaredValue) : undefined,
@@ -108,16 +104,6 @@ export function PackageInvoiceUploadPage() {
             />
           </label>
         </div>
-
-        <label className="flex items-center gap-2 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={skipUpload}
-            onChange={(e) => setSkipUpload(e.target.checked)}
-            className="rounded border-border"
-          />
-          Skip upload (dev only — requires file storage in production)
-        </label>
 
         {error && (
           <p className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>

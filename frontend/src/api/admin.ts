@@ -77,6 +77,12 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
     customers_today: data.customers_today ?? 0,
     customers_7d: data.customers_7d ?? 0,
     customers_total: data.customers_total ?? 0,
+    delivery_requests_active: data.delivery_requests_active ?? 0,
+    delivery_requests_today: data.delivery_requests_today ?? 0,
+    delivery_requests_total: data.delivery_requests_total ?? 0,
+    bank_transfer_proofs_active: data.bank_transfer_proofs_active ?? 0,
+    bank_transfer_proofs_today: data.bank_transfer_proofs_today ?? 0,
+    bank_transfer_proofs_total: data.bank_transfer_proofs_total ?? 0,
   }
 }
 

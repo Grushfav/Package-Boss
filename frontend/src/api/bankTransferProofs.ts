@@ -23,7 +23,9 @@ export async function submitBankTransferProof(payload: {
   proof_object_key: string
   package_ids?: string[]
   transfer_reference?: string
+  sender_bank: string
   amount_jmd?: number
+  include_delivery_fee?: boolean
   notes?: string
 }): Promise<BankTransferProof> {
   const { data } = await api.post<{ proof: BankTransferProof }>(

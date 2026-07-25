@@ -144,6 +144,8 @@ PICKUP_ID_TYPE_LABELS = {
     "voter_id": "Voter ID",
 }
 
+INVOICE_UPLOAD_EXCLUDED_STATUSES = frozenset({"received", "ready_for_pickup", "delivered"})
+
 INVOICE_STATUSES = ["not_required", "pending", "requested", "received"]
 INVOICE_STATUS_LABELS = {
     "not_required": "Not Required",
@@ -177,6 +179,27 @@ BANK_TRANSFER_PROOF_STATUS_LABELS = {
     "rejected": "Rejected",
 }
 BANK_TRANSFER_PROOF_OPEN_STATUSES = ("pending", "in_progress")
+
+SENDER_BANKS = [
+    "ncb",
+    "scotiabank",
+    "jmmb",
+    "sagicor",
+    "cibc",
+    "jn_bank",
+    "vm_building_society",
+    "other",
+]
+SENDER_BANK_LABELS = {
+    "ncb": "NCB",
+    "scotiabank": "Scotiabank",
+    "jmmb": "JMMB",
+    "sagicor": "Sagicor Bank",
+    "cibc": "CIBC FirstCaribbean",
+    "jn_bank": "JN Bank",
+    "vm_building_society": "Victoria Mutual",
+    "other": "Other",
+}
 
 INVOICE_REQUEST_CHANNELS = ["email", "whatsapp", "both"]
 

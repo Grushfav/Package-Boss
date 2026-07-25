@@ -11,6 +11,7 @@ class BankTransferProof(db.Model):
     customer_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False, index=True)
     proof_object_key = db.Column(db.String(500), nullable=False)
     transfer_reference = db.Column(db.String(100))
+    sender_bank = db.Column(db.String(80))
     amount_jmd = db.Column(db.Numeric(12, 2))
     notes = db.Column(db.String(500))
     status = db.Column(db.String(20), nullable=False, default="pending", index=True)
@@ -28,7 +29,7 @@ class BankTransferProof(db.Model):
     )
 
     def to_dict(self, include_packages: bool = False) -> dict:
-        from app.constants import BANK_TRANSFER_PROOF_STATUS_LABELS
+        from app.constants import BANK_TRANSFER_PROOF_STATUS_LABELS, SENDER_BANK_LABELS
         from app.services.image_upload_service import resolve_stored_url
 
         data = {
@@ -37,6 +38,10 @@ class BankTransferProof(db.Model):
             "proof_object_key": self.proof_object_key,
             "proof_url": resolve_stored_url(self.proof_object_key),
             "transfer_reference": self.transfer_reference,
+            "sender_bank": self.sender_bank,
+            "sender_bank_label": SENDER_BANK_LABELS.get(self.sender_bank, self.sender_bank)
+            if self.sender_bank
+            else None,
             "amount_jmd": float(self.amount_jmd) if self.amount_jmd is not None else None,
             "notes": self.notes,
             "status": self.status,

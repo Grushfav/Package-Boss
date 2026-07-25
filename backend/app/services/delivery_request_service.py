@@ -9,6 +9,21 @@ from app.models.package import Package
 from app.models.user import User
 from app.services.delivery_address_service import get_delivery_address
 from app.services.package_service import add_package_event, update_package_status
+from sqlalchemy.orm import selectinload
+
+
+def _delivery_request_load_options():
+    return (
+        selectinload(DeliveryRequest.customer),
+        selectinload(DeliveryRequest.delivery_address),
+        selectinload(DeliveryRequest.completed_by),
+        selectinload(DeliveryRequest.in_progress_by),
+        selectinload(DeliveryRequest.package_links).selectinload(DeliveryRequestPackage.package),
+    )
+
+
+def _delivery_request_query():
+    return DeliveryRequest.query.options(*_delivery_request_load_options())
 
 
 def _decimal(value) -> Decimal:
@@ -17,7 +32,8 @@ def _decimal(value) -> Decimal:
 
 def list_customer_delivery_requests(customer: User, limit: int = 50) -> list[DeliveryRequest]:
     return (
-        DeliveryRequest.query.filter_by(customer_id=customer.id)
+        _delivery_request_query()
+        .filter_by(customer_id=customer.id)
         .order_by(DeliveryRequest.requested_at.desc())
         .limit(limit)
         .all()
@@ -26,7 +42,8 @@ def list_customer_delivery_requests(customer: User, limit: int = 50) -> list[Del
 
 def list_pending_customer_delivery_requests(customer: User, limit: int = 20) -> list[DeliveryRequest]:
     return (
-        DeliveryRequest.query.filter(
+        _delivery_request_query()
+        .filter(
             DeliveryRequest.customer_id == customer.id,
             DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES),
         )
@@ -38,42 +55,47 @@ def list_pending_customer_delivery_requests(customer: User, limit: int = 20) -> 
 
 def list_pending_delivery_requests(limit: int = 100) -> list[DeliveryRequest]:
     return (
-        DeliveryRequest.query.filter_by(status="pending")
+        _delivery_request_query()
+        .filter_by(status="pending")
         .order_by(DeliveryRequest.requested_at.asc())
         .limit(limit)
         .all()
     )
 
 
-def list_open_delivery_requests(limit: int = 200) -> list[DeliveryRequest]:
+def list_open_delivery_requests(limit: int = 100) -> list[DeliveryRequest]:
     return (
-        DeliveryRequest.query.filter(DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES))
+        _delivery_request_query()
+        .filter(DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES))
         .order_by(DeliveryRequest.requested_at.asc())
         .limit(limit)
         .all()
     )
 
 
-def list_all_delivery_requests(limit: int = 200) -> list[DeliveryRequest]:
+def list_all_delivery_requests(limit: int = 100) -> list[DeliveryRequest]:
     return (
-        DeliveryRequest.query.order_by(DeliveryRequest.requested_at.desc())
-        .limit(limit)
-        .all()
-    )
-
-
-def list_delivery_request_history(limit: int = 200) -> list[DeliveryRequest]:
-    return (
-        DeliveryRequest.query.filter(~DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES))
+        _delivery_request_query()
         .order_by(DeliveryRequest.requested_at.desc())
         .limit(limit)
         .all()
     )
 
 
-def list_delivery_requests_by_status(status: str, limit: int = 200) -> list[DeliveryRequest]:
+def list_delivery_request_history(limit: int = 100) -> list[DeliveryRequest]:
     return (
-        DeliveryRequest.query.filter_by(status=status)
+        _delivery_request_query()
+        .filter(~DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES))
+        .order_by(DeliveryRequest.requested_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def list_delivery_requests_by_status(status: str, limit: int = 100) -> list[DeliveryRequest]:
+    return (
+        _delivery_request_query()
+        .filter_by(status=status)
         .order_by(DeliveryRequest.requested_at.desc())
         .limit(limit)
         .all()

@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
+from sqlalchemy.orm import selectinload
+
 from app.constants import PAYMENT_ELIGIBLE_STATUS, PAYMENT_METHODS
 from app.extensions import db
 from app.models.package import Package
@@ -25,6 +27,38 @@ def generate_invoice_number() -> str:
 
 def get_package_checkout_item(package: Package) -> PaymentCheckoutItem | None:
     return PaymentCheckoutItem.query.filter_by(package_id=package.id).first()
+
+
+def package_payment_summaries_for_packages(packages: list[Package]) -> dict[str, dict]:
+    from app.constants import PAYMENT_METHOD_LABELS
+
+    if not packages:
+        return {}
+    package_ids = [pkg.id for pkg in packages]
+    items = (
+        PaymentCheckoutItem.query.filter(PaymentCheckoutItem.package_id.in_(package_ids))
+        .options(
+            selectinload(PaymentCheckoutItem.checkout).selectinload(PaymentCheckout.recorded_by)
+        )
+        .all()
+    )
+    summaries: dict[str, dict] = {}
+    for item in items:
+        checkout = item.checkout
+        if not checkout:
+            continue
+        summaries[str(item.package_id)] = {
+            "checkout_id": str(checkout.id),
+            "invoice_number": checkout.invoice_number,
+            "amount_jmd": float(item.amount_jmd),
+            "method": checkout.method,
+            "method_label": PAYMENT_METHOD_LABELS.get(checkout.method, checkout.method),
+            "reference": checkout.reference,
+            "notes": checkout.notes,
+            "recorded_by_name": checkout.recorded_by.full_name if checkout.recorded_by else None,
+            "recorded_at": checkout.recorded_at.isoformat() if checkout.recorded_at else None,
+        }
+    return summaries
 
 
 def package_payment_summary(package: Package) -> dict | None:
@@ -56,9 +90,13 @@ def list_customer_checkouts(customer: User, limit: int = 100) -> list[PaymentChe
     )
 
 
-def list_customer_packages(customer: User, limit: int = 200) -> list[Package]:
+def list_customer_packages(customer: User, limit: int = 100) -> list[Package]:
     return (
-        Package.query.filter_by(customer_id=customer.id)
+        Package.query.options(
+            selectinload(Package.customer),
+            selectinload(Package.shipment),
+        )
+        .filter_by(customer_id=customer.id)
         .filter(Package.status != "unidentified")
         .order_by(Package.received_at.desc(), Package.tracking_number.desc())
         .limit(limit)

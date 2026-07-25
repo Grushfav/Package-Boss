@@ -19,22 +19,13 @@ import {
 import {
   fetchActivityLog,
   fetchAdminOverview,
-  fetchBankTransferProofSubmissionStats,
-  fetchCustomerSignupStats,
-  fetchDeliveryRequestSubmissionStats,
   fetchPackagesByStatus,
   fetchPackagesTimeline,
   fetchPreAlertsVsReceives,
   fetchWeightDistribution,
 } from '../api/admin'
 import { IconBadge } from '../components/ui/IconBadge'
-import type {
-  AdminOverview,
-  AuditLogEntry,
-  BankTransferProofSubmissionStats,
-  CustomerSignupStats,
-  DeliveryRequestSubmissionStats,
-} from '../types'
+import type { AdminOverview, AuditLogEntry } from '../types'
 
 const CHART_COLORS = ['#eab308', '#ca8a04', '#22c55e', '#3b82f6', '#a855f7', '#64748b']
 
@@ -152,9 +143,6 @@ function SubmissionStatsSection({
 
 export function AdminOperationsPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null)
-  const [customerStats, setCustomerStats] = useState<CustomerSignupStats | null>(null)
-  const [deliveryRequestStats, setDeliveryRequestStats] = useState<DeliveryRequestSubmissionStats | null>(null)
-  const [bankTransferProofStats, setBankTransferProofStats] = useState<BankTransferProofSubmissionStats | null>(null)
   const [timeline, setTimeline] = useState<{ date: string; count: number }[]>([])
   const [statuses, setStatuses] = useState<{ label: string; count: number }[]>([])
   const [weights, setWeights] = useState<{ label: string; count: number }[]>([])
@@ -163,9 +151,6 @@ export function AdminOperationsPage() {
 
   useEffect(() => {
     fetchAdminOverview().then(setOverview).catch(() => {})
-    fetchCustomerSignupStats().then(setCustomerStats).catch(() => {})
-    fetchDeliveryRequestSubmissionStats().then(setDeliveryRequestStats).catch(() => {})
-    fetchBankTransferProofSubmissionStats().then(setBankTransferProofStats).catch(() => {})
     fetchPackagesTimeline(30).then(setTimeline).catch(() => {})
     fetchPackagesByStatus().then((s) => setStatuses(s.map((x) => ({ label: x.label, count: x.count })))).catch(() => {})
     fetchWeightDistribution().then(setWeights).catch(() => {})
@@ -235,9 +220,9 @@ export function AdminOperationsPage() {
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           {[
-            { label: 'Today', value: customerStats?.customers_today },
-            { label: 'Last 7 days', value: customerStats?.customers_7d },
-            { label: 'Total', value: customerStats?.customers_total },
+            { label: 'Today', value: overview?.customers_today },
+            { label: 'Last 7 days', value: overview?.customers_7d },
+            { label: 'Total', value: overview?.customers_total },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -261,25 +246,29 @@ export function AdminOperationsPage() {
         <p className="mt-1 text-xs text-muted">
           All submissions by request date (any status)
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <Link
+          to="/warehouse/requests"
+          className="mt-4 grid grid-cols-2 gap-4 rounded-xl transition-colors hover:bg-background/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-boss-gold"
+          aria-label="Open customer requests queue"
+        >
           <SubmissionStatsSection
             title="Delivery requests"
             description="Home delivery requests submitted by customers"
             icon={Truck}
-            active={deliveryRequestStats?.delivery_requests_active}
-            today={deliveryRequestStats?.delivery_requests_today}
-            total={deliveryRequestStats?.delivery_requests_total}
+            active={overview?.delivery_requests_active}
+            today={overview?.delivery_requests_today}
+            total={overview?.delivery_requests_total}
           />
           <SubmissionStatsSection
             title="Payment proofs"
             description="Bank transfer proof uploads submitted by customers"
             icon={Landmark}
-            active={bankTransferProofStats?.bank_transfer_proofs_active}
-            today={bankTransferProofStats?.bank_transfer_proofs_today}
-            total={bankTransferProofStats?.bank_transfer_proofs_total}
+            active={overview?.bank_transfer_proofs_active}
+            today={overview?.bank_transfer_proofs_today}
+            total={overview?.bank_transfer_proofs_total}
             activeLabel="Active proofs"
           />
-        </div>
+        </Link>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">

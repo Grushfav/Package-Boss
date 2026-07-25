@@ -34,10 +34,16 @@ export function formatPackageCost(pkg: Package, options?: { customer?: boolean }
 }
 
 export function packageNeedsInvoiceUpload(pkg: Package): boolean {
+  if (pkg.status === 'received' || pkg.status === 'ready_for_pickup' || pkg.status === 'delivered') {
+    return false
+  }
   return pkg.invoice_status === 'requested'
 }
 
 export function packageCanUploadInvoice(pkg: Package): boolean {
+  if (pkg.status === 'received' || pkg.status === 'ready_for_pickup' || pkg.status === 'delivered') {
+    return false
+  }
   return pkg.invoice_status === 'pending' || pkg.invoice_status === 'requested'
 }
 

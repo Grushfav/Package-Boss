@@ -83,11 +83,13 @@ class DeliveryRequestPackage(db.Model):
             "package_id": str(self.package_id),
         }
         if include_package and self.package:
+            from app.constants import STATUS_LABELS
+
             data["tracking_number"] = self.package.tracking_number
             data["total_due_jmd"] = (
                 float(self.package.total_due_jmd) if self.package.total_due_jmd is not None else None
             )
             data["billing_status"] = self.package.billing_status
             data["status"] = self.package.status
-            data["status_label"] = self.package.to_dict().get("status_label")
+            data["status_label"] = STATUS_LABELS.get(self.package.status, self.package.status)
         return data

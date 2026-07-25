@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from flask import current_app
+from sqlalchemy.orm import selectinload
 
 from app.constants import UNIDENTIFIED_HOLDER_SHIPPING_ID
 from app.extensions import db
@@ -365,8 +366,64 @@ def assign_unidentified_package(
     return package, matched_pre_alert
 
 
+def _warehouse_list_load_options():
+    return (
+        selectinload(Package.customer),
+        selectinload(Package.shipment),
+        selectinload(Package.receive_batch),
+    )
+
+
+def warehouse_package_list_to_dict(package: Package) -> dict:
+    from app.constants import BILLING_STATUS_LABELS, INVOICE_STATUS_LABELS, STATUS_LABELS
+
+    customer = package.customer
+    if customer and customer.shipping_id != UNIDENTIFIED_HOLDER_SHIPPING_ID:
+        customer_data = {
+            "id": str(customer.id),
+            "full_name": customer.full_name,
+            "shipping_id": customer.shipping_id,
+        }
+    else:
+        customer_data = None
+
+    shipment_data = None
+    if package.shipment:
+        shipment_data = {
+            "id": str(package.shipment.id),
+            "reference": package.shipment.reference,
+            "departure_date": package.shipment.departure_date.isoformat(),
+            "status": package.shipment.status,
+        }
+
+    return {
+        "id": str(package.id),
+        "tracking_number": package.tracking_number,
+        "carrier_tracking": package.carrier_tracking,
+        "status": package.status,
+        "status_label": STATUS_LABELS.get(package.status, package.status),
+        "invoice_status": package.invoice_status,
+        "invoice_status_label": INVOICE_STATUS_LABELS.get(
+            package.invoice_status, package.invoice_status
+        ),
+        "billing_status": package.billing_status,
+        "billing_status_label": BILLING_STATUS_LABELS.get(
+            package.billing_status, package.billing_status
+        ),
+        "total_due_jmd": float(package.total_due_jmd) if package.total_due_jmd is not None else None,
+        "billable_weight_lbs": package.billable_weight_lbs,
+        "received_at": package.received_at.isoformat() if package.received_at else None,
+        "customer": customer_data,
+        "shipment": shipment_data,
+    }
+
+
 def list_unidentified_packages(limit: int = 50, offset: int = 0) -> tuple[list[Package], int]:
-    query = Package.query.filter_by(status="unidentified").order_by(Package.received_at.desc())
+    query = (
+        Package.query.options(*_warehouse_list_load_options())
+        .filter_by(status="unidentified")
+        .order_by(Package.received_at.desc())
+    )
     total = query.count()
     packages = query.offset(offset).limit(limit).all()
     return packages, total
@@ -386,10 +443,12 @@ def list_warehouse_packages(
     from_date: str | None = None,
     to_date: str | None = None,
     status: str | None = None,
-    limit: int = 200,
+    limit: int = 100,
     offset: int = 0,
 ) -> tuple[list[Package], int]:
-    query = Package.query.filter(Package.status != "unidentified")
+    query = Package.query.options(*_warehouse_list_load_options()).filter(
+        Package.status != "unidentified"
+    )
 
     if from_date:
         start = _parse_date_bound(from_date)
@@ -437,7 +496,7 @@ def list_label_log(
     pending_only: bool = False,
 ) -> tuple[list[Package], int]:
     cutoff = datetime.utcnow() - timedelta(days=max(1, min(days, 30)))
-    query = Package.query.filter(Package.received_at >= cutoff)
+    query = Package.query.options(*_warehouse_list_load_options()).filter(Package.received_at >= cutoff)
     if pending_only:
         query = query.filter(Package.label_printed_at.is_(None)).order_by(
             Package.received_at.asc(), Package.tracking_number.asc()

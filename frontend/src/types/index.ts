@@ -289,6 +289,8 @@ export interface BankTransferProof {
   proof_object_key: string
   proof_url?: string | null
   transfer_reference?: string | null
+  sender_bank?: string | null
+  sender_bank_label?: string | null
   amount_jmd?: number | null
   notes?: string | null
   status: 'pending' | 'in_progress' | 'confirmed' | 'rejected'
@@ -364,6 +366,12 @@ export interface AdminOverview {
   customers_today: number
   customers_7d: number
   customers_total: number
+  delivery_requests_active: number
+  delivery_requests_today: number
+  delivery_requests_total: number
+  bank_transfer_proofs_active: number
+  bank_transfer_proofs_today: number
+  bank_transfer_proofs_total: number
   revenue_30d_usd: number
 }
 

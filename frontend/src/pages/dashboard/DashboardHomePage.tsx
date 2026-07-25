@@ -20,9 +20,9 @@ export function DashboardHomePage() {
         </p>
       </div>
 
-      <FortLauderdaleShippingAddressCard />
-
       <DashboardPackageStatsCard />
+
+      <FortLauderdaleShippingAddressCard />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Link

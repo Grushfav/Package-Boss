@@ -269,6 +269,7 @@ export function StatusUpdatePage() {
           from,
           to,
           status: status || undefined,
+          limit: 50,
         })
         setPackages(pkgs)
         setTotal(count)

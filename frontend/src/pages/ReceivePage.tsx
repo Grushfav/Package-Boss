@@ -196,6 +196,7 @@ export function ReceivePage() {
   const weightInputRef = useRef<HTMLInputElement>(null)
   const customerSearchRequestId = useRef(0)
   const pendingAutoPrintId = useRef<string | null>(null)
+  const autoPrintStartedRef = useRef<string | null>(null)
 
   const [step, setStep] = useState<ReceiveStep>('idle')
   const [shippers, setShippers] = useState<Shipper[]>([])
@@ -405,6 +406,7 @@ export function ReceivePage() {
     setScanKeyboardReady(false)
     setReceivingSearchKeyboardReady(false)
     pendingAutoPrintId.current = null
+    autoPrintStartedRef.current = null
   }
 
   function applyPreAlertMatches(matches: PreAlertLookupMatch[]) {
@@ -570,11 +572,14 @@ export function ReceivePage() {
   useEffect(() => {
     if (step !== 'complete' || !completedPackage) return
     if (pendingAutoPrintId.current !== completedPackage.id) return
+    if (autoPrintStartedRef.current === completedPackage.id) return
 
     pendingAutoPrintId.current = null
+    autoPrintStartedRef.current = completedPackage.id
     const pkg = completedPackage
     const timer = window.setTimeout(() => {
       markPrintedAfterPrint(() => {
+        autoPrintStartedRef.current = null
         markLabelsPrinted([pkg.id]).catch(() => {})
         const summary = pkg.is_unidentified
           ? `Unidentified package ${pkg.tracking_number} printed and queued.`
@@ -933,11 +938,6 @@ export function ReceivePage() {
               </Button>
             </div>
           </div>
-          {!receivingSearchKeyboardReady && (
-            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-              Tap <strong>Show keyboard</strong> to type a customer name or BOSS ID.
-            </p>
-          )}
           {!searchLoading && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
             <p className="mt-2 text-xs text-muted">
               No customers match. Try another name or BOSS ID.
@@ -1186,15 +1186,6 @@ export function ReceivePage() {
                 <Barcode className="h-4 w-4" />
                 Scan carrier barcode
               </h2>
-              <p className="mt-2 text-sm text-muted">
-                Scan the USPS, UPS, or FedEx label on the incoming package.
-              </p>
-              {!scanKeyboardReady && (
-                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                  Using a handheld scanner? Scan directly into the field below. To type manually, tap{' '}
-                  <strong>Show keyboard</strong>.
-                </p>
-              )}
               <div className="mt-4 space-y-3">
                 <div className="space-y-1.5">
                   <label

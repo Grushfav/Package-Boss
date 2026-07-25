@@ -90,7 +90,9 @@ def submit_my_bank_transfer_proof():
             proof_object_key=proof_key,
             package_ids=package_ids,
             transfer_reference=data.get("transfer_reference"),
+            sender_bank=data.get("sender_bank"),
             amount_jmd=data.get("amount_jmd"),
+            include_delivery_fee=bool(data.get("include_delivery_fee")),
             notes=data.get("notes"),
         )
     except ValueError as exc:

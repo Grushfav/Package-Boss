@@ -11,12 +11,12 @@ import {
 import {
   confirmStaffBankTransferProof,
   fetchStaffBankTransferProofs,
-  fetchWarehouseSummary,
   markStaffTransferInProgress,
   rejectStaffBankTransferProof,
 } from '../api/staff'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
+import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { formatJmd } from '../lib/money'
 import type { BankTransferProof, DeliveryRequest } from '../types'
 
@@ -46,6 +46,7 @@ interface RequestRow {
   detail?: string
   proofUrl?: string | null
   transferReference?: string | null
+  senderBankLabel?: string | null
   allPaid?: boolean
   deliveryRequest?: DeliveryRequest
   transferProof?: BankTransferProof
@@ -147,6 +148,7 @@ function transferToRow(proof: BankTransferProof): RequestRow {
     detail: proof.notes || undefined,
     proofUrl: proof.proof_url,
     transferReference: proof.transfer_reference,
+    senderBankLabel: proof.sender_bank_label,
     transferProof: proof,
   }
 }
@@ -166,6 +168,21 @@ function matchesSearch(row: RequestRow, query: string) {
   return haystack.includes(query)
 }
 
+function apiStatusForFilter(filter: StatusFilter): string {
+  if (
+    filter === 'completed' ||
+    filter === 'confirmed' ||
+    filter === 'cancelled' ||
+    filter === 'rejected'
+  ) {
+    return 'history'
+  }
+  if (filter === 'pending' || filter === 'in_progress') {
+    return filter
+  }
+  return 'active'
+}
+
 function matchesStatusFilter(row: RequestRow, statusFilter: StatusFilter) {
   if (statusFilter === 'all') return true
   if (statusFilter === 'completed') return row.kind === 'delivery' && row.status === 'completed'
@@ -174,6 +191,7 @@ function matchesStatusFilter(row: RequestRow, statusFilter: StatusFilter) {
 }
 
 export function StaffRequestsPage() {
+  const { counts } = useWarehouseCounts()
   const [openCount, setOpenCount] = useState(0)
   const [deliveryRequests, setDeliveryRequests] = useState<DeliveryRequest[]>([])
   const [transferProofs, setTransferProofs] = useState<BankTransferProof[]>([])
@@ -188,11 +206,11 @@ export function StaffRequestsPage() {
     setLoading(true)
     setError('')
     const errors: string[] = []
+    const status = apiStatusForFilter(statusFilter)
 
-    const [deliveryResult, transferResult, summaryResult] = await Promise.allSettled([
-      fetchStaffDeliveryRequests('all'),
-      fetchStaffBankTransferProofs('all'),
-      fetchWarehouseSummary(),
+    const [deliveryResult, transferResult] = await Promise.allSettled([
+      fetchStaffDeliveryRequests(status),
+      fetchStaffBankTransferProofs(status),
     ])
 
     if (deliveryResult.status === 'fulfilled') {
@@ -209,16 +227,16 @@ export function StaffRequestsPage() {
       errors.push(getErrorMessage(transferResult.reason))
     }
 
-    if (summaryResult.status === 'fulfilled') {
-      setOpenCount(summaryResult.value.pending_customer_requests ?? 0)
-    }
-
     if (errors.length > 0) {
       setError(errors.join(' · '))
     }
 
     setLoading(false)
-  }, [])
+  }, [statusFilter])
+
+  useEffect(() => {
+    setOpenCount(counts?.pending_customer_requests ?? 0)
+  }, [counts?.pending_customer_requests])
 
   useEffect(() => {
     loadAll()
@@ -470,6 +488,9 @@ export function StaffRequestsPage() {
                         </Link>
                       ) : (
                         <span className="font-semibold">{row.customerName || 'Customer'}</span>
+                      )}
+                      {row.senderBankLabel && (
+                        <p className="mt-1 text-xs text-muted">From: {row.senderBankLabel}</p>
                       )}
                       {row.transferReference && (
                         <p className="mt-1 font-mono text-xs text-muted">

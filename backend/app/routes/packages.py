@@ -3,7 +3,7 @@ import uuid
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
-from app.constants import ALLOWED_INVOICE_TYPES
+from app.constants import ALLOWED_INVOICE_TYPES, INVOICE_UPLOAD_EXCLUDED_STATUSES
 from app.models.package import Package
 from app.models.user import User
 from app.services.billing_service import attach_package_invoice
@@ -87,6 +87,9 @@ def presign_package_invoice(package_id: str):
     if package.invoice_status not in ("pending", "requested"):
         return jsonify({"error": "Invoice upload is not required for this package"}), 400
 
+    if package.status in INVOICE_UPLOAD_EXCLUDED_STATUSES:
+        return jsonify({"error": "Invoice upload is not available at this stage"}), 400
+
     if not is_storage_configured():
         return jsonify({"error": "Invoice storage is not configured"}), 503
 
@@ -127,6 +130,9 @@ def submit_package_invoice(package_id: str):
     package = _get_customer_package(user, package_id)
     if not package:
         return jsonify({"error": "Package not found"}), 404
+
+    if package.status in INVOICE_UPLOAD_EXCLUDED_STATUSES:
+        return jsonify({"error": "Invoice upload is not available at this stage"}), 400
 
     data = request.get_json(silent=True) or {}
     invoice_key = (data.get("invoice_object_key") or "").strip()
