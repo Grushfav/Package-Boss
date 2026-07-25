@@ -126,7 +126,7 @@ export function ShippingLabel({ pkg, customer, className = '', preview = false }
         )}
       </div>
 
-      <p className="mt-1 shrink-0 text-center text-[9px] uppercase tracking-wider text-gray-500 print:mt-auto print:pt-0.5 print:text-[5px] print:leading-none print:tracking-wide">
+      <p className="mt-1 shrink-0 text-center text-[9px] uppercase tracking-wider text-gray-500 print:mt-0.5 print:pt-0 print:text-[5px] print:leading-none print:tracking-wide">
         Received Fort Lauderdale · {new Date(pkg.received_at || pkg.created_at).toLocaleDateString()}
       </p>
     </div>

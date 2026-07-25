@@ -80,10 +80,12 @@ body {
     box-sizing: border-box;
     display: flex !important;
     flex-direction: column;
+    justify-content: flex-start !important;
     width: 2in !important;
-    height: 3in !important;
+    height: auto !important;
     max-width: 2in !important;
     max-height: 3in !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0.06in !important;
     overflow: hidden !important;
