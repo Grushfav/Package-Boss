@@ -1,5 +1,45 @@
 import { api } from './client'
-import type { AuthResponse, RegisterPayload } from '../types'
+import type { AuthResponse, RegisterPayload, ShippingAddress } from '../types'
+
+export interface GoogleSignupPendingResponse {
+  needs_profile: true
+  signup_token: string
+  email: string
+  first_name: string
+  last_name: string
+}
+
+export type GoogleLoginResponse = AuthResponse | GoogleSignupPendingResponse
+
+export function isGoogleSignupPending(
+  response: GoogleLoginResponse,
+): response is GoogleSignupPendingResponse {
+  return 'needs_profile' in response && response.needs_profile === true
+}
+
+export async function loginWithGoogle(credential: string): Promise<GoogleLoginResponse> {
+  const { data } = await api.post<GoogleLoginResponse>('/auth/google', { credential })
+  return data
+}
+
+export async function completeGoogleSignup(
+  signupToken: string,
+  payload: {
+    contact_number: string
+    parish: string
+    trn?: string
+    accept_terms: boolean
+  },
+): Promise<AuthResponse & { shipping_address?: ShippingAddress }> {
+  const { data } = await api.post<AuthResponse & { shipping_address?: ShippingAddress }>(
+    '/auth/google/complete',
+    payload,
+    {
+      headers: { Authorization: `Bearer ${signupToken}` },
+    },
+  )
+  return data
+}
 
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>('/auth/register', payload)

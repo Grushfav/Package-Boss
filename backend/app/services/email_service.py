@@ -421,3 +421,27 @@ def send_invoice_request_email(
         metadata={"type": "invoice_request", "trackingNumber": package_tracking},
         async_send=True,
     )
+
+
+def send_announcement_email(
+    to_email: str,
+    first_name: str,
+    title: str,
+    body_text: str,
+) -> None:
+    frontend = (current_app.config.get("FRONTEND_URL") or "http://localhost:5173").rstrip("/")
+    dashboard_url = f"{frontend}/dashboard/notifications"
+    subject = f"Package Boss update — {title}"
+    body = (
+        f"Hi {first_name},\n\n"
+        f"{body_text}\n\n"
+        f"View in your dashboard: {dashboard_url}\n\n"
+        f"— Package Boss"
+    )
+    _dispatch_email(
+        to_email,
+        subject,
+        body,
+        metadata={"type": "announcement", "title": title},
+        async_send=False,
+    )

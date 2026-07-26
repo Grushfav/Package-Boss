@@ -88,6 +88,20 @@ def ensure_schema(app) -> None:
             db.session.execute(text("ALTER TABLE users ALTER COLUMN parish DROP NOT NULL"))
             db.session.commit()
 
+        if "google_id" not in columns:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN google_id VARCHAR(255)"))
+            db.session.commit()
+            app.logger.info("Added missing users.google_id column")
+            columns.add("google_id")
+            if db.engine.dialect.name == "postgresql":
+                db.session.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_id "
+                        "ON users (google_id)"
+                    )
+                )
+                db.session.commit()
+
         _migrate_trn_columns(app, columns)
 
     if "packages" in inspector.get_table_names():
@@ -97,4 +111,13 @@ def ensure_schema(app) -> None:
             db.session.commit()
             app.logger.info("Added missing packages.shipper column")
 
-    db.create_all()
+    # Migrations own new tables; create_all only backfills models without migrations.
+    announcement_tables = {
+        "announcements",
+        "announcement_dismissals",
+        "announcement_reads",
+        "broadcast_jobs",
+    }
+    existing = set(inspector.get_table_names())
+    if not announcement_tables.issubset(existing):
+        db.create_all()

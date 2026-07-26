@@ -1,4 +1,5 @@
 from app.routes.admin import admin_bp
+from app.routes.announcements import announcements_bp
 from app.routes.auth import auth_bp
 from app.routes.bank_transfer_proofs import bank_transfer_proofs_bp
 from app.routes.delivery_requests import delivery_requests_bp
@@ -13,6 +14,7 @@ from app.routes.uploads import uploads_bp
 
 __all__ = [
     "admin_bp",
+    "announcements_bp",
     "auth_bp",
     "bank_transfer_proofs_bp",
     "delivery_requests_bp",

@@ -915,7 +915,7 @@ def get_print_queue():
     )
     return jsonify(
         {
-            "packages": [warehouse_package_list_to_dict(p) for p in packages],
+            "packages": [warehouse_package_to_dict(p) for p in packages],
             "total": total,
         }
     )

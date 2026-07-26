@@ -1,3 +1,4 @@
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { RequireAdmin, RequireAuth, RequireWarehouse } from './components/auth/RouteGuards'
 import { Layout } from './components/layout/Layout'
@@ -8,6 +9,7 @@ import { CustomerDataProvider } from './context/CustomerDataContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { AboutPage } from './pages/AboutPage'
 import { AdminActivityPage } from './pages/AdminActivityPage'
+import { AdminAnnouncementsPage } from './pages/AdminAnnouncementsPage'
 import { AdminClerksPage } from './pages/AdminClerksPage'
 import { AdminHubPage } from './pages/AdminHubPage'
 import { AdminOperationsPage } from './pages/AdminOperationsPage'
@@ -22,6 +24,7 @@ import { DashboardProfilePage } from './pages/dashboard/DashboardProfilePage'
 import { DashboardRatesPage } from './pages/dashboard/DashboardRatesPage'
 import { NewPreAlertPage } from './pages/NewPreAlertPage'
 import { PackageInvoiceUploadPage } from './pages/PackageInvoiceUploadPage'
+import { GoogleSignupCompletePage } from './pages/GoogleSignupCompletePage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
@@ -42,6 +45,7 @@ import { WarehouseHomePage } from './pages/WarehouseHomePage'
 import { WarehousePreAlertsPage } from './pages/WarehousePreAlertsPage'
 import { DeparturesPage } from './pages/DeparturesPage'
 import { StaffRequestsPage } from './pages/StaffRequestsPage'
+import { GOOGLE_CLIENT_ID, isGoogleSignInEnabled } from './lib/googleAuth'
 
 function AppRoutes() {
   const location = useLocation()
@@ -54,6 +58,7 @@ function AppRoutes() {
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/signup/google" element={<GoogleSignupCompletePage />} />
         <Route path="/rates" element={<RatesPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
@@ -101,6 +106,7 @@ function AppRoutes() {
             <Route index element={<AdminHubPage />} />
             <Route path="operations" element={<AdminOperationsPage />} />
             <Route path="clerks" element={<AdminClerksPage />} />
+            <Route path="announcements" element={<AdminAnnouncementsPage />} />
           </Route>
         </Route>
 
@@ -114,7 +120,7 @@ function AppRoutes() {
 }
 
 function App() {
-  return (
+  const content = (
     <ThemeProvider>
       <AuthProvider>
         <CustomerDataProvider>
@@ -128,6 +134,12 @@ function App() {
       </AuthProvider>
     </ThemeProvider>
   )
+
+  if (isGoogleSignInEnabled()) {
+    return <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>{content}</GoogleOAuthProvider>
+  }
+
+  return content
 }
 
 export default App

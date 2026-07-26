@@ -1,3 +1,9 @@
+from app.models.announcement import (
+    Announcement,
+    AnnouncementDismissal,
+    AnnouncementRead,
+    BroadcastJob,
+)
 from app.models.audit_log import AuditLog
 from app.models.authorized_pickup import AuthorizedPickupPerson
 from app.models.delivery_address import DeliveryAddress
@@ -31,4 +37,8 @@ __all__ = [
     "DeliveryRequestPackage",
     "PaymentCheckout",
     "PaymentCheckoutItem",
+    "Announcement",
+    "AnnouncementDismissal",
+    "AnnouncementRead",
+    "BroadcastJob",
 ]

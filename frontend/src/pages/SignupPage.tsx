@@ -5,6 +5,8 @@ import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { cacheShippingAddress } from '../lib/offlineAddress'
 import { Seo } from '../components/seo/Seo'
+import { AuthDivider } from '../components/auth/AuthDivider'
+import { GoogleSignInButton } from '../components/auth/GoogleSignInButton'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { PAGE_SEO } from '../lib/seo'
@@ -67,7 +69,12 @@ export function SignupPage() {
           Create your account and get your Fort Lauderdale shipping address instantly.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <div className="mt-6">
+          <GoogleSignInButton label="signup_with" />
+        </div>
+        <AuthDivider label="or sign up with email" />
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="First Name"

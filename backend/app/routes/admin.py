@@ -317,3 +317,115 @@ def deactivate_clerk(user_id: str):
     bump_token_version(user, commit=False)
     db.session.commit()
     return jsonify({"user": _clerk_dict(user)})
+
+
+@admin_bp.route("/admin/announcements", methods=["GET"])
+@admin_required()
+def list_announcements():
+    from app.services.announcement_service import latest_broadcast_job, list_admin_announcements
+
+    rows = list_admin_announcements()
+    return jsonify(
+        {
+            "announcements": [
+                a.to_dict(job=latest_broadcast_job(a)) for a in rows
+            ]
+        }
+    )
+
+
+@admin_bp.route("/admin/announcements", methods=["POST"])
+@admin_required()
+def create_announcement_route():
+    from app.services.announcement_service import create_announcement
+
+    actor = get_user_from_jwt()
+    data = request.get_json(silent=True) or {}
+    try:
+        announcement = create_announcement(actor, data)
+    except ValueError as exc:
+        return _error(str(exc))
+
+    from app.services.announcement_service import latest_broadcast_job
+
+    return jsonify({"announcement": announcement.to_dict(job=latest_broadcast_job(announcement))}), 201
+
+
+@admin_bp.route("/admin/announcements/<announcement_id>", methods=["PATCH"])
+@admin_required()
+def update_announcement_route(announcement_id: str):
+    from app.services.announcement_service import get_announcement, latest_broadcast_job, update_announcement
+
+    try:
+        aid = uuid.UUID(announcement_id)
+    except ValueError:
+        return _error("Invalid announcement ID")
+
+    announcement = get_announcement(aid)
+    if not announcement:
+        return _error("Announcement not found", 404)
+
+    actor = get_user_from_jwt()
+    data = request.get_json(silent=True) or {}
+    try:
+        announcement = update_announcement(announcement, actor, data)
+    except ValueError as exc:
+        return _error(str(exc))
+
+    return jsonify({"announcement": announcement.to_dict(job=latest_broadcast_job(announcement))})
+
+
+@admin_bp.route("/admin/announcements/<announcement_id>", methods=["DELETE"])
+@admin_required()
+def delete_announcement_route(announcement_id: str):
+    from app.services.announcement_service import delete_announcement, get_announcement
+
+    try:
+        aid = uuid.UUID(announcement_id)
+    except ValueError:
+        return _error("Invalid announcement ID")
+
+    announcement = get_announcement(aid)
+    if not announcement:
+        return _error("Announcement not found", 404)
+
+    delete_announcement(announcement, get_user_from_jwt())
+    return jsonify({"message": "Deleted"})
+
+
+@admin_bp.route("/admin/announcements/<announcement_id>/broadcast", methods=["POST"])
+@admin_required()
+def broadcast_announcement_route(announcement_id: str):
+    from app.services.announcement_service import broadcast_announcement, get_announcement
+
+    try:
+        aid = uuid.UUID(announcement_id)
+    except ValueError:
+        return _error("Invalid announcement ID")
+
+    announcement = get_announcement(aid)
+    if not announcement:
+        return _error("Announcement not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    channels = data.get("channels") or ["in_app"]
+    also_show_banner = bool(data.get("also_show_banner"))
+
+    try:
+        job = broadcast_announcement(
+            announcement,
+            get_user_from_jwt(),
+            channels=channels,
+            also_show_banner=also_show_banner,
+        )
+    except ValueError as exc:
+        return _error(str(exc))
+
+    from app.services.announcement_service import latest_broadcast_job
+
+    return jsonify(
+        {
+            "announcement": announcement.to_dict(job=job),
+            "broadcast_job": job.to_dict(),
+        }
+    )

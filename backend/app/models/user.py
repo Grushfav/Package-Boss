@@ -29,6 +29,8 @@ class User(db.Model):
     terms_accepted_at = db.Column(db.DateTime, nullable=True)
     whatsapp_opt_in = db.Column(db.Boolean, default=False, nullable=False)
 
+    google_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False

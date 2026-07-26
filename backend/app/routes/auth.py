@@ -255,3 +255,59 @@ def reset_password():
     delete_reset_token(token)
 
     return jsonify({"message": "Password updated successfully. You can now log in."})
+
+
+@auth_bp.route("/auth/google", methods=["POST"])
+def google_login():
+    from app.services.google_auth_service import (
+        GoogleAuthError,
+        authenticate_google_user,
+        verify_google_credential,
+    )
+
+    data = request.get_json(silent=True) or {}
+    credential = data.get("credential") or ""
+
+    try:
+        profile = verify_google_credential(credential)
+        user, pending = authenticate_google_user(profile)
+    except GoogleAuthError as exc:
+        return _error(str(exc), 400)
+
+    if pending:
+        return jsonify(pending), 200
+
+    if not user.is_active:
+        return _error("This account has been deactivated", 403)
+
+    access_token = access_token_for_user(user)
+    return jsonify(
+        {
+            "access_token": access_token,
+            "user": user.to_dict(
+                include_trn=user.role == "customer",
+                include_clerk_fields=user.role in ("clerk", "admin"),
+            ),
+        }
+    )
+
+
+@auth_bp.route("/auth/google/complete", methods=["POST"])
+@jwt_required()
+def google_signup_complete():
+    from app.services.google_auth_service import GoogleAuthError, complete_google_signup
+
+    data = request.get_json(silent=True) or {}
+    try:
+        user, shipping_address = complete_google_signup(data)
+    except GoogleAuthError as exc:
+        return _error(str(exc), 400)
+
+    access_token = access_token_for_user(user)
+    return jsonify(
+        {
+            "access_token": access_token,
+            "user": user.to_dict(include_trn=True),
+            "shipping_address": shipping_address,
+        }
+    ), 201

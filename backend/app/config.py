@@ -85,6 +85,8 @@ class Config:
     # Legacy alias — treated as CLERK_EMAIL if CLERK_EMAIL is unset
     STAFF_EMAIL = os.environ.get("STAFF_EMAIL", "").strip().lower()
 
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

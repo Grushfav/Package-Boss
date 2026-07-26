@@ -5,6 +5,8 @@ import { login } from '../api/auth'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { getPostLoginPath } from '../lib/routing'
+import { AuthDivider } from '../components/auth/AuthDivider'
+import { GoogleSignInButton } from '../components/auth/GoogleSignInButton'
 import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
@@ -80,6 +82,9 @@ export function LoginPage() {
             {loading ? 'Authorizing...' : 'Authorize Login'}
           </Button>
         </form>
+
+        <AuthDivider />
+        <GoogleSignInButton label="signin_with" />
 
         <div className="mt-6 flex items-center justify-between text-sm">
           <Link to="/forgot-password" className="text-muted underline hover:text-foreground">

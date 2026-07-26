@@ -1,4 +1,4 @@
-import { BarChart3, UserCog, Warehouse } from 'lucide-react'
+import { BarChart3, Megaphone, UserCog, Warehouse } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchAdminOverview, fetchClerks } from '../api/admin'
 import { fetchWarehouseSummary } from '../api/staff'
@@ -35,7 +35,7 @@ export function AdminHubPage() {
         <p className="mt-1 text-sm text-muted">Where would you like to go?</p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <HubCard
           to="/admin/operations"
           icon={BarChart3}
@@ -46,6 +46,12 @@ export function AdminHubPage() {
               ? `${overview.packages_today} received today · $${overview.revenue_30d_usd.toFixed(0)} (30d)`
               : undefined
           }
+        />
+        <HubCard
+          to="/admin/announcements"
+          icon={Megaphone}
+          title="Announcements"
+          description="Site banners and customer broadcasts."
         />
         <HubCard
           to="/admin/clerks"

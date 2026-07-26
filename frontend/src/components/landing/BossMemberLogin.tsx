@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { login } from '../../api/auth'
 import { getErrorMessage } from '../../api/client'
+import { AuthDivider } from '../auth/AuthDivider'
+import { GoogleSignInButton } from '../auth/GoogleSignInButton'
 import { useAuth } from '../../context/AuthContext'
 import { getPostLoginPath } from '../../lib/routing'
 import { Button } from '../ui/Button'
@@ -69,6 +71,9 @@ export function BossMemberLogin() {
           {loading ? 'Authorizing...' : 'Authorize Login'}
         </Button>
       </form>
+
+      <AuthDivider />
+      <GoogleSignInButton label="signin_with" />
 
       <div className="mt-4 flex items-center justify-between text-xs">
         <Link to="/forgot-password" className="text-muted underline hover:text-foreground">

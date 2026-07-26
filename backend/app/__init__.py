@@ -10,6 +10,7 @@ from app.models.user import User
 from app.services.unidentified_service import ensure_unidentified_holder
 from app.routes import (
     admin_bp,
+    announcements_bp,
     auth_bp,
     bank_transfer_proofs_bp,
     delivery_requests_bp,
@@ -79,6 +80,7 @@ def create_app(config_class=None):
     app.register_blueprint(staff_bp, url_prefix="/api")
     app.register_blueprint(uploads_bp, url_prefix="/api")
     app.register_blueprint(admin_bp, url_prefix="/api")
+    app.register_blueprint(announcements_bp, url_prefix="/api")
 
     with app.app_context():
         from sqlalchemy import inspect
