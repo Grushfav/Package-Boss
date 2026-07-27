@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
+import { COMPANY_PHONE_DISPLAY, COMPANY_PHONE_TEL } from '../../content/legal'
 import { SocialLinks } from '../landing/SocialLinks'
 
 export function Footer({ className = '' }: { className?: string }) {
   return (
     <footer className={`border-t border-border bg-background ${className}`}>
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-3">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-4">
         <div>
           <p className="text-xl font-black italic">
             <span className="text-foreground">PACKAGE </span>
@@ -23,6 +24,15 @@ export function Footer({ className = '' }: { className?: string }) {
             2201 SW 59th Terrace <br />
             West Park, FL 33023<br />
             United States
+          </p>
+        </div>
+
+        <div>
+          <h4 className="text-xs font-semibold uppercase tracking-widest text-boss-gold">Contact</h4>
+          <p className="mt-3 text-sm text-muted">
+            <a href={`tel:${COMPANY_PHONE_TEL}`} className="hover:text-boss-green">
+              {COMPANY_PHONE_DISPLAY}
+            </a>
           </p>
         </div>
 

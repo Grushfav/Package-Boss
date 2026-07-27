@@ -334,6 +334,9 @@ function BankTransferDetailsBody() {
           <DetailRow label="Account name" value={b.accountName} />
           <DetailRow label="Bank" value={b.bankName} />
           <DetailRow label="Branch" value={b.branch} />
+          <DetailRow label="Branch code" value={b.branchCode} />
+          <DetailRow label="Transit code" value={b.transitCode} />
+          <DetailRow label="SWIFT code" value={b.swiftCode} />
           <DetailRow label="Account number" value={b.accountNumber} />
           <DetailRow label="Account type" value={b.accountType} />
           <DetailRow label="Currency" value={b.currency} />

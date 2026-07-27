@@ -41,7 +41,7 @@ export function HubCard({
           {count}
         </span>
       )}
-      <Icon className="h-7 w-7 text-boss-gold" strokeWidth={2} />
+      <Icon className="h-7 w-7 text-boss-green" strokeWidth={2} />
       <h2 className="mt-3 font-bold uppercase tracking-wide">{title}</h2>
       <p className="mt-1 flex-1 text-sm text-muted">{description}</p>
       {stat && (

@@ -1,3 +1,5 @@
+import { COMPANY_PHONE_TEL } from '../content/legal'
+
 export const SITE_NAME = 'Package Boss'
 export const SITE_LEGAL_NAME = 'Package Boss Shipping & Logistics'
 export const DEFAULT_TITLE = 'Package Boss — Ship Smart. Ship Easy.'
@@ -100,6 +102,7 @@ export function organizationJsonLd() {
     alternateName: SITE_NAME,
     url: SITE_URL,
     logo: `${SITE_URL}/icon-512.png`,
+    telephone: COMPANY_PHONE_TEL,
     description: DEFAULT_DESCRIPTION,
     address: {
       '@type': 'PostalAddress',

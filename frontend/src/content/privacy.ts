@@ -1,4 +1,5 @@
 import { COMPANY_LEGAL_NAME } from './terms'
+import { COMPANY_PHONE_DISPLAY, PRIVACY_EMAIL } from './legal'
 import type { LegalSection } from './legal'
 
 export const PRIVACY_SECTIONS: LegalSection[] = [
@@ -125,7 +126,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   {
     title: '15. Contact Us',
     paragraphs: [
-      `For privacy questions, requests, or complaints, contact ${COMPANY_LEGAL_NAME} at info@packagebossja.com.`,
+      `For privacy questions, requests, or complaints, contact ${COMPANY_LEGAL_NAME} at ${PRIVACY_EMAIL} or ${COMPANY_PHONE_DISPLAY}.`,
       'For data protection matters specifically, you may also refer to our Data Protection Policy.',
     ],
   },
