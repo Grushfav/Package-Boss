@@ -25,7 +25,7 @@ export function SignupPage() {
     password: '',
     contact_number: '',
     trn: '',
-    parish: '',
+    parish: 'Kingston',
   })
 
   useEffect(() => {

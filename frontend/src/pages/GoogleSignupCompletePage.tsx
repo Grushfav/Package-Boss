@@ -26,7 +26,7 @@ export function GoogleSignupCompletePage() {
   const [form, setForm] = useState({
     contact_number: '',
     trn: '',
-    parish: '',
+    parish: 'Kingston',
   })
 
   useEffect(() => {
