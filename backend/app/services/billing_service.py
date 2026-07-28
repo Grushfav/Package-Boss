@@ -97,7 +97,8 @@ def request_package_invoice(
                 upload_url,
                 note,
             )
-            channels_sent.append("email")
+            if email_result is not None:
+                channels_sent.append("email")
         except (EmailServiceError, NotImplementedError) as exc:
             raise ValueError(f"Failed to send invoice email: {exc}") from exc
 
@@ -122,6 +123,12 @@ def request_package_invoice(
                 )
         elif channel == "whatsapp":
             raise ValueError("Customer has not opted in to WhatsApp notifications")
+
+    if not channels_sent:
+        raise ValueError(
+            "Could not deliver the invoice request. Customer email notifications may be "
+            "disabled by admin, or WhatsApp is unavailable."
+        )
 
     package.invoice_status = "requested"
     package.invoice_requested_at = datetime.utcnow()

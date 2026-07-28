@@ -1,3 +1,4 @@
+from app.models.app_setting import AppSetting
 from app.models.announcement import (
     Announcement,
     AnnouncementDismissal,
@@ -19,6 +20,7 @@ from app.models.package import Package, PackageEvent, PackagePhoto
 from app.models.bank_transfer_proof import BankTransferProof, BankTransferProofPackage
 
 __all__ = [
+    "AppSetting",
     "User",
     "PasswordResetToken",
     "ShippingRateTier",

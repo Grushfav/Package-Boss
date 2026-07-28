@@ -13,6 +13,7 @@ import {
   type BroadcastChannel,
 } from '../api/announcements'
 import { getErrorMessage } from '../api/client'
+import { CustomerEmailNotificationsPanel } from '../components/admin/CustomerEmailNotificationsPanel'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
@@ -187,6 +188,8 @@ export function AdminAnnouncementsPage() {
           {showCreateForm ? 'Close form' : 'New announcement'}
         </Button>
       </header>
+
+      <CustomerEmailNotificationsPanel />
 
       {error && (
         <p className="mb-4 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>

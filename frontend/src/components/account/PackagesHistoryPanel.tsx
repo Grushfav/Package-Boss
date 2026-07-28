@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { cancelDeliveryRequest, DELIVERY_FEE_JMD } from '../../api/deliveryRequests'
-import { formatJmd } from '../../lib/money'
+import { cancelDeliveryRequest } from '../../api/deliveryRequests'
 import {
   formatPackageCost,
   packageCanUploadInvoice,

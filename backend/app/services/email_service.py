@@ -273,6 +273,12 @@ def send_welcome_email(
     )
 
 
+def _customer_notification_emails_enabled() -> bool:
+    from app.services.notification_settings_service import customer_email_notifications_enabled
+
+    return customer_email_notifications_enabled()
+
+
 def send_package_status_email(
     to_email: str,
     first_name: str,
@@ -284,6 +290,13 @@ def send_package_status_email(
     carrier_tracking: str | None = None,
     shipper_label: str | None = None,
 ) -> None:
+    if not _customer_notification_emails_enabled():
+        current_app.logger.info(
+            "Customer email notifications disabled — skipping status email for %s",
+            tracking_number,
+        )
+        return
+
     from app.constants import STATUS_LABELS
 
     label = status_label or STATUS_LABELS.get(status, status.replace("_", " ").title())
@@ -395,6 +408,13 @@ def send_invoice_request_email(
     upload_url: str,
     note: str | None = None,
 ) -> dict | None:
+    if not _customer_notification_emails_enabled():
+        current_app.logger.info(
+            "Customer email notifications disabled — skipping invoice request for %s",
+            package_tracking,
+        )
+        return None
+
     subject = f"Package Boss — upload receipt for {package_tracking}"
     note_line = f"\n\nNote from our team:\n{note}\n" if note else ""
     body = (
@@ -429,6 +449,13 @@ def send_announcement_email(
     title: str,
     body_text: str,
 ) -> None:
+    if not _customer_notification_emails_enabled():
+        current_app.logger.info(
+            "Customer email notifications disabled — skipping announcement email to %s",
+            to_email,
+        )
+        return
+
     frontend = (current_app.config.get("FRONTEND_URL") or "http://localhost:5173").rstrip("/")
     dashboard_url = f"{frontend}/dashboard/notifications"
     subject = f"Package Boss update — {title}"

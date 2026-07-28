@@ -22,6 +22,10 @@ from app.services.clerk_permission_service import normalize_clerk_permissions
 from app.services.email_service import EmailServiceError, send_clerk_invite_email
 from app.services.rate_limit_service import RateLimitExceeded, assert_clerk_invite_resend_allowed
 from app.services.reset_token_service import build_reset_url, generate_reset_token, store_invite_token
+from app.services.notification_settings_service import (
+    get_customer_email_notification_settings,
+    set_customer_email_notifications_enabled,
+)
 from app.services.staff_id_service import generate_staff_shipping_id
 from app.services.token_service import bump_token_version
 from app.utils.auth_decorators import admin_required, get_user_from_jwt, permission_required
@@ -429,3 +433,25 @@ def broadcast_announcement_route(announcement_id: str):
             "broadcast_job": job.to_dict(),
         }
     )
+
+
+@admin_bp.route("/admin/settings/customer-email-notifications", methods=["GET"])
+@admin_required()
+def get_customer_email_notifications_setting():
+    return jsonify(get_customer_email_notification_settings())
+
+
+@admin_bp.route("/admin/settings/customer-email-notifications", methods=["PATCH"])
+@admin_required()
+def update_customer_email_notifications_setting():
+    data = request.get_json(silent=True) or {}
+    if "enabled" not in data:
+        return _error("enabled is required")
+
+    enabled = data.get("enabled")
+    if not isinstance(enabled, bool):
+        return _error("enabled must be a boolean")
+
+    admin = get_user_from_jwt()
+    settings = set_customer_email_notifications_enabled(enabled, updated_by=admin)
+    return jsonify(settings)

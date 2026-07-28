@@ -159,3 +159,26 @@ export async function fetchActivityLog(
   )
   return data
 }
+
+export interface CustomerEmailNotificationSettings {
+  customer_email_notifications_enabled: boolean
+  updated_at: string | null
+  updated_by_id: string | null
+}
+
+export async function fetchCustomerEmailNotificationSettings(): Promise<CustomerEmailNotificationSettings> {
+  const { data } = await api.get<CustomerEmailNotificationSettings>(
+    '/admin/settings/customer-email-notifications',
+  )
+  return data
+}
+
+export async function updateCustomerEmailNotificationSettings(
+  enabled: boolean,
+): Promise<CustomerEmailNotificationSettings> {
+  const { data } = await api.patch<CustomerEmailNotificationSettings>(
+    '/admin/settings/customer-email-notifications',
+    { enabled },
+  )
+  return data
+}

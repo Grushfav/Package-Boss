@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import {
   DELIVERY_AREAS,
-  PICKUP_DAYS,
   SERVICES,
   SHIPPING_FREQUENCY_SHORT,
 } from '../content/marketing'
