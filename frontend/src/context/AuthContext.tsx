@@ -60,6 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser()
   }, [refreshUser])
 
+  // Recover session when a token exists but user state was lost (e.g. post-login navigation race).
+  useEffect(() => {
+    if (!isLoading && !user && localStorage.getItem('access_token')) {
+      void refreshUser()
+    }
+  }, [isLoading, user, refreshUser])
+
   useEffect(() => {
     function handleFocus() {
       if (localStorage.getItem('access_token')) {

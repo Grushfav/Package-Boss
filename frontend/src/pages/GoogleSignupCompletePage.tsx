@@ -12,6 +12,7 @@ import {
   readGoogleSignupSession,
 } from '../lib/googleAuth'
 import { cacheShippingAddress } from '../lib/offlineAddress'
+import { getPostLoginPath } from '../lib/routing'
 import { PAGE_SEO } from '../lib/seo'
 
 export function GoogleSignupCompletePage() {
@@ -60,7 +61,9 @@ export function GoogleSignupCompletePage() {
       if (data.shipping_address) {
         cacheShippingAddress(data.shipping_address)
       }
-      navigate('/dashboard', { state: { shipping_address: data.shipping_address } })
+      navigate(getPostLoginPath(data.user.role, null), {
+        state: { shipping_address: data.shipping_address },
+      })
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {

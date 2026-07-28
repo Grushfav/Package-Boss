@@ -2,11 +2,13 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
-const AUTH_REQUEST_PATTERN = /\/auth\/(?:login|register|forgot-password|reset-password|logout)/
+const AUTH_REQUEST_PATTERN =
+  /\/auth\/(?:login|register|forgot-password|reset-password|logout|google(?:\/complete)?)/
 
 const PUBLIC_AUTH_PATHS = new Set([
   '/login',
   '/signup',
+  '/signup/google',
   '/forgot-password',
   '/reset-password',
 ])

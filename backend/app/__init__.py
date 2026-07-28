@@ -102,6 +102,10 @@ def create_app(config_class=None):
                 "Skipping startup seeds — run `flask db upgrade` to apply pending migrations."
             )
 
+    from app.cli import register_cli
+
+    register_cli(app)
+
     return app
 
 

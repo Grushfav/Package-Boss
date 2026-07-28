@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { getHomeRoute } from '../../lib/routing'
@@ -15,20 +16,43 @@ function loginRedirect(path: string) {
   return `/login?next=${encodeURIComponent(path)}`
 }
 
+function hasStoredAccessToken() {
+  return !!localStorage.getItem('access_token')
+}
+
+/** Wait for AuthContext to catch up after setSession writes localStorage. */
+function useAuthGate() {
+  const { isAuthenticated, isLoading, user, refreshUser } = useAuth()
+  const hasStoredToken = hasStoredAccessToken()
+  const isPendingSession = hasStoredToken && !user
+
+  useEffect(() => {
+    if (isPendingSession && !isLoading) {
+      void refreshUser()
+    }
+  }, [isPendingSession, isLoading, refreshUser])
+
+  return {
+    user,
+    isAuthenticated,
+    isChecking: isLoading || isPendingSession,
+  }
+}
+
 export function RequireAuth() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isChecking } = useAuthGate()
   const location = useLocation()
 
-  if (isLoading) return <LoadingScreen />
+  if (isChecking) return <LoadingScreen />
   if (!isAuthenticated) return <Navigate to={loginRedirect(location.pathname)} replace />
   return <Outlet />
 }
 
 export function RequireWarehouse() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, isChecking } = useAuthGate()
   const location = useLocation()
 
-  if (isLoading) return <LoadingScreen />
+  if (isChecking) return <LoadingScreen />
   if (!isAuthenticated) return <Navigate to={loginRedirect(location.pathname)} replace />
   if (!canAccessWarehouse(user?.role)) {
     return <Navigate to={getHomeRoute(user?.role)} replace />
@@ -37,10 +61,10 @@ export function RequireWarehouse() {
 }
 
 export function RequireAdmin() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isAuthenticated, isChecking } = useAuthGate()
   const location = useLocation()
 
-  if (isLoading) return <LoadingScreen />
+  if (isChecking) return <LoadingScreen />
   if (!isAuthenticated) return <Navigate to={loginRedirect(location.pathname)} replace />
   if (!isAdmin(user?.role)) {
     return <Navigate to={getHomeRoute(user?.role)} replace />
