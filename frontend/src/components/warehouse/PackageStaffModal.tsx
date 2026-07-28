@@ -13,6 +13,7 @@ import { clerkHasPermission } from '../../lib/clerkPermissions'
 import { isAdmin } from '../../lib/roles'
 import { formatJmd } from '../../lib/money'
 import { packageHasAdditionalFees } from '../../lib/packageBilling'
+import { MAX_AUTO_RATE_LBS } from '../../lib/warehouseConstants'
 import { RecordPaymentForm } from './RecordPaymentForm'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -59,6 +60,12 @@ export function PackageStaffModal({ pkg, onClose, onUpdated, onUnassigned }: Pac
     declared_value_usd: pkg.declared_value_usd?.toString() ?? '',
   })
   const [showExtraFees, setShowExtraFees] = useState(packageHasAdditionalFees(pkg))
+
+  const packageWeight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
+  const billableLbs = packageWeight != null ? Math.ceil(packageWeight) : null
+  const needsCustomFreight =
+    (billableLbs != null && billableLbs > MAX_AUTO_RATE_LBS) ||
+    pkg.rate_tier_label === 'Custom quote'
 
   useEffect(() => {
     if (pkg.customer?.shipping_id) {
@@ -273,9 +280,23 @@ export function PackageStaffModal({ pkg, onClose, onUpdated, onUnassigned }: Pac
             {pkg.status === 'customs' ? (
               <>
                 <p className="text-sm text-muted">
-                  Release from customs to auto-calculate shipping from weight and publish the bill.
+                  {needsCustomFreight
+                    ? `This package is over ${MAX_AUTO_RATE_LBS} lbs and needs a custom shipping quote before release.`
+                    : 'Release from customs to auto-calculate shipping from weight and publish the bill.'}{' '}
                   Add optional duties or fees below.
                 </p>
+                {needsCustomFreight && (
+                  <Input
+                    label="Shipping (JMD)"
+                    type="number"
+                    step="1"
+                    value={billing.estimated_freight_jmd}
+                    onChange={(e) =>
+                      setBilling({ ...billing, estimated_freight_jmd: e.target.value })
+                    }
+                    placeholder="Enter custom freight quote"
+                  />
+                )}
                 <Input
                   label="Duties (JMD)"
                   type="number"
@@ -297,36 +318,56 @@ export function PackageStaffModal({ pkg, onClose, onUpdated, onUnassigned }: Pac
                   value={billing.other_fees_jmd}
                   onChange={(e) => setBilling({ ...billing, other_fees_jmd: e.target.value })}
                 />
-                <Button
-                  onClick={async () => {
-                    setError('')
-                    setLoading(true)
-                    try {
+                <div className="flex flex-wrap gap-2">
+                  {needsCustomFreight && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSaveBilling(false)}
+                      disabled={loading}
+                    >
+                      {loading ? 'Saving…' : 'Save freight draft'}
+                    </Button>
+                  )}
+                  <Button
+                    onClick={async () => {
+                      setError('')
+                      setSuccess('')
                       const parse = (v: string) => (v.trim() ? parseFloat(v) : undefined)
-                      const result = await releasePackagesFromCustoms({
-                        items: [
-                          {
-                            package_id: pkg.id,
-                            duties_jmd: parse(billing.duties_jmd),
-                            handling_jmd: parse(billing.handling_jmd),
-                            other_fees_jmd: parse(billing.other_fees_jmd),
-                          },
-                        ],
-                      })
-                      if (result.packages[0]) {
-                        onUpdated(result.packages[0])
-                        setSuccess('Released from customs — bill published')
+                      const freight = parse(billing.estimated_freight_jmd)
+                      if (needsCustomFreight && (freight == null || freight <= 0)) {
+                        setError('Enter shipping (JMD) before releasing')
+                        return
                       }
-                    } catch (err) {
-                      setError(getErrorMessage(err))
-                    } finally {
-                      setLoading(false)
-                    }
-                  }}
-                  disabled={loading}
-                >
-                  {loading ? 'Releasing…' : 'Release & publish bill'}
-                </Button>
+                      setLoading(true)
+                      try {
+                        const result = await releasePackagesFromCustoms({
+                          items: [
+                            {
+                              package_id: pkg.id,
+                              ...(needsCustomFreight || freight != null
+                                ? { estimated_freight_jmd: freight }
+                                : {}),
+                              duties_jmd: parse(billing.duties_jmd),
+                              handling_jmd: parse(billing.handling_jmd),
+                              other_fees_jmd: parse(billing.other_fees_jmd),
+                            },
+                          ],
+                        })
+                        if (result.packages[0]) {
+                          onUpdated(result.packages[0])
+                          setSuccess('Released from customs — bill published')
+                        }
+                      } catch (err) {
+                        setError(getErrorMessage(err))
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? 'Releasing…' : 'Release & publish bill'}
+                  </Button>
+                </div>
               </>
             ) : pkg.status === 'ready_for_pickup' ? (
               <>

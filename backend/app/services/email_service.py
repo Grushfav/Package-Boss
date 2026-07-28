@@ -443,6 +443,35 @@ def send_invoice_request_email(
     )
 
 
+def send_checkout_invoice_email(
+    customer: User,
+    checkout,
+    packages: list,
+) -> dict:
+    from app.constants import PAYMENT_METHOD_LABELS
+    from app.services.bill_invoice_service import render_checkout_invoice_html
+
+    html_body = render_checkout_invoice_html(checkout, customer, packages)
+    method_label = PAYMENT_METHOD_LABELS.get(checkout.method, checkout.method)
+    total = float(checkout.total_jmd)
+    total_display = f"J${int(total):,}" if total == int(total) else f"J${total:,.2f}"
+    subject = f"Package Boss invoice {checkout.invoice_number}"
+    body = (
+        f"Hi {customer.first_name},\n\n"
+        f"Thank you for your payment. Invoice {checkout.invoice_number} "
+        f"for {total_display} ({method_label}) is included below.\n\n"
+        f"— Package Boss Shipping & Logistics"
+    )
+    return _dispatch_email(
+        customer.email,
+        subject,
+        body,
+        html_body=html_body,
+        metadata={"type": "checkout_invoice", "invoiceNumber": checkout.invoice_number},
+        async_send=False,
+    )
+
+
 def send_announcement_email(
     to_email: str,
     first_name: str,

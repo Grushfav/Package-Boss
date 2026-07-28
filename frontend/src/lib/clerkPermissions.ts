@@ -8,7 +8,7 @@ export const CLERK_PERMISSION_LABELS: Record<ClerkPermission, string> = {
   status_transit: 'Status: received → in transit (Fort Lauderdale)',
   status_customs: 'Status: customs updates',
   status_pickup: 'Status: ready for pickup / delivered',
-  billing: 'Billing & payments',
+  billing: 'Billing, payments & mark delivered',
   invoice_request: 'Request customer invoices',
 }
 

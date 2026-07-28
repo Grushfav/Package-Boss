@@ -2,8 +2,9 @@
 
 from decimal import Decimal
 
+from app.data.revised_rate_table import MAX_AUTO_RATE_LBS, QUOTE_MESSAGE
 from app.models.package import Package
-from app.services.shipping_service import calculate_shipping_cost
+from app.services.shipping_service import billable_weight_lbs, calculate_shipping_cost
 
 
 def compute_total_due(
@@ -37,6 +38,10 @@ def ensure_freight_jmd(package: Package) -> None:
         return
 
     weight = package.actual_weight_lbs or package.billable_weight_lbs
+    billable = billable_weight_lbs(weight)
+    if billable > MAX_AUTO_RATE_LBS:
+        raise ValueError(f"{package.tracking_number}: {QUOTE_MESSAGE}")
+
     quote = calculate_shipping_cost(weight)
     package.estimated_freight_jmd = _decimal(quote["cost_jmd"])
     package.rate_tier_label = quote["tier_label"]
@@ -47,10 +52,13 @@ def ensure_freight_jmd(package: Package) -> None:
 def publish_ready_for_pickup_bill(
     package: Package,
     *,
+    estimated_freight_jmd: float | None = None,
     duties_jmd: float | None = None,
     handling_jmd: float | None = None,
     other_fees_jmd: float | None = None,
 ) -> None:
+    if estimated_freight_jmd is not None:
+        package.estimated_freight_jmd = _decimal(estimated_freight_jmd)
     ensure_freight_jmd(package)
 
     if duties_jmd is not None:

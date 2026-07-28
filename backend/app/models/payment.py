@@ -17,6 +17,7 @@ class PaymentCheckout(db.Model):
     recorded_by_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"))
     delivery_request_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("delivery_requests.id"))
     delivery_fee_jmd = db.Column(db.Numeric(12, 2))
+    processing_fee_jmd = db.Column(db.Numeric(12, 2))
     recorded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     customer = db.relationship("User", foreign_keys=[customer_id], backref="payment_checkouts")
@@ -46,6 +47,9 @@ class PaymentCheckout(db.Model):
             "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
             "delivery_request_id": str(self.delivery_request_id) if self.delivery_request_id else None,
             "delivery_fee_jmd": float(self.delivery_fee_jmd) if self.delivery_fee_jmd is not None else None,
+            "processing_fee_jmd": float(self.processing_fee_jmd)
+            if self.processing_fee_jmd is not None
+            else None,
             "package_count": len(self.items),
         }
         if include_items:

@@ -271,6 +271,7 @@ def submit_bank_transfer_proof(
         transfer_reference=reference,
         sender_bank=bank,
         amount_jmd=amount,
+        include_delivery_fee=bool(include_delivery_fee),
         notes=note_text,
         status="pending",
         submitted_at=datetime.utcnow(),

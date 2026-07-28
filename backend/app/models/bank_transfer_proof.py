@@ -13,6 +13,7 @@ class BankTransferProof(db.Model):
     transfer_reference = db.Column(db.String(100))
     sender_bank = db.Column(db.String(80))
     amount_jmd = db.Column(db.Numeric(12, 2))
+    include_delivery_fee = db.Column(db.Boolean, nullable=False, default=False)
     notes = db.Column(db.String(500))
     status = db.Column(db.String(20), nullable=False, default="pending", index=True)
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -27,6 +28,25 @@ class BankTransferProof(db.Model):
         lazy=True,
         cascade="all, delete-orphan",
     )
+
+    def includes_delivery(self) -> bool:
+        if self.include_delivery_fee:
+            return True
+        if self.amount_jmd is None or not self.package_links:
+            return False
+        from decimal import Decimal
+
+        from app.constants import DELIVERY_FEE_JMD
+
+        packages_total = Decimal("0")
+        for link in self.package_links:
+            if link.package and link.package.total_due_jmd is not None:
+                packages_total += Decimal(str(link.package.total_due_jmd))
+        if packages_total <= 0:
+            return False
+        amount = Decimal(str(self.amount_jmd))
+        expected_with_delivery = packages_total + DELIVERY_FEE_JMD
+        return amount >= expected_with_delivery - Decimal("0.01")
 
     def to_dict(self, include_packages: bool = False) -> dict:
         from app.constants import BANK_TRANSFER_PROOF_STATUS_LABELS, SENDER_BANK_LABELS
@@ -43,6 +63,8 @@ class BankTransferProof(db.Model):
             if self.sender_bank
             else None,
             "amount_jmd": float(self.amount_jmd) if self.amount_jmd is not None else None,
+            "include_delivery_fee": bool(self.include_delivery_fee),
+            "includes_delivery": self.includes_delivery(),
             "notes": self.notes,
             "status": self.status,
             "status_label": BANK_TRANSFER_PROOF_STATUS_LABELS.get(self.status, self.status),

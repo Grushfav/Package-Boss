@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
 import { openCheckoutBillInvoice, recordCustomerCheckout } from '../../api/staff'
 import { formatJmd, sumJmd } from '../../lib/money'
@@ -9,36 +9,108 @@ import { Input } from '../ui/Input'
 interface CheckoutPaymentModalProps {
   shippingId: string
   packages: Package[]
+  customerEmail?: string | null
   onClose: () => void
-  onCompleted: (checkout: PaymentCheckout, packageIds: string[]) => void
+  onCompleted: (
+    checkout: PaymentCheckout,
+    packageIds: string[],
+    options?: { markDelivered?: boolean },
+  ) => void
+}
+
+function parseOptionalJmd(value: string): number | undefined {
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  const parsed = parseFloat(trimmed)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 export function CheckoutPaymentModal({
   shippingId,
   packages,
+  customerEmail,
   onClose,
   onCompleted,
 }: CheckoutPaymentModalProps) {
   const [method, setMethod] = useState<'cash' | 'card' | 'bank_transfer'>('cash')
   const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
+  const [processingFee, setProcessingFee] = useState('')
+  const [printInvoice, setPrintInvoice] = useState(true)
+  const [emailInvoice, setEmailInvoice] = useState(false)
+  const [markDelivered, setMarkDelivered] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const total = sumJmd(packages.map((pkg) => pkg.total_due_jmd))
+  const packagesTotal = sumJmd(packages.map((pkg) => pkg.total_due_jmd))
+  const processingFeeAmount = parseOptionalJmd(processingFee) ?? 0
+  const total = useMemo(
+    () => packagesTotal + (processingFeeAmount > 0 ? processingFeeAmount : 0),
+    [packagesTotal, processingFeeAmount],
+  )
 
   async function handleSubmit() {
+    if (!printInvoice && !emailInvoice) {
+      setError('Select print invoice, email invoice, or both')
+      return
+    }
+    if (emailInvoice && !customerEmail) {
+      setError('Customer has no email on file — uncheck email invoice or update their profile')
+      return
+    }
+
     setError('')
     setLoading(true)
     try {
-      const checkout = await recordCustomerCheckout(shippingId, {
+      const fee = parseOptionalJmd(processingFee)
+      if (fee != null && fee < 0) {
+        setError('Processing fee cannot be negative')
+        return
+      }
+
+      const result = await recordCustomerCheckout(shippingId, {
         package_ids: packages.map((pkg) => pkg.id),
         method,
         reference: reference.trim() || undefined,
         notes: notes.trim() || undefined,
+        processing_fee_jmd: fee,
+        email_invoice: emailInvoice,
+        mark_delivered: markDelivered,
       })
-      onCompleted(checkout, packages.map((pkg) => pkg.id))
-      await openCheckoutBillInvoice(checkout.id)
+
+      const packageIds = packages.map((pkg) => pkg.id)
+      onCompleted(result.checkout, packageIds, { markDelivered })
+
+      const deliveryIssue =
+        markDelivered &&
+        ((result.delivery_failed?.length ?? 0) > 0 ||
+          (result.delivered_count ?? 0) < packageIds.length)
+
+      if (emailInvoice && !result.email_sent && result.email_error) {
+        setError(`Payment recorded, but email failed: ${result.email_error}`)
+        if (printInvoice) {
+          await openCheckoutBillInvoice(result.checkout.id)
+        }
+        return
+      }
+
+      if (deliveryIssue) {
+        const failedMsg = result.delivery_failed?.map((f) => f.error).join('; ')
+        setError(
+          failedMsg
+            ? `Payment recorded, but delivery update failed: ${failedMsg}`
+            : 'Payment recorded, but some packages were not marked delivered',
+        )
+        if (printInvoice) {
+          await openCheckoutBillInvoice(result.checkout.id)
+        }
+        return
+      }
+
+      if (printInvoice) {
+        await openCheckoutBillInvoice(result.checkout.id)
+      }
+
       onClose()
     } catch (err) {
       setError(getErrorMessage(err))
@@ -69,9 +141,24 @@ export function CheckoutPaymentModal({
               <span className="font-semibold">{formatJmd(pkg.total_due_jmd)}</span>
             </li>
           ))}
+          {processingFeeAmount > 0 && (
+            <li className="flex items-center justify-between gap-3 border-t border-border pt-2 text-muted">
+              <span>Processing fee</span>
+              <span className="font-semibold text-foreground">{formatJmd(processingFeeAmount)}</span>
+            </li>
+          )}
         </ul>
 
         <div className="mt-4 space-y-3">
+          <Input
+            label="Processing fee (JMD, optional)"
+            type="number"
+            step="1"
+            min="0"
+            value={processingFee}
+            onChange={(e) => setProcessingFee(e.target.value)}
+          />
+
           <div className="space-y-1.5">
             <label className="block text-xs font-medium uppercase tracking-wider text-muted">
               Payment method
@@ -98,6 +185,44 @@ export function CheckoutPaymentModal({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
+
+          <div className="space-y-2 rounded-xl border border-border bg-background/50 p-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted">
+              When complete
+            </p>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={printInvoice}
+                onChange={(e) => setPrintInvoice(e.target.checked)}
+                className="rounded border-border"
+              />
+              Print invoice
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={emailInvoice}
+                onChange={(e) => setEmailInvoice(e.target.checked)}
+                className="rounded border-border"
+              />
+              Email invoice to customer
+              {customerEmail ? (
+                <span className="text-xs text-muted">({customerEmail})</span>
+              ) : (
+                <span className="text-xs text-amber-500">(no email on file)</span>
+              )}
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={markDelivered}
+                onChange={(e) => setMarkDelivered(e.target.checked)}
+                className="rounded border-border"
+              />
+              Mark as delivered
+            </label>
+          </div>
         </div>
 
         {error && (

@@ -111,6 +111,27 @@ def ensure_schema(app) -> None:
             db.session.commit()
             app.logger.info("Added missing packages.shipper column")
 
+    if "payment_checkouts" in inspector.get_table_names():
+        checkout_cols = {col["name"] for col in inspector.get_columns("payment_checkouts")}
+        if "processing_fee_jmd" not in checkout_cols:
+            db.session.execute(
+                text("ALTER TABLE payment_checkouts ADD COLUMN processing_fee_jmd NUMERIC(12, 2)")
+            )
+            db.session.commit()
+            app.logger.info("Added missing payment_checkouts.processing_fee_jmd column")
+
+    if "bank_transfer_proofs" in inspector.get_table_names():
+        proof_cols = {col["name"] for col in inspector.get_columns("bank_transfer_proofs")}
+        if "include_delivery_fee" not in proof_cols:
+            db.session.execute(
+                text(
+                    "ALTER TABLE bank_transfer_proofs "
+                    "ADD COLUMN include_delivery_fee BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+            db.session.commit()
+            app.logger.info("Added missing bank_transfer_proofs.include_delivery_fee column")
+
     # Migrations own new tables; create_all only backfills models without migrations.
     announcement_tables = {
         "announcements",
@@ -118,6 +139,7 @@ def ensure_schema(app) -> None:
         "announcement_reads",
         "broadcast_jobs",
     }
+    bootstrap_tables = announcement_tables | {"app_settings"}
     existing = set(inspector.get_table_names())
-    if not announcement_tables.issubset(existing):
+    if not bootstrap_tables.issubset(existing):
         db.create_all()

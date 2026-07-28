@@ -247,6 +247,7 @@ STATUS_TRANSITIONS_BY_PERMISSION = {
     "status_transit": {("received", "in_transit")},
     "status_customs": {("in_transit", "customs")},
     "status_pickup": {("ready_for_pickup", "delivered")},
+    "billing": {("ready_for_pickup", "delivered")},
 }
 
 INVITE_TOKEN_TTL_SECONDS = 86400  # 24 hours

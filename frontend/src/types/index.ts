@@ -252,6 +252,7 @@ export interface PaymentCheckout {
   recorded_at: string
   delivery_request_id?: string | null
   delivery_fee_jmd?: number | null
+  processing_fee_jmd?: number | null
   package_count: number
   items?: PaymentCheckoutItem[]
 }
@@ -292,6 +293,8 @@ export interface BankTransferProof {
   sender_bank?: string | null
   sender_bank_label?: string | null
   amount_jmd?: number | null
+  include_delivery_fee?: boolean
+  includes_delivery?: boolean
   notes?: string | null
   status: 'pending' | 'in_progress' | 'confirmed' | 'rejected'
   status_label: string

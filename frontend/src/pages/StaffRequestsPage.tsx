@@ -31,6 +31,11 @@ type StatusFilter =
   | 'cancelled'
   | 'rejected'
 
+interface RequestPackageLine {
+  trackingNumber: string
+  amountJmd?: number | null
+}
+
 interface RequestRow {
   id: string
   kind: RequestKind
@@ -42,14 +47,39 @@ interface RequestRow {
   submittedAt: string
   reviewedAt?: string | null
   reviewedByName?: string | null
+  packages: RequestPackageLine[]
   packageSummary: string
   detail?: string
   proofUrl?: string | null
   transferReference?: string | null
   senderBankLabel?: string | null
+  includesDelivery?: boolean
   allPaid?: boolean
   deliveryRequest?: DeliveryRequest
   transferProof?: BankTransferProof
+}
+
+function PackageList({ packages }: { packages: RequestPackageLine[] }) {
+  if (packages.length === 0) {
+    return <span className="text-xs text-muted">—</span>
+  }
+  return (
+    <ul className="space-y-1">
+      {packages.map((pkg) => (
+        <li
+          key={pkg.trackingNumber}
+          className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5"
+        >
+          <span className="font-mono text-xs text-boss-gold">{pkg.trackingNumber}</span>
+          {pkg.amountJmd != null && (
+            <span className="text-xs font-semibold tabular-nums text-foreground">
+              {formatJmd(pkg.amountJmd)}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 function formatWhen(iso?: string | null) {
@@ -97,10 +127,13 @@ function StatusPill({
 }
 
 function deliveryToRow(request: DeliveryRequest): RequestRow {
-  const packageList = (request.packages ?? [])
-    .map((pkg) => pkg.tracking_number)
-    .filter(Boolean)
-    .join(', ')
+  const packages = (request.packages ?? [])
+    .filter((pkg) => pkg.tracking_number)
+    .map((pkg) => ({
+      trackingNumber: pkg.tracking_number!,
+      amountJmd: pkg.total_due_jmd,
+    }))
+  const packageList = packages.map((pkg) => pkg.trackingNumber).join(', ')
   const allPaid = (request.packages ?? []).every((pkg) => pkg.billing_status === 'paid')
   const address = request.delivery_address
   const detail = address
@@ -120,6 +153,7 @@ function deliveryToRow(request: DeliveryRequest): RequestRow {
       request.in_progress_at || request.completed_at || request.cancelled_at,
     reviewedByName:
       request.in_progress_by_name || request.completed_by_name,
+    packages,
     packageSummary: packageList,
     detail,
     allPaid,
@@ -128,10 +162,13 @@ function deliveryToRow(request: DeliveryRequest): RequestRow {
 }
 
 function transferToRow(proof: BankTransferProof): RequestRow {
-  const packageList = (proof.packages ?? [])
-    .map((pkg) => pkg.tracking_number)
-    .filter(Boolean)
-    .join(', ')
+  const packages = (proof.packages ?? [])
+    .filter((pkg) => pkg.tracking_number)
+    .map((pkg) => ({
+      trackingNumber: pkg.tracking_number!,
+      amountJmd: pkg.total_due_jmd,
+    }))
+  const packageList = packages.map((pkg) => pkg.trackingNumber).join(', ')
 
   return {
     id: proof.id,
@@ -144,11 +181,13 @@ function transferToRow(proof: BankTransferProof): RequestRow {
     submittedAt: proof.submitted_at,
     reviewedAt: proof.reviewed_at,
     reviewedByName: proof.reviewed_by_name,
+    packages,
     packageSummary: packageList,
     detail: proof.notes || undefined,
     proofUrl: proof.proof_url,
     transferReference: proof.transfer_reference,
     senderBankLabel: proof.sender_bank_label,
+    includesDelivery: proof.includes_delivery ?? proof.include_delivery_fee,
     transferProof: proof,
   }
 }
@@ -453,14 +492,14 @@ export function StaffRequestsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] text-left text-sm">
+            <table className="w-full min-w-[960px] text-left text-sm">
               <thead className="border-b border-border bg-muted/10 text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th className="px-4 py-3">Type</th>
                   <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3">Packages</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3 hidden lg:table-cell">Packages / details</th>
                   <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -469,9 +508,16 @@ export function StaffRequestsPage() {
                 {filteredRows.map((row) => (
                   <tr key={`${row.kind}-${row.id}`} className="border-b border-border last:border-b-0">
                     <td className="px-4 py-3">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                        {row.kind === 'delivery' ? 'Delivery' : 'Transfer'}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                          {row.kind === 'delivery' ? 'Delivery' : 'Transfer'}
+                        </span>
+                        {row.kind === 'transfer' && row.includesDelivery && (
+                          <span className="inline-flex w-fit rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                            Includes delivery
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {row.shippingId ? (
@@ -498,6 +544,22 @@ export function StaffRequestsPage() {
                         </p>
                       )}
                     </td>
+                    <td className="px-4 py-3 align-top">
+                      <PackageList packages={row.packages} />
+                      {row.detail && (
+                        <p className="mt-2 line-clamp-3 text-xs text-muted">{row.detail}</p>
+                      )}
+                      {row.proofUrl && (
+                        <a
+                          href={row.proofUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-block text-xs font-semibold text-boss-gold hover:underline"
+                        >
+                          View proof
+                        </a>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <StatusPill label={row.statusLabel} tone={statusTone(row.status)} />
@@ -519,24 +581,6 @@ export function StaffRequestsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-muted">{formatWhen(row.submittedAt)}</td>
-                    <td className="hidden px-4 py-3 lg:table-cell">
-                      {row.packageSummary && (
-                        <p className="font-mono text-xs text-muted">{row.packageSummary}</p>
-                      )}
-                      {row.detail && (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted">{row.detail}</p>
-                      )}
-                      {row.proofUrl && (
-                        <a
-                          href={row.proofUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-1 inline-block text-xs font-semibold text-boss-gold hover:underline"
-                        >
-                          View proof
-                        </a>
-                      )}
-                    </td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">
                       {row.amountJmd != null ? formatJmd(row.amountJmd) : '—'}
                     </td>

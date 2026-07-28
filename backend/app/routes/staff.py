@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, current_app, jsonify, request, Response
 from sqlalchemy import func, or_
 
 from app.models.pre_alert import PreAlert
@@ -442,6 +442,11 @@ def customer_checkout(shipping_id: str):
         return jsonify({"error": "Unauthorized"}), 401
 
     try:
+        processing_fee = data.get("processing_fee_jmd")
+        if processing_fee is not None:
+            processing_fee = float(processing_fee)
+            if processing_fee < 0:
+                return jsonify({"error": "processing_fee_jmd cannot be negative"}), 400
         checkout = record_payment_checkout(
             user,
             package_ids,
@@ -449,9 +454,29 @@ def customer_checkout(shipping_id: str):
             recorded_by=actor,
             reference=data.get("reference"),
             notes=data.get("notes"),
+            processing_fee_jmd=processing_fee,
         )
+    except TypeError:
+        return jsonify({"error": "Invalid processing_fee_jmd"}), 400
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+
+    email_sent = False
+    email_error = None
+    if data.get("email_invoice"):
+        packages = [item.package for item in checkout.items if item.package]
+        try:
+            from app.services.email_service import EmailServiceError, send_checkout_invoice_email
+
+            send_checkout_invoice_email(user, checkout, packages)
+            email_sent = True
+        except EmailServiceError as exc:
+            email_error = str(exc)
+            current_app.logger.warning(
+                "Checkout invoice email failed for %s: %s",
+                checkout.invoice_number,
+                exc,
+            )
 
     for item in checkout.items:
         log_package_action(
@@ -469,7 +494,46 @@ def customer_checkout(shipping_id: str):
             },
         )
 
-    return jsonify({"checkout": checkout.to_dict(include_items=True)}), 201
+    delivered_count = 0
+    delivery_failed: list[dict] = []
+    if data.get("mark_delivered"):
+        delivery_note = f"Delivered at checkout {checkout.invoice_number}"
+        for item in checkout.items:
+            package = item.package
+            if not package:
+                continue
+            try:
+                update_package_status(package, "delivered", delivery_note)
+                delivered_count += 1
+                log_package_action(
+                    actor,
+                    ACTION_PACKAGE_STATUS_UPDATED,
+                    str(package.id),
+                    f"Marked {package.tracking_number} delivered at checkout",
+                    metadata={
+                        "tracking_number": package.tracking_number,
+                        "to_status": "delivered",
+                        "checkout_id": str(checkout.id),
+                    },
+                )
+            except ValueError as exc:
+                delivery_failed.append(
+                    {
+                        "id": str(package.id),
+                        "tracking_number": package.tracking_number,
+                        "error": str(exc),
+                    }
+                )
+
+    return jsonify(
+        {
+            "checkout": checkout.to_dict(include_items=True),
+            "email_sent": email_sent,
+            "email_error": email_error,
+            "delivered_count": delivered_count,
+            "delivery_failed": delivery_failed,
+        }
+    ), 201
 
 
 @staff_bp.route("/staff/checkouts/<checkout_id>/bill-invoice", methods=["GET"])
@@ -943,7 +1007,7 @@ def mark_printed():
 
 
 @staff_bp.route("/staff/packages/bulk-status", methods=["PATCH"])
-@permission_required("status_transit", "status_customs", "status_pickup")
+@permission_required("status_transit", "status_customs", "status_pickup", "billing")
 def bulk_update_status():
     data = request.get_json(silent=True) or {}
     status = (data.get("status") or "").strip()

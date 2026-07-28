@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import {
   bulkRequestPackageInvoices,
+  bulkUpdatePackageStatus,
   fetchCustomerAccount,
   openCheckoutBillInvoice,
   openPackageBillInvoice,
@@ -20,6 +21,7 @@ import { IconBadge } from '../components/ui/IconBadge'
 import { useAuth } from '../context/AuthContext'
 import {
   clerkCanManagePackageActions,
+  clerkHasAnyPermission,
   clerkHasPermission,
 } from '../lib/clerkPermissions'
 import { formatJmd, sumJmd } from '../lib/money'
@@ -39,6 +41,8 @@ export function CustomerAccountPage() {
   const canManagePackages = clerkCanManagePackageActions(perms, role)
   const canRequestInvoice = clerkHasPermission(perms, 'invoice_request', role)
   const canManageBilling = clerkHasPermission(perms, 'billing', role)
+  const canMarkDelivered = clerkHasAnyPermission(perms, ['status_pickup', 'billing'], role)
+  const [deliverLoadingId, setDeliverLoadingId] = useState<string | null>(null)
   const [account, setAccount] = useState<CustomerAccount | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -128,7 +132,11 @@ export function CustomerAccountPage() {
     }
   }
 
-  function handleCheckoutCompleted(checkout: PaymentCheckout, packageIds: string[]) {
+  function handleCheckoutCompleted(
+    checkout: PaymentCheckout,
+    packageIds: string[],
+    options?: { markDelivered?: boolean },
+  ) {
     setSelectedIds([])
     setCheckoutOpen(false)
     setAccount((prev) => {
@@ -139,6 +147,9 @@ export function CustomerAccountPage() {
               ...pkg,
               billing_status: 'paid' as const,
               billing_status_label: 'Paid',
+              ...(options?.markDelivered
+                ? { status: 'delivered' as const, status_label: 'Delivered' }
+                : {}),
             }
           : pkg,
       )
@@ -149,6 +160,36 @@ export function CustomerAccountPage() {
         summary: recomputeSummary(packages),
       }
     })
+  }
+
+  async function handleMarkDelivered(packageId: string) {
+    setError('')
+    setSuccess('')
+    setDeliverLoadingId(packageId)
+    try {
+      const result = await bulkUpdatePackageStatus({
+        packageIds: [packageId],
+        status: 'delivered',
+        note: 'Marked delivered from customer account',
+      })
+      if (result.updated === 0) {
+        setError(result.failed[0]?.error ?? 'Could not mark package delivered')
+        return
+      }
+      const updated = result.packages[0]
+      setAccount((prev) => {
+        if (!prev) return prev
+        const packages = prev.packages.map((pkg) =>
+          pkg.id === packageId ? { ...pkg, ...updated } : pkg,
+        )
+        return { ...prev, packages, summary: recomputeSummary(packages) }
+      })
+      setSuccess(`${updated.tracking_number} marked delivered`)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setDeliverLoadingId(null)
+    }
   }
 
   function toggleSelected(id: string) {
@@ -359,6 +400,21 @@ export function CustomerAccountPage() {
                               Invoice
                             </button>
                           )}
+                          {pkg.status === 'ready_for_pickup' && pkg.billing_status === 'paid' && (
+                            <button
+                              type="button"
+                              disabled={!canMarkDelivered || deliverLoadingId === pkg.id}
+                              title={
+                                canMarkDelivered
+                                  ? undefined
+                                  : 'Requires billing or pickup status permission'
+                              }
+                              onClick={() => void handleMarkDelivered(pkg.id)}
+                              className="rounded-lg border border-boss-green/30 bg-boss-green/10 px-2.5 py-1 text-xs font-semibold text-boss-green hover:bg-boss-green/20 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {deliverLoadingId === pkg.id ? '…' : 'Deliver'}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -507,6 +563,7 @@ export function CustomerAccountPage() {
         <CheckoutPaymentModal
           shippingId={shippingId}
           packages={selectedPackages}
+          customerEmail={customer?.email}
           onClose={() => setCheckoutOpen(false)}
           onCompleted={handleCheckoutCompleted}
         />

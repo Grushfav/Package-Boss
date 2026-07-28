@@ -390,6 +390,7 @@ export interface ReleaseFromCustomsResult {
 export async function releasePackagesFromCustoms(payload: {
   items: Array<{
     package_id: string
+    estimated_freight_jmd?: number
     duties_jmd?: number
     handling_jmd?: number
     other_fees_jmd?: number
@@ -438,13 +439,28 @@ export async function recordCustomerCheckout(
     method: 'cash' | 'card' | 'bank_transfer'
     reference?: string
     notes?: string
+    processing_fee_jmd?: number
+    email_invoice?: boolean
+    mark_delivered?: boolean
   },
-): Promise<import('../types').PaymentCheckout> {
-  const { data } = await api.post<{ checkout: import('../types').PaymentCheckout }>(
+): Promise<{
+  checkout: import('../types').PaymentCheckout
+  email_sent?: boolean
+  email_error?: string | null
+  delivered_count?: number
+  delivery_failed?: Array<{ id: string; tracking_number?: string; error: string }>
+}> {
+  const { data } = await api.post<{
+    checkout: import('../types').PaymentCheckout
+    email_sent?: boolean
+    email_error?: string | null
+    delivered_count?: number
+    delivery_failed?: Array<{ id: string; tracking_number?: string; error: string }>
+  }>(
     `/staff/customers/${encodeURIComponent(shippingId.trim().toUpperCase())}/checkouts`,
     payload,
   )
-  return data.checkout
+  return data
 }
 
 async function fetchAuthedHtml(path: string): Promise<string> {

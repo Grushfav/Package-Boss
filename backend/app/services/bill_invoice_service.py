@@ -2,17 +2,50 @@
 
 from __future__ import annotations
 
+import base64
 import html
 from datetime import datetime
+from pathlib import Path
 
 from app.constants import PAYMENT_METHOD_LABELS
 from app.models.package import Package
 from app.models.payment import PaymentCheckout
 from app.models.user import User
 
+_LOGO_ASSET_PATH = Path(__file__).resolve().parent.parent / "assets" / "email-logo.png"
+
 
 def _esc(value: str | None) -> str:
     return html.escape(value or "", quote=True)
+
+
+def _invoice_logo_src() -> str | None:
+    if not _LOGO_ASSET_PATH.is_file():
+        return None
+    encoded = base64.b64encode(_LOGO_ASSET_PATH.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def _invoice_brand_block() -> str:
+    logo_src = _invoice_logo_src()
+    if logo_src:
+        return (
+            f'<img src="{logo_src}" alt="Package Boss" '
+            'style="display:block;height:48px;width:auto;max-width:200px;" />'
+        )
+    return (
+        '<p style="margin:0;font-size:22px;font-weight:800;color:#22c55e;'
+        'letter-spacing:0.04em;">PACKAGE BOSS</p>'
+    )
+
+
+def _invoice_brand_header_left() -> str:
+    return f"""
+      <div>
+        {_invoice_brand_block()}
+        <p style="margin:8px 0 0;font-size:14px;font-weight:700;color:#0f172a;">Package Boss Shipping &amp; Logistics</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">Fort Lauderdale → Kingston</p>
+      </div>"""
 
 
 def _money_jmd(value) -> str:
@@ -85,6 +118,14 @@ def render_checkout_invoice_html(
       <span style="font-size:15px;font-weight:700;">{_esc(_money_jmd(checkout.delivery_fee_jmd))}</span>
     </div>"""
 
+    processing_fee_block = ""
+    if checkout.processing_fee_jmd is not None and float(checkout.processing_fee_jmd) > 0:
+        processing_fee_block = f"""
+    <div style="margin-top:16px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:14px;font-weight:600;color:#64748b;">Processing fee</span>
+      <span style="font-size:15px;font-weight:700;">{_esc(_money_jmd(checkout.processing_fee_jmd))}</span>
+    </div>"""
+
     payment_block = f"""
     <div style="margin-top:24px;padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
       <p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;color:#166534;">
@@ -112,10 +153,7 @@ def render_checkout_invoice_html(
 <body style="margin:0;padding:32px 16px;background:#f1f5f9;font-family:system-ui,-apple-system,sans-serif;color:#0f172a;">
   <div style="max-width:720px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:32px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
-      <div>
-        <p style="margin:0;font-size:22px;font-weight:800;color:#22c55e;letter-spacing:0.04em;">PACKAGE BOSS</p>
-        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">Fort Lauderdale → Kingston</p>
-      </div>
+      {_invoice_brand_header_left()}
       <div style="text-align:right;">
         <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Invoice</p>
         <p style="margin:4px 0 0;font-family:monospace;font-size:16px;font-weight:700;">{_esc(checkout.invoice_number)}</p>
@@ -136,6 +174,7 @@ def render_checkout_invoice_html(
     </p>
     {package_blocks}
     {delivery_fee_block}
+    {processing_fee_block}
 
     <div style="margin-top:24px;padding-top:16px;border-top:2px solid #0f172a;display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:16px;font-weight:800;">Total (JMD)</span>
@@ -192,10 +231,7 @@ def render_bill_invoice_html(
 <body style="margin:0;padding:32px 16px;background:#f1f5f9;font-family:system-ui,sans-serif;color:#0f172a;">
   <div style="max-width:720px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:32px;">
     <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-      <div>
-        <p style="margin:0;font-size:22px;font-weight:800;color:#22c55e;">PACKAGE BOSS</p>
-        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">Fort Lauderdale → Kingston</p>
-      </div>
+      {_invoice_brand_header_left()}
       <div style="text-align:right;">
         <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Bill preview</p>
         <p style="margin:4px 0 0;font-family:monospace;font-size:16px;font-weight:700;">{_esc(invoice_number)}</p>

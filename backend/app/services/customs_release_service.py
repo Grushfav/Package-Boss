@@ -10,6 +10,7 @@ from app.services.package_service import add_package_event
 def release_package_from_customs(
     package: Package,
     *,
+    estimated_freight_jmd: float | None = None,
     duties_jmd: float | None = None,
     handling_jmd: float | None = None,
     other_fees_jmd: float | None = None,
@@ -20,6 +21,7 @@ def release_package_from_customs(
 
     publish_ready_for_pickup_bill(
         package,
+        estimated_freight_jmd=estimated_freight_jmd,
         duties_jmd=duties_jmd,
         handling_jmd=handling_jmd,
         other_fees_jmd=other_fees_jmd,
@@ -51,6 +53,7 @@ def release_packages_from_customs(
         try:
             release_package_from_customs(
                 package,
+                estimated_freight_jmd=item.get("estimated_freight_jmd"),
                 duties_jmd=item.get("duties_jmd"),
                 handling_jmd=item.get("handling_jmd"),
                 other_fees_jmd=item.get("other_fees_jmd"),

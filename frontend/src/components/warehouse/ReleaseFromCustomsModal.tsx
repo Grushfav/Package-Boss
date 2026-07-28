@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { clerkHasPermission } from '../../lib/clerkPermissions'
 import { formatJmd } from '../../lib/money'
+import { MAX_AUTO_RATE_LBS } from '../../lib/warehouseConstants'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import type { Package } from '../../types'
@@ -39,6 +40,22 @@ function parseOptionalJmd(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+function billableWeight(lbs: number): number {
+  return Math.ceil(lbs)
+}
+
+function requiresCustomFreightQuote(
+  pkg: Package,
+  autoFreight: number | null | undefined,
+  estimating: boolean,
+): boolean {
+  const weight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
+  if (weight != null && billableWeight(weight) > MAX_AUTO_RATE_LBS) return true
+  if (pkg.rate_tier_label === 'Custom quote') return true
+  if (!estimating && autoFreight == null && weight != null) return true
+  return false
+}
+
 function rowTotalJmd(freightJmd: number | null, fees: FeeFields): number | null {
   if (freightJmd == null) return null
   const duties = parseOptionalJmd(fees.duties_jmd) ?? 0
@@ -66,6 +83,13 @@ export function ReleaseFromCustomsModal({
   )
   const [expandedFeeIds, setExpandedFeeIds] = useState<Set<string>>(new Set())
   const [freightById, setFreightById] = useState<Record<string, number | null>>({})
+  const [freightInputById, setFreightInputById] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      packages
+        .filter((pkg) => pkg.estimated_freight_jmd != null && pkg.estimated_freight_jmd > 0)
+        .map((pkg) => [pkg.id, String(pkg.estimated_freight_jmd)]),
+    ),
+  )
   const [loading, setLoading] = useState(false)
   const [estimating, setEstimating] = useState(false)
   const [invoiceLoadingId, setInvoiceLoadingId] = useState<string | null>(null)
@@ -96,6 +120,10 @@ export function ReleaseFromCustomsModal({
             next[pkg.id] = null
             return
           }
+          if (billableWeight(weight) > MAX_AUTO_RATE_LBS || pkg.rate_tier_label === 'Custom quote') {
+            next[pkg.id] = null
+            return
+          }
           try {
             const quote = await estimateRate(weight)
             next[pkg.id] = quote.cost_jmd
@@ -120,18 +148,30 @@ export function ReleaseFromCustomsModal({
     }
   }, [customsPackages])
 
+  function effectiveFreight(pkg: Package): number | null {
+    const manual = parseOptionalJmd(freightInputById[pkg.id] ?? '')
+    if (manual != null) return manual
+    return freightById[pkg.id] ?? null
+  }
+
+  function updateFreightInput(id: string, value: string) {
+    setFreightInputById((prev) => ({ ...prev, [id]: value }))
+  }
+
   const previewTotal = useMemo(() => {
     let total = 0
     let hasAny = false
     for (const pkg of customsPackages) {
-      const rowTotal = rowTotalJmd(freightById[pkg.id] ?? null, feesById[pkg.id] ?? emptyFees())
+      const manual = parseOptionalJmd(freightInputById[pkg.id] ?? '')
+      const freight = manual ?? freightById[pkg.id] ?? null
+      const rowTotal = rowTotalJmd(freight, feesById[pkg.id] ?? emptyFees())
       if (rowTotal != null) {
         total += rowTotal
         hasAny = true
       }
     }
     return hasAny ? total : null
-  }, [customsPackages, feesById, freightById])
+  }, [customsPackages, feesById, freightById, freightInputById])
 
   function updateFees(id: string, patch: Partial<FeeFields>) {
     setFeesById((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
@@ -189,13 +229,31 @@ export function ReleaseFromCustomsModal({
     if (customsPackages.length === 0) return
 
     setError('')
+    for (const pkg of customsPackages) {
+      const autoFreight = freightById[pkg.id] ?? null
+      if (requiresCustomFreightQuote(pkg, autoFreight, estimating)) {
+        const freight = effectiveFreight(pkg)
+        if (freight == null || freight <= 0) {
+          setError(`Enter shipping (JMD) for ${pkg.tracking_number}`)
+          return
+        }
+      }
+    }
+
     setLoading(true)
     try {
       const result = await releasePackagesFromCustoms({
         items: customsPackages.map((pkg) => {
           const fees = feesById[pkg.id] ?? emptyFees()
+          const autoFreight = freightById[pkg.id] ?? null
+          const needsCustom = requiresCustomFreightQuote(pkg, autoFreight, false)
+          const manualInput = freightInputById[pkg.id]?.trim()
+          const freight = effectiveFreight(pkg)
           return {
             package_id: pkg.id,
+            ...(freight != null && (needsCustom || manualInput)
+              ? { estimated_freight_jmd: freight }
+              : {}),
             duties_jmd: parseOptionalJmd(fees.duties_jmd),
             handling_jmd: parseOptionalJmd(fees.handling_jmd),
             other_fees_jmd: parseOptionalJmd(fees.other_fees_jmd),
@@ -231,8 +289,9 @@ export function ReleaseFromCustomsModal({
           <div>
             <h2 className="text-lg font-bold uppercase">Release &amp; Bill</h2>
             <p className="mt-1 text-sm text-muted">
-              Shipping is calculated from weight. Add optional duties or fees, then publish bills and
-              mark packages ready for pickup.
+              Shipping is calculated from weight for standard packages. Packages over{' '}
+              {MAX_AUTO_RATE_LBS} lbs need a custom shipping quote. Add optional duties or fees,
+              then publish bills and mark packages ready for pickup.
             </p>
             {previewTotal != null && (
               <p className="mt-2 text-sm font-semibold text-boss-gold">
@@ -256,7 +315,9 @@ export function ReleaseFromCustomsModal({
           {customsPackages.map((pkg) => {
             const fees = feesById[pkg.id] ?? emptyFees()
             const weight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
-            const freight = freightById[pkg.id] ?? null
+            const autoFreight = freightById[pkg.id] ?? null
+            const needsCustom = requiresCustomFreightQuote(pkg, autoFreight, estimating)
+            const freight = effectiveFreight(pkg)
             const rowTotal = rowTotalJmd(freight, fees)
             const feesExpanded = expandedFeeIds.has(pkg.id)
             return (
@@ -269,17 +330,35 @@ export function ReleaseFromCustomsModal({
                         {pkg.customer.full_name} · {pkg.customer.shipping_id}
                       </p>
                     )}
+                    {needsCustom && (
+                      <p className="mt-1 text-xs text-amber-400">
+                        Custom quote required (over {MAX_AUTO_RATE_LBS} lbs)
+                      </p>
+                    )}
                   </div>
                   <div className="text-right text-xs text-muted">
                     <p>{weight != null ? `${weight} lbs` : 'No weight'}</p>
-                    <p className="mt-0.5 font-semibold text-foreground">
-                      {freight != null ? `Shipping ${formatJmd(freight)}` : estimating ? '…' : '—'}
-                    </p>
+                    {!needsCustom && (
+                      <p className="mt-0.5 font-semibold text-foreground">
+                        {autoFreight != null ? `Shipping ${formatJmd(autoFreight)}` : estimating ? '…' : '—'}
+                      </p>
+                    )}
                     {rowTotal != null && (
                       <p className="mt-0.5 font-bold text-boss-gold">Total {formatJmd(rowTotal)}</p>
                     )}
                   </div>
                 </div>
+                {needsCustom ? (
+                  <Input
+                    label="Shipping (JMD)"
+                    type="number"
+                    step="1"
+                    className="mt-3"
+                    value={freightInputById[pkg.id] ?? ''}
+                    onChange={(e) => updateFreightInput(pkg.id, e.target.value)}
+                    placeholder="Enter custom freight quote"
+                  />
+                ) : null}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs text-muted">
                     Invoice:{' '}

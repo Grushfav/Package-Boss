@@ -179,6 +179,7 @@ def record_payment_checkout(
     recorded_by: User,
     reference: str | None = None,
     notes: str | None = None,
+    processing_fee_jmd: float | None = None,
 ) -> PaymentCheckout:
     if method not in PAYMENT_METHODS:
         raise ValueError("Invalid payment method")
@@ -198,6 +199,14 @@ def record_payment_checkout(
     if delivery_fee > 0:
         total += delivery_fee
 
+    processing_fee = Decimal("0")
+    if processing_fee_jmd is not None:
+        processing_fee = _decimal(processing_fee_jmd)
+        if processing_fee < 0:
+            raise ValueError("Processing fee cannot be negative")
+        if processing_fee > 0:
+            total += processing_fee
+
     checkout = PaymentCheckout(
         customer_id=customer.id,
         invoice_number=generate_invoice_number(),
@@ -209,6 +218,7 @@ def record_payment_checkout(
         recorded_at=datetime.utcnow(),
         delivery_request_id=delivery_request.id if delivery_request else None,
         delivery_fee_jmd=delivery_fee if delivery_fee > 0 else None,
+        processing_fee_jmd=processing_fee if processing_fee > 0 else None,
     )
     db.session.add(checkout)
     db.session.flush()
