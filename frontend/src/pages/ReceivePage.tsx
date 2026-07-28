@@ -1311,7 +1311,7 @@ export function ReceivePage() {
                 />
                 <Input
                   label="BOSS ID on label (if any)"
-                  placeholder="BOSS-90009"
+                  placeholder="BOSS-01009"
                   value={labelBossId}
                   onChange={(e) => setLabelBossId(e.target.value.toUpperCase())}
                 />
@@ -1480,11 +1480,13 @@ export function ReceivePage() {
             )}
           </div>
 
-          <ShippingLabel
-            preview
-            pkg={buildPreviewPackage(previewUnidentified)}
-            customer={previewCustomer(previewUnidentified)}
-          />
+          <div className="shipping-label-screen-scale">
+            <ShippingLabel
+              preview
+              pkg={buildPreviewPackage(previewUnidentified)}
+              customer={previewCustomer(previewUnidentified)}
+            />
+          </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
@@ -1521,6 +1523,10 @@ export function ReceivePage() {
                 {matchedPreAlert.invoice_url ? ' · invoice attached' : ''}
               </p>
             )}
+          </div>
+
+          <div className="shipping-label-screen-scale no-print">
+            <ShippingLabel pkg={completedPackage} customer={customer} />
           </div>
 
           <div className="print-labels-root">

@@ -2,11 +2,13 @@ import {
   Bell,
   BellRing,
   DollarSign,
+  Landmark,
   LayoutDashboard,
   Package,
   User,
 } from 'lucide-react'
-import { NavLink, Navigate, Outlet } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { CustomerOnboardingTour } from '../onboarding/CustomerOnboardingTour'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { useAuth } from '../../context/AuthContext'
 import { getHomeRoute } from '../../lib/routing'
@@ -30,8 +32,12 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 export function CustomerDashboardLayout() {
   const { user } = useAuth()
+  const location = useLocation()
   const { packages, preAlerts } = useCustomerData()
   const isCustomer = !user?.role || user.role === 'customer'
+  const justSignedUp = Boolean(
+    location.state && typeof location.state === 'object' && 'shipping_address' in location.state,
+  )
 
   const preAlertCount = preAlerts.filter((a) => a.status === 'pending').length
   const actionCount = packages.filter(packageNeedsInvoiceUpload).length
@@ -59,6 +65,12 @@ export function CustomerDashboardLayout() {
     },
     { to: '/dashboard/rates', icon: DollarSign, label: 'Rates', shortLabel: 'Rates' },
     {
+      to: '/dashboard/bank-transfer',
+      icon: Landmark,
+      label: 'Bank transfer',
+      shortLabel: 'Transfer',
+    },
+    {
       to: '/dashboard/notifications',
       icon: BellRing,
       label: 'Notifications',
@@ -68,6 +80,7 @@ export function CustomerDashboardLayout() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col md:flex-row">
+      <CustomerOnboardingTour justSignedUp={justSignedUp} />
       <aside className="hidden shrink-0 border-r border-border md:flex md:w-52 md:flex-col md:px-3 md:py-8 lg:w-56">
         <div className="mb-6 px-3">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Account</p>

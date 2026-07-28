@@ -12,7 +12,7 @@ export function Footer({ className = '' }: { className?: string }) {
             <span className="text-boss-gold">BOSS</span>
           </p>
           <p className="mt-3 text-sm text-muted">
-            Package Boss Shipping &amp; Logistics — international air freight and package shipping
+            Package Boss Shipping &amp; Logistics| International air freight and package shipping
             from Fort Lauderdale to Jamaica.
           </p>
           <SocialLinks className="mt-6" />
@@ -50,7 +50,7 @@ export function Footer({ className = '' }: { className?: string }) {
         </div>
       </div>
       <div className="border-t border-border py-4 text-center text-xs text-muted">
-        © {new Date().getFullYear()} Package Boss Shipping &amp; Logistics. Policies effective June 21, 2026.
+        © {new Date().getFullYear()} Package Boss Shipping &amp; Logistics.
       </div>
     </footer>
   )

@@ -1,7 +1,7 @@
 import { LocateFixed, Mail, MessageCircle, Truck, type LucideIcon } from 'lucide-react'
 
 export const TAGLINE =
-  'Leave it to the Boss — Your Ideal Transit Hub, Bringing Anything from Abroad Straight to Yaad.'
+  'Leave it to the Boss | Your Ideal Transit Hub, Bringing Anything from Abroad Straight to Yaad.'
 
 export const SHIPPING_FREQUENCY_BADGE = '3× weekly Fort Lauderdale → Jamaica'
 export const SHIPPING_FREQUENCY_SHORT = '3 times per week'
@@ -9,9 +9,9 @@ export const SHIPPING_FREQUENCY_BLURB =
   'We ship from our Fort Lauderdale warehouse to Jamaica three times per week, so your packages spend less time waiting in Florida and more time on the way to yaad.'
 
 export const ABOUT_PARAGRAPHS = [
-  'Package Boss was created to provide clients with a smooth, reliable, and affordable shipping experience. Whether you\'re purchasing products from your favourite online stores or receiving packages from family and friends overseas, Package Boss serves as your trusted shipping partner, bridging the gap between the United States and Jamaica.',
+  'Package Boss was created to provide clients with a smooth, reliable and affordable shipping experience. Whether you\'re purchasing products from your favourite online stores or receiving packages from family and friends overseas, Package Boss serves as your trusted shipping partner, bridging the gap between the United States and Jamaica.',
   'At Package Boss, every package matters. We understand the importance of timely deliveries, transparent communication, and exceptional customer service. That\'s why we are committed to ensuring that your shipments are handled with care and delivered efficiently every step of the way.',
-  'Through our dependable and convenient services — including three weekly departures from Fort Lauderdale — we make international shipping simple, secure, and hassle-free, giving you peace of mind from purchase to pick up.',
+  'Through our dependable and convenient services, we make international shipping simple, secure and hassle-free, giving you peace of mind from purchase to pick up.',
 ]
 
 export interface ServiceItem {
@@ -51,7 +51,7 @@ export const SERVICES: ServiceItem[] = [
     summary:
       'Kingston & Portmore delivery, Thu–Sat pickup, and islandwide partners.',
     description:
-      'Delivery within Kingston and Portmore on designated days for a fee. Collect from our drop-off points on Thursdays to Saturdays. Outside Kingston and Portmore, we use trusted partners including Knutsford Express and Zipmail for islandwide access.',
+      'Delivery within Kingston and Portmore on designated days for a fee. Collect from our drop-off points throughout the week. Outside Kingston and Portmore, we use trusted partners including Knutsford Express and Zipmail for islandwide access.',
     icon: Truck,
   },
 ]

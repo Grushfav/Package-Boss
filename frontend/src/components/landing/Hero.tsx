@@ -8,7 +8,7 @@ export function Hero() {
     <div>
       <div className="mb-4 flex items-center gap-3">
         <span className="h-px w-8 bg-boss-gold" />
-        <span className="text-sm font-semibold uppercase tracking-widest text-boss-gold">
+        <span className="text-sm font-semibold uppercase tracking-widest text-boss-green">
           Ship Smart. Ship Easy.
         </span>
       </div>

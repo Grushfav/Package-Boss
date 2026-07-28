@@ -27,7 +27,8 @@ export function PreAlertsPanel() {
         <div>
           <h2 className="text-lg font-bold uppercase tracking-wide">Pre-Alerts</h2>
           <p className="mt-2 text-sm text-muted">
-            Submit tracking and invoice before your package reaches Fort Lauderdale.
+            Submit tracking number.
+        
           </p>
         </div>
         <Link
@@ -49,7 +50,7 @@ export function PreAlertsPanel() {
         </p>
       ) : active.length === 0 ? (
         <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
-          No pre-alerts yet. Add one when you order online using your Fort Lauderdale address.
+          No pre-alerts yet.
         </p>
       ) : (
         <div className="mt-4 space-y-3">

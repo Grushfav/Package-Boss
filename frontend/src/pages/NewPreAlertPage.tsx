@@ -24,7 +24,6 @@ export function NewPreAlertPage() {
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [skipInvoice, setSkipInvoice] = useState(false)
 
   if (user?.role && user.role !== 'customer') {
     return <Navigate to={getHomeRoute(user.role)} replace />
@@ -37,7 +36,7 @@ export function NewPreAlertPage() {
 
     try {
       let invoiceKey: string | undefined
-      if (invoiceFile && !skipInvoice) {
+      if (invoiceFile) {
         invoiceKey = await uploadInvoice(invoiceFile)
       }
 
@@ -73,8 +72,8 @@ export function NewPreAlertPage() {
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <p className="text-sm text-muted">
-          Tell us a package is on its way to your Fort Lauderdale address. Upload your invoice or receipt
-          so we can process it faster when it arrives.
+          Tell us a package is on its way to your Fort Lauderdale address. You can optionally upload
+          your invoice or receipt so we can process it faster when it arrives.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -109,7 +108,7 @@ export function NewPreAlertPage() {
 
           <div className="space-y-1.5">
             <label className="block text-xs font-medium uppercase tracking-wider text-muted">
-              Invoice / receipt
+              Invoice / receipt (optional)
             </label>
             <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 transition-colors hover:border-boss-gold">
               <FileUp className="h-5 w-5 text-muted" />
@@ -120,20 +119,8 @@ export function NewPreAlertPage() {
                 type="file"
                 accept={INVOICE_ACCEPT}
                 className="hidden"
-                disabled={skipInvoice}
                 onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
               />
-            </label>
-            <label className="flex items-center gap-2 text-xs text-muted">
-              <input
-                type="checkbox"
-                checked={skipInvoice}
-                onChange={(e) => {
-                  setSkipInvoice(e.target.checked)
-                  if (e.target.checked) setInvoiceFile(null)
-                }}
-              />
-              Skip invoice for now (requires image upload worker in production)
             </label>
           </div>
 

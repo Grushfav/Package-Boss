@@ -32,7 +32,7 @@ class Config:
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or SECRET_KEY
     JWT_ACCESS_TOKEN_EXPIRES = 60 * 60 * 24  # 24 hours
 
-    BOSS_ID_SEQ_START = int(os.environ.get("BOSS_ID_SEQ_START", "90001"))
+    BOSS_ID_SEQ_START = int(os.environ.get("BOSS_ID_SEQ_START", "1000"))
 
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 

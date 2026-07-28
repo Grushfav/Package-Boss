@@ -59,7 +59,7 @@ function PackageTable({
                   )}
                 </th>
               )}
-              <th className="px-4 py-3">Sent by (tracking)</th>
+              <th className="px-4 py-3">Tracking Number</th>
               <th className="px-4 py-3">Shipper</th>
               <th className="px-4 py-3">PB tracking</th>
               <th className="px-4 py-3">Weight</th>
@@ -245,9 +245,7 @@ export function PackagesHistoryPanel() {
     <div>
       <div>
         <h2 className="text-lg font-bold uppercase tracking-wide">Packages</h2>
-        <p className="mt-2 text-sm text-muted">
-          Shipments received at our Fort Lauderdale warehouse and their status in Jamaica.
-        </p>
+        
       </div>
 
       {readyForPickupPackages.length > 0 && (
@@ -256,7 +254,7 @@ export function PackagesHistoryPanel() {
           <p className="mt-1 text-muted">
             Packages marked{' '}
             <span className="font-semibold text-boss-gold">Ready for Pickup</span> can be delivered
-            to Kingston and Portmore for {formatJmd(DELIVERY_FEE_JMD)} per delivery run. Select eligible
+            to Kingston and Portmore for a fee. Select eligible
             packages in the table below, then tap{' '}
             <span className="font-semibold text-foreground">Request delivery</span>.{' '}
             <Link to="/dashboard/profile" className="font-semibold text-boss-gold hover:underline">

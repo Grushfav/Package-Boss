@@ -73,9 +73,7 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
         {embedded && (
           <>
             <h2 className="text-lg font-bold uppercase tracking-wide">Rates</h2>
-            <p className="mt-2 text-sm text-muted">
-              Fort Lauderdale → Jamaica · USD &amp; JMD ({jmdPerUsd} JMD = 1 USD)
-            </p>
+            
           </>
         )}
 

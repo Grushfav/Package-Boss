@@ -22,10 +22,10 @@ import { Input } from '../ui/Input'
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+    <>
       <dt className="text-xs font-medium uppercase tracking-wider text-muted">{label}</dt>
-      <dd className="font-mono text-sm font-semibold text-foreground sm:text-right">{value}</dd>
-    </div>
+      <dd className="font-mono text-sm font-semibold text-foreground">{value}</dd>
+    </>
   )
 }
 
@@ -312,7 +312,7 @@ function BankTransferProofUpload() {
   )
 }
 
-function BankTransferDetailsBody() {
+export function BankTransferDetailsContent() {
   const { user } = useAuth()
   const [copied, setCopied] = useState(false)
   const b = BANK_TRANSFER_DETAILS
@@ -330,7 +330,7 @@ function BankTransferDetailsBody() {
       </p>
 
       <div className="mt-6 rounded-lg border-[3px] border-dashed border-boss-gold/55 bg-background p-6 shadow-sm shadow-boss-gold/30">
-        <dl className="space-y-4">
+        <dl className="grid grid-cols-1 gap-y-3 sm:grid-cols-[minmax(9rem,auto)_minmax(0,1fr)] sm:items-baseline sm:gap-x-6 sm:gap-y-3.5">
           <DetailRow label="Account name" value={b.accountName} />
           <DetailRow label="Bank" value={b.bankName} />
           <DetailRow label="Branch" value={b.branch} />
@@ -389,7 +389,7 @@ export function BankTransferDetailsModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <BankTransferDetailsBody />
+        <BankTransferDetailsContent />
       </div>
     </div>
   )

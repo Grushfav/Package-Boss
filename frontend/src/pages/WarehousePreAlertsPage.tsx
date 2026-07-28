@@ -121,7 +121,7 @@ export function WarehousePreAlertsPage() {
       <div className="mb-6">
         <Input
           label="Search tracking, merchant, customer, or BOSS ID"
-          placeholder="1Z999AA10123456784 or BOSS-90009"
+          placeholder="1Z999AA10123456784 or BOSS-01009"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

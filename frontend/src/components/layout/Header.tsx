@@ -35,6 +35,15 @@ export function Header({ className = '' }: { className?: string }) {
           <ThemeToggle />
           {isAuthenticated ? (
             <>
+              {isCustomer && user?.shipping_id && (
+                <Link
+                  to="/dashboard"
+                  className="font-mono text-xs font-bold text-boss-gold transition-colors hover:text-boss-green sm:text-sm"
+                  title="Go to dashboard"
+                >
+                  {user.shipping_id}
+                </Link>
+              )}
               {!isCustomer && (
                 <Link to={homeRoute} className="hidden items-center gap-2 text-sm sm:flex">
                   <span className="font-semibold text-foreground">{user?.first_name}</span>

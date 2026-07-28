@@ -5,7 +5,7 @@ from app.extensions import db
 from app.models.package import Package
 from app.models.pre_alert import PreAlert
 from app.models.user import User
-from app.services.image_upload_service import is_storage_configured, is_valid_invoice_reference
+from app.services.image_upload_service import is_valid_invoice_reference
 
 # Minimum alphanumeric length for partial (substring) matching.
 MIN_TRACKING_MATCH_LEN = 8
@@ -137,9 +137,6 @@ def create_pre_alert(
     tracking = normalize_carrier_tracking(carrier_tracking)
     if not tracking:
         raise ValueError("carrier_tracking is required")
-
-    if is_storage_configured() and not invoice_object_key:
-        raise ValueError("invoice upload is required")
 
     if invoice_object_key and not is_valid_invoice_reference(invoice_object_key, customer.shipping_id):
         raise ValueError("Invalid invoice object key")

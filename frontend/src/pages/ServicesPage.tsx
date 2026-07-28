@@ -20,7 +20,7 @@ export function ServicesPage() {
           How we <span className="italic text-boss-gold">ship it</span>
         </h1>
         <p className="mt-4 max-w-2xl text-muted">
-          From Fort Lauderdale receival to yaad — {SHIPPING_FREQUENCY_SHORT} from our Florida warehouse, plus
+          From Fort Lauderdale receival to yaad | {SHIPPING_FREQUENCY_SHORT} from our Florida warehouse, plus
           tracking, notifications, and flexible delivery across Jamaica.
         </p>
 
@@ -64,8 +64,8 @@ export function ServicesPage() {
               designated days (fee applies)
             </li>
             <li>
-              <span className="font-semibold text-foreground">Pickup:</span> Drop-off points open{' '}
-              {PICKUP_DAYS}
+              <span className="font-semibold text-foreground">Pickup:</span> Flexible drop-off points
+              throughout the week
             </li>
             <li>
               <span className="font-semibold text-foreground">Islandwide:</span> Knutsford Express

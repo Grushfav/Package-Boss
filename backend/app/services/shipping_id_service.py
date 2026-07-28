@@ -8,7 +8,7 @@ from app.extensions import db
 def generate_shipping_id() -> str:
     from app.models.user import User
 
-    start = current_app.config.get("BOSS_ID_SEQ_START", 90001)
+    start = current_app.config.get("BOSS_ID_SEQ_START", 1000)
     users = User.query.filter(User.shipping_id.like("BOSS-%")).all()
     max_seq = start - 1
     for user in users:

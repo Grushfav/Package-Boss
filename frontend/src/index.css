@@ -76,39 +76,19 @@ body {
     pointer-events: auto !important;
   }
 
+  .shipping-label-screen-scale {
+    transform: none !important;
+    margin-bottom: 0 !important;
+  }
+
   .shipping-label {
-    box-sizing: border-box;
-    display: flex !important;
-    flex-direction: column;
-    justify-content: flex-start !important;
     width: 2in !important;
-    height: auto !important;
+    height: 3in !important;
     max-width: 2in !important;
     max-height: 3in !important;
-    min-height: 0 !important;
     margin: 0 !important;
-    padding: 0.06in !important;
-    overflow: hidden !important;
     page-break-after: always;
     break-after: page;
-    page-break-inside: avoid;
-    break-inside: avoid;
-    border: 1px solid #000;
-    background: white !important;
-    color: black !important;
-    font-size: 6pt;
-    line-height: 1.15;
-  }
-
-  .shipping-label,
-  .shipping-label * {
-    color: #000 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .shipping-label .text-red-700 {
-    color: #b91c1c !important;
   }
 
   .shipping-label:last-child {
@@ -116,3 +96,285 @@ body {
     break-after: auto;
   }
 }
+
+/* 2in × 3in warehouse label */
+.shipping-label {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 2in;
+  height: 3in;
+  margin-inline: auto;
+  padding: 0.06in;
+  overflow: hidden;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 6pt;
+  line-height: 1.1;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.shipping-label__preview-note {
+  margin: 0 0 0.04in;
+  padding: 0.04in;
+  border: 1px solid #f59e0b;
+  border-radius: 2px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 5pt;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.shipping-label__header {
+  flex-shrink: 0;
+  border-bottom: 1px solid #000;
+  padding-bottom: 0.008in;
+  text-align: center;
+}
+
+.shipping-label__logo-wrap {
+  height: 0.96in;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.shipping-label__logo {
+  display: block;
+  width: auto;
+  height: 1.08in;
+  max-width: 1.84in;
+  margin-inline: auto;
+  object-fit: contain;
+  object-position: top center;
+}
+
+.shipping-label__route {
+  margin: -0.015in 0 0;
+  font-size: 4.5pt;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.shipping-label__barcode-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 0.24in;
+  margin: 0.01in 0 0.008in;
+}
+
+.shipping-label__barcode {
+  display: block;
+  width: 100%;
+  max-width: 1.84in;
+  height: 0.24in;
+}
+
+.shipping-label__barcode-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: 1px dashed #9ca3af;
+  color: #6b7280;
+  font-size: 5pt;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.shipping-label__tracking {
+  flex-shrink: 0;
+  margin: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 6pt;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.shipping-label__ship-to {
+  flex: 0 0 auto;
+  margin-top: 0.02in;
+  padding: 0.02in 0;
+  overflow: hidden;
+  border-top: 1px solid #000;
+  text-align: center;
+}
+
+.shipping-label__section-title {
+  margin: 0 0 0.02in;
+  font-size: 4.5pt;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.shipping-label__customer-name {
+  margin: 0;
+  font-size: 8pt;
+  font-weight: 900;
+  line-height: 1.05;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.shipping-label__boss-id {
+  margin: 0.015in 0 0;
+  font-family: ui-monospace, monospace;
+  font-size: 6.5pt;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.shipping-label__parish {
+  margin: 0.015in 0 0;
+  font-size: 5.5pt;
+  line-height: 1.1;
+}
+
+.shipping-label__unidentified {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 9pt;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.shipping-label__label-hint {
+  margin: 0.02in 0 0;
+  font-size: 6pt;
+  font-weight: 600;
+  line-height: 1.1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.shipping-label__label-hint--mono {
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+}
+
+.shipping-label__meta {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 0.02in;
+  padding-top: 0.03in;
+  border-top: 1px solid #000;
+}
+
+.shipping-label__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.02in 0.03in;
+}
+
+.shipping-label__meta-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0.24in;
+  padding: 0.015in 0.01in;
+  text-align: center;
+}
+
+.shipping-label__meta-cell-label {
+  font-size: 4.5pt;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.shipping-label__meta-cell-value {
+  margin-top: 0.015in;
+  font-size: 7pt;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.shipping-label__meta-cell-value--mono {
+  font-family: ui-monospace, monospace;
+  font-size: 6pt;
+}
+
+.shipping-label__meta-cell-value--regular {
+  font-weight: 500;
+}
+
+.shipping-label__meta-carrier,
+.shipping-label__meta-spacer {
+  flex: 1 1 auto;
+  min-height: 0.18in;
+  margin-top: 0.03in;
+  padding-top: 0.03in;
+  border-top: 1px solid #000;
+}
+
+.shipping-label__meta-carrier {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  text-align: center;
+}
+
+.shipping-label__meta-carrier-label {
+  font-size: 4.5pt;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.shipping-label__meta-carrier-value {
+  flex: 1 1 auto;
+  margin-top: 0.02in;
+  font-family: ui-monospace, monospace;
+  font-size: 5.5pt;
+  font-weight: 700;
+  line-height: 1.2;
+  word-break: break-all;
+}
+
+.shipping-label__footer {
+  flex-shrink: 0;
+  margin: 0.02in 0 0;
+  font-size: 4.5pt;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Enlarge on-screen preview while keeping 2×3 proportions */
+@media screen {
+  .shipping-label-screen-scale {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0 1.5rem;
+  }
+
+  .shipping-label-screen-scale .shipping-label {
+    transform: scale(1.85);
+    transform-origin: top center;
+    margin-bottom: calc(3in * 0.85);
+  }
+}
+

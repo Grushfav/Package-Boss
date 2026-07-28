@@ -16,6 +16,7 @@ import { AdminOperationsPage } from './pages/AdminOperationsPage'
 import { AdminLayout } from './components/layout/AdminLayout'
 import { WarehouseLayout } from './components/layout/WarehouseLayout'
 import { CustomerDashboardLayout } from './components/layout/CustomerDashboardLayout'
+import { DashboardBankTransferPage } from './pages/dashboard/DashboardBankTransferPage'
 import { DashboardHomePage } from './pages/dashboard/DashboardHomePage'
 import { DashboardPackagesPage } from './pages/dashboard/DashboardPackagesPage'
 import { DashboardNotificationsPage } from './pages/dashboard/DashboardNotificationsPage'
@@ -77,6 +78,7 @@ function AppRoutes() {
             <Route path="pre-alerts" element={<DashboardPreAlertsPage />} />
             <Route path="packages" element={<DashboardPackagesPage />} />
             <Route path="rates" element={<DashboardRatesPage />} />
+            <Route path="bank-transfer" element={<DashboardBankTransferPage />} />
             <Route path="notifications" element={<DashboardNotificationsPage />} />
           </Route>
           <Route path="/pre-alerts/new" element={<NewPreAlertPage />} />

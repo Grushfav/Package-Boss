@@ -62,7 +62,7 @@ export function CustomersPage() {
       <div className="mb-6">
         <Input
           label="Search by name, BOSS ID, email, or phone"
-          placeholder="Jane Doe or BOSS-90009"
+          placeholder="Jane Doe or BOSS-01009"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

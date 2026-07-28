@@ -348,7 +348,9 @@ export function PrintQueuePage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <ShippingLabel pkg={previewPackage} customer={labelCustomer(previewPackage)} />
+            <div className="shipping-label-screen-scale">
+              <ShippingLabel pkg={previewPackage} customer={labelCustomer(previewPackage)} />
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 type="button"
