@@ -47,11 +47,11 @@ export const SERVICES: ServiceItem[] = [
     icon: MessageCircle,
   },
   {
-    title: 'Delivery & Pickup',
+    title: 'Delivery',
     summary:
       'Kingston & Portmore delivery, Thu–Sat pickup, and islandwide partners.',
     description:
-      'Delivery within Kingston and Portmore on designated days for a fee. Collect from our drop-off points throughout the week. Outside Kingston and Portmore, we use trusted partners including Knutsford Express and Zipmail for islandwide access.',
+      'Delivery within Kingston and Portmore on designated days for a fee. Outside Kingston and Portmore, we use trusted partners including Knutsford Express and Zipmail for islandwide access.',
     icon: Truck,
   },
 ]
