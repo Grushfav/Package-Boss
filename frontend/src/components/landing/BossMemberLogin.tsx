@@ -75,12 +75,16 @@ export function BossMemberLogin() {
       <AuthDivider />
       <GoogleSignInButton label="signin_with" />
 
-      <div className="mt-4 flex items-center justify-between text-xs">
-        <Link to="/forgot-password" className="text-muted underline hover:text-foreground">
+      <div className="mt-5 flex items-center justify-between gap-4">
+        <Link to="/forgot-password" className="text-xs text-muted underline hover:text-foreground">
           Forgot Password?
         </Link>
-        <Link to="/signup" className="text-muted hover:text-foreground">
-          New Boss? <span className="text-boss-green">Sign Up</span>
+        <Link
+          to="/signup"
+          className="text-sm font-medium text-foreground hover:text-boss-green sm:text-base"
+        >
+          New Boss?{' '}
+          <span className="font-semibold text-boss-green underline underline-offset-2">Sign Up</span>
         </Link>
       </div>
     </div>

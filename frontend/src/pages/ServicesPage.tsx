@@ -63,8 +63,7 @@ export function ServicesPage() {
               designated days (fee applies)
             </li>
             <li>
-              <span className="font-semibold text-foreground">Pickup:</span> Flexible drop-off points
-              throughout the week
+              <span className="font-semibold text-foreground">Pickup:</span> Coming soon
             </li>
             <li>
               <span className="font-semibold text-foreground">Islandwide:</span> Knutsford Express
