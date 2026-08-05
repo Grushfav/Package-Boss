@@ -10,6 +10,7 @@ import {
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
+import { useVisibleInterval } from '../hooks/useVisibleInterval'
 import type { Package, StaffCustomer } from '../types'
 
 function labelCustomer(pkg: Package): StaffCustomer | null {
@@ -67,11 +68,11 @@ export function PrintQueuePage() {
 
   useEffect(() => {
     void loadQueue()
-    const interval = window.setInterval(() => {
-      void loadQueue({ silent: true })
-    }, 30_000)
-    return () => window.clearInterval(interval)
   }, [loadQueue])
+
+  useVisibleInterval(() => {
+    void loadQueue({ silent: true })
+  }, 60_000)
 
   const allSelected = packages.length > 0 && selectedIds.size === packages.length
   const someSelected = selectedIds.size > 0 && selectedIds.size < packages.length

@@ -2,13 +2,13 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type Context,
   type ReactNode,
 } from 'react'
 import { fetchWarehouseSummary, type WarehouseSummary } from '../api/staff'
+import { useVisibleInterval } from '../hooks/useVisibleInterval'
 
 interface WarehouseCountsContextValue {
   counts: WarehouseSummary | null
@@ -42,11 +42,7 @@ export function WarehouseCountsProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  useEffect(() => {
-    refresh()
-    const interval = window.setInterval(refresh, 30_000)
-    return () => window.clearInterval(interval)
-  }, [refresh])
+  useVisibleInterval(refresh, 60_000)
 
   const value = useMemo(() => ({ counts, refresh }), [counts, refresh])
 
