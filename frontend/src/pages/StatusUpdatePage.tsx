@@ -72,32 +72,24 @@ const QUEUE_PRESETS: QueuePreset[] = [
     id: 'received',
     label: 'Received',
     description: 'Received — mark in transit when shipped',
-    from: () => defaultFromDate(),
-    to: (today) => today,
     status: 'received',
   },
   {
     id: 'in-transit',
     label: 'In Transit',
     description: 'In transit — mark in customs on arrival',
-    from: () => defaultFromDate(),
-    to: (today) => today,
     status: 'in_transit',
   },
   {
     id: 'customs',
     label: 'Customs',
     description: 'Request invoices or release & bill',
-    from: () => defaultFromDate(),
-    to: (today) => today,
     status: 'customs',
   },
   {
     id: 'ready',
     label: 'Ready for Pickup',
     description: 'Ready for pickup — payment required before marking delivered',
-    from: () => defaultFromDate(),
-    to: (today) => today,
     status: 'ready_for_pickup',
   },
 ]
@@ -307,8 +299,10 @@ export function StatusUpdatePage() {
     const config = QUEUE_PRESETS.find((p) => p.id === activePreset)
     if (!config) return
 
-    const nextFrom = config.from ? config.from(today) : defaultFromDate()
-    const nextTo = config.to ? config.to(today) : today
+    // Status queues list every package in that stage; received-date filters would
+    // hide older packages while badge counts still include them.
+    const nextFrom = config.status ? '' : config.from ? config.from(today) : defaultFromDate()
+    const nextTo = config.status ? '' : config.to ? config.to(today) : today
     const nextStatus = config.status ?? ''
 
     setFromDate(nextFrom)
