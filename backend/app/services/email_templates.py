@@ -14,8 +14,8 @@ BG_CARD = "#ffffff"
 TEXT_PRIMARY = "#0f172a"
 TEXT_MUTED = "#64748b"
 BORDER = "#e2e8f0"
-EMAIL_LOGO_WIDTH = 160
-EMAIL_LOGO_HEIGHT = 61
+EMAIL_LOGO_WIDTH = 144
+EMAIL_LOGO_HEIGHT = 144
 
 
 def _esc(value: str) -> str:
