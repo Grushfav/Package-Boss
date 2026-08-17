@@ -24,6 +24,7 @@ import { DashboardPreAlertsPage } from './pages/dashboard/DashboardPreAlertsPage
 import { DashboardProfilePage } from './pages/dashboard/DashboardProfilePage'
 import { DashboardRatesPage } from './pages/dashboard/DashboardRatesPage'
 import { NewPreAlertPage } from './pages/NewPreAlertPage'
+import { EditPreAlertPage } from './pages/EditPreAlertPage'
 import { PackageInvoiceUploadPage } from './pages/PackageInvoiceUploadPage'
 import { GoogleSignupCompletePage } from './pages/GoogleSignupCompletePage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
@@ -82,6 +83,7 @@ function AppRoutes() {
             <Route path="notifications" element={<DashboardNotificationsPage />} />
           </Route>
           <Route path="/pre-alerts/new" element={<NewPreAlertPage />} />
+          <Route path="/pre-alerts/:id/edit" element={<EditPreAlertPage />} />
           <Route path="/packages/:packageId/upload-invoice" element={<PackageInvoiceUploadPage />} />
         </Route>
 

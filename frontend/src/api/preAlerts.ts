@@ -18,10 +18,32 @@ export async function createPreAlert(payload: {
   return data.pre_alert
 }
 
-export async function cancelPreAlert(id: string): Promise<PreAlert> {
+export async function fetchPreAlert(id: string): Promise<PreAlert> {
+  const { data } = await api.get<{ pre_alert: PreAlert }>(`/me/pre-alerts/${id}`)
+  return data.pre_alert
+}
+
+export async function updatePreAlert(
+  id: string,
+  payload: {
+    carrier_tracking?: string
+    invoice_object_key?: string | null
+    merchant?: string | null
+    description?: string | null
+    declared_value_usd?: number | null
+  },
+): Promise<PreAlert> {
+  const { data } = await api.patch<{ pre_alert: PreAlert }>(`/me/pre-alerts/${id}`, payload)
+  return data.pre_alert
+}
+
+export async function deletePreAlert(id: string): Promise<PreAlert> {
   const { data } = await api.delete<{ pre_alert: PreAlert }>(`/me/pre-alerts/${id}`)
   return data.pre_alert
 }
+
+/** @deprecated Use deletePreAlert */
+export const cancelPreAlert = deletePreAlert
 
 export async function presignInvoiceUpload(
   filename: string,

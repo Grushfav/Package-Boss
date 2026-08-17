@@ -2,17 +2,18 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { getErrorMessage } from '../../api/client'
-import { cancelPreAlert } from '../../api/preAlerts'
+import { deletePreAlert } from '../../api/preAlerts'
 import { useCustomerData } from '../../context/CustomerDataContext'
 
 export function PreAlertsPanel() {
   const { preAlerts, preAlertsLoading, refreshPreAlerts } = useCustomerData()
   const [error, setError] = useState('')
 
-  async function handleCancel(id: string) {
+  async function handleDelete(id: string, tracking: string) {
+    if (!window.confirm(`Delete pre-alert for ${tracking}?`)) return
     setError('')
     try {
-      await cancelPreAlert(id)
+      await deletePreAlert(id)
       await refreshPreAlerts()
     } catch (err) {
       setError(getErrorMessage(err))
@@ -27,8 +28,7 @@ export function PreAlertsPanel() {
         <div>
           <h2 className="text-lg font-bold uppercase tracking-wide">Pre-Alerts</h2>
           <p className="mt-2 text-sm text-muted">
-            Submit tracking number.
-        
+            Submit tracking number. You can edit pending pre-alerts before they are received.
           </p>
         </div>
         <Link
@@ -55,16 +55,32 @@ export function PreAlertsPanel() {
       ) : (
         <div className="mt-4 space-y-3">
           {active.map((alert) => (
-            <div key={alert.id} className="rounded-xl border border-border bg-card p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="font-mono text-sm font-bold">{alert.carrier_tracking}</p>
-                <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold uppercase text-amber-600 dark:text-amber-400">
+            <div key={alert.id} className="rounded-xl border border-border bg-card px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+                  <span className="font-mono font-bold">{alert.carrier_tracking}</span>
+                  {alert.merchant && (
+                    <>
+                      <span className="text-muted" aria-hidden>
+                        ·
+                      </span>
+                      <span className="text-muted">{alert.merchant}</span>
+                    </>
+                  )}
+                  {alert.description && (
+                    <>
+                      <span className="text-muted" aria-hidden>
+                        ·
+                      </span>
+                      <span className="text-muted">{alert.description}</span>
+                    </>
+                  )}
+                </div>
+                <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-amber-600 dark:text-amber-400">
                   {alert.status_label}
                 </span>
               </div>
-              {alert.merchant && <p className="mt-2 text-sm text-muted">{alert.merchant}</p>}
-              {alert.description && <p className="mt-1 text-sm text-muted">{alert.description}</p>}
-              <div className="mt-3 flex flex-wrap gap-3">
+              <div className="mt-2 flex flex-wrap gap-3">
                 {alert.invoice_url && (
                   <a
                     href={alert.invoice_url}
@@ -76,13 +92,21 @@ export function PreAlertsPanel() {
                   </a>
                 )}
                 {alert.status === 'pending' && (
-                  <button
-                    type="button"
-                    onClick={() => handleCancel(alert.id)}
-                    className="text-sm text-muted hover:text-red-400"
-                  >
-                    Cancel
-                  </button>
+                  <>
+                    <Link
+                      to={`/pre-alerts/${alert.id}/edit`}
+                      className="text-sm font-semibold text-boss-gold hover:underline"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(alert.id, alert.carrier_tracking)}
+                      className="text-sm text-muted hover:text-red-400"
+                    >
+                      Delete
+                    </button>
+                  </>
                 )}
               </div>
             </div>

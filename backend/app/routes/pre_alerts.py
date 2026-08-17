@@ -5,7 +5,7 @@ from flask_jwt_extended import jwt_required
 
 from app.constants import ALLOWED_INVOICE_TYPES
 from app.models.pre_alert import PreAlert
-from app.services.pre_alert_service import cancel_pre_alert, create_pre_alert
+from app.services.pre_alert_service import cancel_pre_alert, create_pre_alert, update_pre_alert
 from app.services.image_upload_service import (
     ImageUploadError,
     create_upload_presign,
@@ -96,6 +96,58 @@ def get_my_pre_alert(alert_id: str):
     pre_alert = PreAlert.query.filter_by(id=aid, customer_id=user.id).first()
     if not pre_alert:
         return _error("Pre-alert not found", 404)
+
+    return jsonify({"pre_alert": pre_alert.to_dict()})
+
+
+@pre_alerts_bp.route("/me/pre-alerts/<alert_id>", methods=["PATCH"])
+@jwt_required()
+def update_my_pre_alert(alert_id: str):
+    user, auth_err = _resolve_customer_user()
+    if auth_err:
+        return auth_err
+
+    try:
+        aid = uuid.UUID(alert_id)
+    except ValueError:
+        return _error("Invalid pre-alert ID")
+
+    pre_alert = PreAlert.query.filter_by(id=aid, customer_id=user.id).first()
+    if not pre_alert:
+        return _error("Pre-alert not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    if not data:
+        return _error("No updates provided")
+
+    fields: dict = {}
+
+    if "carrier_tracking" in data:
+        fields["carrier_tracking"] = data.get("carrier_tracking") or ""
+
+    for key in ("merchant", "description"):
+        if key in data:
+            value = data.get(key)
+            fields[key] = value if value is not None else None
+
+    if "declared_value_usd" in data:
+        declared_value = data.get("declared_value_usd")
+        if declared_value is None:
+            fields["declared_value_usd"] = None
+        else:
+            try:
+                fields["declared_value_usd"] = float(declared_value)
+            except (TypeError, ValueError):
+                return _error("declared_value_usd must be a number")
+
+    if "invoice_object_key" in data:
+        value = data.get("invoice_object_key")
+        fields["invoice_object_key"] = value if value is not None else None
+
+    try:
+        pre_alert = update_pre_alert(pre_alert, fields)
+    except ValueError as exc:
+        return _error(str(exc))
 
     return jsonify({"pre_alert": pre_alert.to_dict()})
 
