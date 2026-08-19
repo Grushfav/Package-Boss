@@ -66,7 +66,13 @@ def add_package_event(package: Package, status: str, note: str | None = None) ->
     package.status = status
     package.updated_at = datetime.utcnow()
 
-    if status != "unidentified" and (previous_status != status or not had_events):
+    # If a caller pre-set package.status, infer the prior step from the last event so
+    # customers still get notified (e.g. customs release used to set status early).
+    notify_previous = previous_status
+    if package.events and package.status == status and previous_status == status:
+        notify_previous = package.events[-1].status
+
+    if status != "unidentified" and (notify_previous != status or not had_events):
         _notify_package_status_email(package, status, note)
 
 

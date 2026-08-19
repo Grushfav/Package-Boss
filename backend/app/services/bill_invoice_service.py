@@ -20,6 +20,20 @@ def _esc(value: str | None) -> str:
 
 
 def _invoice_logo_src() -> str | None:
+    """Prefer a public HTTPS logo URL (email clients block data: URIs). Fall back to embedded PNG."""
+    try:
+        from flask import current_app
+
+        configured = (current_app.config.get("EMAIL_LOGO_URL") or "").strip()
+        if configured:
+            return configured
+
+        frontend = (current_app.config.get("FRONTEND_URL") or "").strip().rstrip("/")
+        if frontend:
+            return f"{frontend}/email-logo.png"
+    except RuntimeError:
+        pass
+
     if not _LOGO_ASSET_PATH.is_file():
         return None
     encoded = base64.b64encode(_LOGO_ASSET_PATH.read_bytes()).decode("ascii")
@@ -31,7 +45,7 @@ def _invoice_brand_block() -> str:
     if logo_src:
         return (
             f'<img src="{logo_src}" alt="Package Boss" '
-            'style="display:block;height:48px;width:auto;max-width:200px;" />'
+            'style="display:block;height:72px;width:72px;object-fit:contain;" />'
         )
     return (
         '<p style="margin:0;font-size:22px;font-weight:800;color:#22c55e;'

@@ -87,6 +87,11 @@ class Config:
 
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 
+    FYGARO_API_KEY = os.environ.get("FYGARO_API_KEY", "").strip()
+    FYGARO_SECRET_KEY = os.environ.get("FYGARO_SECRET_KEY", "").strip()
+    FYGARO_PAYMENT_BUTTON_URL = os.environ.get("FYGARO_PAYMENT_BUTTON_URL", "").strip().rstrip("/")
+    FYGARO_CURRENCY = os.environ.get("FYGARO_CURRENCY", "JMD").strip().upper()
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

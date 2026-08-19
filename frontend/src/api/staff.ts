@@ -477,10 +477,13 @@ async function fetchAuthedHtml(path: string): Promise<string> {
 }
 
 function openHtmlInNewTab(html: string) {
-  const blob = new Blob([html], { type: 'text/html' })
-  const url = URL.createObjectURL(blob)
-  window.open(url, '_blank', 'noopener,noreferrer')
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  const win = window.open('', '_blank', 'noopener,noreferrer')
+  if (!win) {
+    throw new Error('Pop-up blocked — allow pop-ups to view the invoice.')
+  }
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
 }
 
 export async function openPackageBillInvoice(packageId: string): Promise<void> {

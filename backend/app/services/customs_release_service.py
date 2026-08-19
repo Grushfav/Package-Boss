@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from app.extensions import db
 from app.models.package import Package
 from app.services.billing_calculations import publish_ready_for_pickup_bill
@@ -26,8 +24,6 @@ def release_package_from_customs(
         handling_jmd=handling_jmd,
         other_fees_jmd=other_fees_jmd,
     )
-    package.status = "ready_for_pickup"
-    package.updated_at = datetime.utcnow()
     add_package_event(
         package,
         "ready_for_pickup",
