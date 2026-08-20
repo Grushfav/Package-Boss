@@ -253,6 +253,75 @@ def receive_unidentified_package(
     return package
 
 
+def update_package_receive_details(
+    package: Package,
+    *,
+    actual_weight_lbs: float | None = None,
+    shipper: str | None = None,
+    carrier_tracking: str | None = None,
+    label_name: str | None = None,
+    label_boss_id: str | None = None,
+    carrier_tracking_provided: bool = False,
+    label_name_provided: bool = False,
+    label_boss_id_provided: bool = False,
+    requeue_print: bool = False,
+) -> Package:
+    from app.constants import LABEL_EDITABLE_STATUSES, SHIPPER_CODES
+
+    if package.status not in LABEL_EDITABLE_STATUSES:
+        raise ValueError(
+            f"Label details cannot be edited once a package is {package.status.replace('_', ' ')}"
+        )
+
+    is_unidentified = package.status == "unidentified"
+
+    if actual_weight_lbs is not None:
+        quote = calculate_receive_quote(actual_weight_lbs)
+        package.actual_weight_lbs = quote["actual_weight_lbs"]
+        package.billable_weight_lbs = quote["billable_weight_lbs"]
+        package.estimated_freight_jmd = quote["cost_jmd"]
+        package.rate_tier_label = quote["tier_label"]
+
+    if shipper is not None:
+        normalized_shipper = shipper.strip().lower()
+        if not normalized_shipper:
+            raise ValueError("shipper is required")
+        if normalized_shipper not in SHIPPER_CODES:
+            raise ValueError("Invalid shipper")
+        package.shipper = normalized_shipper
+
+    if carrier_tracking_provided:
+        normalized_carrier = (
+            normalize_carrier_tracking(carrier_tracking) if carrier_tracking else None
+        )
+        if normalized_carrier == "":
+            normalized_carrier = None
+        if not is_unidentified and not normalized_carrier:
+            raise ValueError("Carrier tracking is required for identified packages")
+        package.carrier_tracking = normalized_carrier
+
+    if label_name_provided or label_boss_id_provided:
+        if not is_unidentified:
+            raise ValueError("Label name and BOSS ID only apply to unidentified packages")
+        if label_name_provided:
+            package.label_name = (label_name or "").strip() or None
+        if label_boss_id_provided:
+            package.label_boss_id = (label_boss_id or "").strip().upper() or None
+
+    if is_unidentified:
+        if not package.label_name and not package.label_boss_id and not package.carrier_tracking:
+            raise ValueError(
+                "Provide at least one of label name, BOSS ID, or carrier tracking"
+            )
+
+    if requeue_print:
+        package.label_printed_at = None
+
+    package.updated_at = datetime.utcnow()
+    db.session.commit()
+    return package
+
+
 def unassign_package_from_customer(
     package: Package,
     *,

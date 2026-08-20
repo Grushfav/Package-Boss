@@ -9,6 +9,7 @@ from app.services.audit_service import (
     ACTION_PACKAGE_ASSIGNED,
     ACTION_PACKAGE_BILLING_UPDATED,
     ACTION_PACKAGE_INVOICE_REQUESTED,
+    ACTION_PACKAGE_LABEL_UPDATED,
     ACTION_PACKAGE_PAYMENT_RECORDED,
     ACTION_PACKAGE_RECEIVED,
     ACTION_PACKAGE_RECEIVED_UNIDENTIFIED,
@@ -76,6 +77,7 @@ from app.services.package_service import (
     mark_labels_printed,
     receive_package,
     receive_unidentified_package,
+    update_package_receive_details,
     update_package_status,
     warehouse_package_list_to_dict,
     warehouse_package_to_dict,
@@ -1226,6 +1228,71 @@ def update_billing(package_id: str):
         )
 
     return jsonify({"package": package.to_dict()})
+
+
+@staff_bp.route("/staff/packages/<package_id>/receive-details", methods=["PATCH"])
+@permission_required("receive")
+def update_receive_details(package_id: str):
+    import uuid as uuid_lib
+
+    try:
+        pid = uuid_lib.UUID(package_id)
+    except ValueError:
+        return jsonify({"error": "Invalid package ID"}), 400
+
+    package = Package.query.get(pid)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    if not data:
+        return jsonify({"error": "No fields to update"}), 400
+
+    weight = None
+    if "actual_weight_lbs" in data:
+        weight, weight_error = _parse_receive_weight(data.get("actual_weight_lbs"))
+        if weight_error:
+            body, status = weight_error
+            return jsonify(body), status
+
+    shipper = None
+    if "shipper" in data:
+        shipper = (data.get("shipper") or "").strip().lower()
+        if not shipper:
+            return jsonify({"error": "shipper is required"}), 400
+        if shipper not in SHIPPER_CODES:
+            return jsonify({"error": "Invalid shipper"}), 400
+
+    try:
+        package = update_package_receive_details(
+            package,
+            actual_weight_lbs=weight,
+            shipper=shipper,
+            carrier_tracking=data.get("carrier_tracking") if "carrier_tracking" in data else None,
+            label_name=data.get("label_name") if "label_name" in data else None,
+            label_boss_id=data.get("label_boss_id") if "label_boss_id" in data else None,
+            carrier_tracking_provided="carrier_tracking" in data,
+            label_name_provided="label_name" in data,
+            label_boss_id_provided="label_boss_id" in data,
+            requeue_print=bool(data.get("requeue_print")),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    actor = get_user_from_jwt()
+    if actor:
+        log_package_action(
+            actor,
+            ACTION_PACKAGE_LABEL_UPDATED,
+            str(package.id),
+            f"Updated label details for {package.tracking_number}",
+            metadata={
+                "tracking_number": package.tracking_number,
+                "requeue_print": bool(data.get("requeue_print")),
+            },
+        )
+
+    return jsonify({"package": warehouse_package_to_dict(package)})
 
 
 @staff_bp.route("/staff/packages/<package_id>/delivery-address", methods=["PATCH"])

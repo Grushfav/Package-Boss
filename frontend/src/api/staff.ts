@@ -339,6 +339,24 @@ export async function updatePackageBilling(
   return data.package
 }
 
+export async function updatePackageReceiveDetails(
+  packageId: string,
+  payload: {
+    actual_weight_lbs?: number
+    shipper?: string
+    carrier_tracking?: string
+    label_name?: string
+    label_boss_id?: string
+    requeue_print?: boolean
+  },
+): Promise<Package> {
+  const { data } = await api.patch<{ package: Package }>(
+    `/staff/packages/${packageId}/receive-details`,
+    payload,
+  )
+  return data.package
+}
+
 export async function fetchCustomerDeliveryAddresses(
   shippingId: string,
 ): Promise<import('../types').DeliveryAddress[]> {

@@ -47,6 +47,9 @@ PACKAGE_STATUSES = [
 
 UPDATABLE_STATUSES = list(WORKFLOW_STATUSES)
 
+# Label fields may be corrected while the package is still at or leaving the FL warehouse.
+LABEL_EDITABLE_STATUSES = frozenset({"received", "unidentified", "in_transit"})
+
 STATUS_LABELS = {
     "unidentified": "Unidentified — Awaiting Owner",
     "awaiting_receipt": "Awaiting Receipt",

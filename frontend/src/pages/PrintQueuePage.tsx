@@ -1,4 +1,4 @@
-import { Eye, Printer, X } from 'lucide-react'
+import { Eye, Pencil, Printer, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
@@ -7,6 +7,7 @@ import {
   markPrintedAfterPrint,
   ShippingLabel,
 } from '../components/warehouse/ShippingLabel'
+import { EditLabelModal } from '../components/warehouse/EditLabelModal'
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
@@ -38,6 +39,7 @@ export function PrintQueuePage() {
   const [error, setError] = useState('')
   const [printQueue, setPrintQueue] = useState<Package[]>([])
   const [previewPackage, setPreviewPackage] = useState<Package | null>(null)
+  const [editPackage, setEditPackage] = useState<Package | null>(null)
   const printStartedRef = useRef(false)
 
   const loadQueue = useCallback(async (options: { silent?: boolean } = {}) => {
@@ -141,6 +143,16 @@ export function PrintQueuePage() {
 
   function handlePrintOne(pkg: Package) {
     queuePrint([pkg])
+  }
+
+  function handleLabelSaved(updated: Package, options?: { reprint?: boolean }) {
+    setPackages((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+    setPreviewPackage((prev) => (prev?.id === updated.id ? updated : prev))
+    setEditPackage(null)
+    refreshCounts()
+    if (options?.reprint) {
+      queuePrint([updated])
+    }
   }
 
   function handlePrintNext10() {
@@ -300,6 +312,16 @@ export function PrintQueuePage() {
                       type="button"
                       variant="outline"
                       disabled={actionLoading}
+                      onClick={() => setEditPackage(pkg)}
+                      className="!text-xs inline-flex items-center gap-1"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={actionLoading}
                       onClick={() => handlePrintOne(pkg)}
                       className="!text-xs inline-flex items-center gap-1"
                     >
@@ -355,6 +377,19 @@ export function PrintQueuePage() {
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 type="button"
+                variant="outline"
+                disabled={actionLoading}
+                onClick={() => {
+                  setEditPackage(previewPackage)
+                  setPreviewPackage(null)
+                }}
+                className="inline-flex items-center gap-2"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit label
+              </Button>
+              <Button
+                type="button"
                 className="inline-flex flex-1 items-center justify-center gap-2"
                 disabled={actionLoading}
                 onClick={() => {
@@ -371,6 +406,14 @@ export function PrintQueuePage() {
             </div>
           </div>
         </div>
+      )}
+      {editPackage && (
+        <EditLabelModal
+          pkg={editPackage}
+          customer={labelCustomer(editPackage)}
+          onClose={() => setEditPackage(null)}
+          onSaved={handleLabelSaved}
+        />
       )}
     </div>
   )
