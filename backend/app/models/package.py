@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 
 class Package(db.Model):
@@ -91,22 +92,18 @@ class Package(db.Model):
             "invoice_object_key": self.invoice_object_key,
             "invoice_url": resolve_stored_url(self.invoice_object_key) if self.invoice_object_key else None,
             "declared_value_usd": float(self.declared_value_usd) if self.declared_value_usd else None,
-            "invoice_requested_at": self.invoice_requested_at.isoformat()
-            if self.invoice_requested_at
-            else None,
+            "invoice_requested_at": utc_isoformat(self.invoice_requested_at),
             "invoice_requested_via": self.invoice_requested_via,
             "invoice_request_note": self.invoice_request_note,
-            "invoice_received_at": self.invoice_received_at.isoformat()
-            if self.invoice_received_at
-            else None,
+            "invoice_received_at": utc_isoformat(self.invoice_received_at),
             "delivery_address_id": str(self.delivery_address_id) if self.delivery_address_id else None,
             "delivery_address": self.delivery_address.to_dict() if self.delivery_address else None,
             "rate_tier_label": self.rate_tier_label,
-            "label_printed_at": self.label_printed_at.isoformat() if self.label_printed_at else None,
-            "received_at": self.received_at.isoformat() if self.received_at else None,
+            "label_printed_at": utc_isoformat(self.label_printed_at),
+            "received_at": utc_isoformat(self.received_at),
             "receive_batch_id": str(self.receive_batch_id) if self.receive_batch_id else None,
             "shipment_id": str(self.shipment_id) if self.shipment_id else None,
-            "created_at": self.created_at.isoformat(),
+            "created_at": utc_isoformat(self.created_at),
         }
         if self.receive_batch:
             data["receive_batch"] = {
@@ -151,7 +148,7 @@ class PackageEvent(db.Model):
             "status": self.status,
             "status_label": STATUS_LABELS.get(self.status, self.status),
             "note": self.note,
-            "created_at": self.created_at.isoformat(),
+            "created_at": utc_isoformat(self.created_at),
         }
 
 
@@ -170,5 +167,5 @@ class PackagePhoto(db.Model):
             "id": str(self.id),
             "object_key": self.r2_object_key,
             "url": resolve_stored_url(self.r2_object_key),
-            "created_at": self.created_at.isoformat(),
+            "created_at": utc_isoformat(self.created_at),
         }

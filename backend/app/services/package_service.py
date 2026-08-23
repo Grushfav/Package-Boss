@@ -99,6 +99,7 @@ def _notify_package_status_email(package: Package, status: str, note: str | None
             customer.first_name,
             package.tracking_number,
             status,
+            package_id=str(package.id),
             note=note,
             carrier_tracking=package.carrier_tracking,
             shipper_label=shipper_label,

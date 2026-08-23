@@ -292,6 +292,8 @@ def render_package_status_html(
     logo_url: str | None = None,
     carrier_tracking: str | None = None,
     shipper_label: str | None = None,
+    cta_url: str | None = None,
+    cta_label: str | None = None,
 ) -> str:
     from app.constants import STATUS_LABELS
 
@@ -356,6 +358,6 @@ def render_package_status_html(
         title="Package status update",
         body_html=body,
         logo_url=logo_url,
-        cta_url=track_url,
-        cta_label="Track package",
+        cta_url=cta_url or track_url,
+        cta_label=cta_label or "Track package",
     )

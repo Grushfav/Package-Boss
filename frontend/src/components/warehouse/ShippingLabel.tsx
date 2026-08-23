@@ -1,5 +1,6 @@
 import JsBarcode from 'jsbarcode'
 import { useEffect, useRef } from 'react'
+import { formatAppDate } from '../../lib/datetime'
 import type { Package, StaffCustomer } from '../../types'
 
 interface ShippingLabelProps {
@@ -23,7 +24,7 @@ export function ShippingLabel({ pkg, customer, className = '', preview = false }
     })
   }, [pkg.tracking_number, preview])
 
-  const receivedDate = new Date(pkg.received_at || pkg.created_at).toLocaleDateString()
+  const receivedDate = formatAppDate(pkg.received_at || pkg.created_at)
 
   return (
     <div className={`shipping-label ${className}`.trim()}>

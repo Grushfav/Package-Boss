@@ -19,6 +19,7 @@ import { CustomerDashboardLayout } from './components/layout/CustomerDashboardLa
 import { DashboardBankTransferPage } from './pages/dashboard/DashboardBankTransferPage'
 import { DashboardHomePage } from './pages/dashboard/DashboardHomePage'
 import { DashboardPackagesPage } from './pages/dashboard/DashboardPackagesPage'
+import { PackageBillPage } from './pages/dashboard/PackageBillPage'
 import { DashboardNotificationsPage } from './pages/dashboard/DashboardNotificationsPage'
 import { DashboardPreAlertsPage } from './pages/dashboard/DashboardPreAlertsPage'
 import { DashboardProfilePage } from './pages/dashboard/DashboardProfilePage'
@@ -78,6 +79,7 @@ function AppRoutes() {
             <Route path="track" element={<Navigate to="/dashboard/packages" replace />} />
             <Route path="pre-alerts" element={<DashboardPreAlertsPage />} />
             <Route path="packages" element={<DashboardPackagesPage />} />
+            <Route path="packages/:packageId/bill" element={<PackageBillPage />} />
             <Route path="rates" element={<DashboardRatesPage />} />
             <Route path="bank-transfer" element={<DashboardBankTransferPage />} />
             <Route path="notifications" element={<DashboardNotificationsPage />} />

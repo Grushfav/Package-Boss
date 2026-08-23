@@ -12,6 +12,14 @@ export async function fetchMyPackage(id: string): Promise<Package> {
   return data.package
 }
 
+export async function fetchMyPackageBillInvoiceHtml(packageId: string): Promise<string> {
+  const { data } = await api.get<string>(`/me/packages/${packageId}/bill-invoice`, {
+    responseType: 'text',
+    transformResponse: [(value) => value],
+  })
+  return data
+}
+
 export async function presignPackageInvoice(
   packageId: string,
   filename: string,

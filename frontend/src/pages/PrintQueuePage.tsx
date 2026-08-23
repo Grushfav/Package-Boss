@@ -1,4 +1,5 @@
 import { Eye, Pencil, Printer, X } from 'lucide-react'
+import { formatAppDateTime } from '../lib/datetime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
@@ -288,7 +289,7 @@ export function PrintQueuePage() {
                       {' · '}
                       {pkg.billable_weight_lbs} lbs
                       {' · '}
-                      {new Date(pkg.received_at || pkg.created_at).toLocaleString()}
+                      {formatAppDateTime(pkg.received_at || pkg.created_at)}
                       {pkg.label_printed_at && (
                         <>
                           {' · '}

@@ -41,6 +41,15 @@ def _worker_config() -> tuple[str, str, str]:
     return api_url, api_key, from_address
 
 
+def _resolve_from_email(from_address: str | None = None) -> str:
+    return from_address or current_app.config.get("DEFAULT_FROM_EMAIL") or "info@packagebossja.com"
+
+
+def _resolve_from_name() -> str | None:
+    name = (current_app.config.get("DEFAULT_FROM_NAME") or "Package Boss").strip()
+    return name or None
+
+
 def _image_upload_configured() -> bool:
     from app.services.image_upload_service import is_image_upload_configured
 
@@ -92,14 +101,16 @@ def send_email(
     if not text and not html_body:
         raise ValueError("Either text or html is required")
 
-    api_url, api_key, default_from = _worker_config()
+    api_url, api_key, _default_from = _worker_config()
+    from_name = _resolve_from_name()
 
     payload = {
         "to": to,
         "subject": subject,
         "text": text,
         "html": html_body,
-        "from": from_address or default_from,
+        "from": _resolve_from_email(from_address),
+        "fromName": from_name,
         "replyTo": reply_to,
         "cc": cc,
         "bcc": bcc,
@@ -285,6 +296,7 @@ def send_package_status_email(
     tracking_number: str,
     status: str,
     *,
+    package_id: str | None = None,
     status_label: str | None = None,
     note: str | None = None,
     carrier_tracking: str | None = None,
@@ -302,6 +314,14 @@ def send_package_status_email(
     label = status_label or STATUS_LABELS.get(status, status.replace("_", " ").title())
     frontend = (current_app.config.get("FRONTEND_URL") or "http://localhost:5173").rstrip("/")
     track_url = f"{frontend}/track?tracking={tracking_number}"
+    if status == "ready_for_pickup" and package_id:
+        cta_url = f"{frontend}/dashboard/packages/{package_id}/bill"
+        cta_label = "View invoice"
+        action_line = f"View your invoice: {cta_url}"
+    else:
+        cta_url = track_url
+        cta_label = "Track package"
+        action_line = f"Track your package: {track_url}"
     subject = f"Package update — {tracking_number}: {label}"
 
     shipment_lines = [f"Package Boss tracking: {tracking_number}"]
@@ -315,7 +335,7 @@ def send_package_status_email(
         f"Hi {first_name},\n\n"
         f"Your package status is now: {label}.\n\n"
         f"{shipment_block}\n\n"
-        f"Track your package: {track_url}\n\n"
+        f"{action_line}\n\n"
         f"— Package Boss"
     )
     if note:
@@ -324,7 +344,7 @@ def send_package_status_email(
             f"Your package status is now: {label}.\n\n"
             f"{note}\n\n"
             f"{shipment_block}\n\n"
-            f"Track your package: {track_url}\n\n"
+            f"{action_line}\n\n"
             f"— Package Boss"
         )
     html_body = render_package_status_html(
@@ -337,6 +357,8 @@ def send_package_status_email(
         logo_url=resolve_logo_url(),
         carrier_tracking=carrier_tracking,
         shipper_label=shipper_label,
+        cta_url=cta_url,
+        cta_label=cta_label,
     )
     _dispatch_email(
         to_email,

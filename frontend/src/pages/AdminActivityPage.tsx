@@ -1,4 +1,5 @@
 import { Activity } from 'lucide-react'
+import { formatAppDateTime } from '../lib/datetime'
 import { useEffect, useState } from 'react'
 import { fetchActivityLog } from '../api/admin'
 import { IconBadge } from '../components/ui/IconBadge'
@@ -80,7 +81,7 @@ export function AdminActivityPage() {
               {activity.map((entry) => (
                 <tr key={entry.id}>
                   <td className="px-4 py-3 whitespace-nowrap text-muted">
-                    {new Date(entry.created_at).toLocaleString()}
+                    {formatAppDateTime(entry.created_at)}
                   </td>
                   <td className="px-4 py-3">
                     <p className="font-medium">{entry.actor_name}</p>

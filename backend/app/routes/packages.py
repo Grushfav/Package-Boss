@@ -1,12 +1,14 @@
 import uuid
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 from flask_jwt_extended import jwt_required
 
-from app.constants import ALLOWED_INVOICE_TYPES, INVOICE_UPLOAD_EXCLUDED_STATUSES
+from app.constants import ALLOWED_INVOICE_TYPES, CUSTOMER_BILL_VISIBLE_STATUSES, INVOICE_UPLOAD_EXCLUDED_STATUSES
 from app.models.package import Package
 from app.models.user import User
 from app.services.billing_service import attach_package_invoice
+from app.services.bill_invoice_service import render_bill_invoice_html, render_checkout_invoice_html
+from app.services.payment_service import get_package_checkout_item
 from app.services.image_upload_service import (
     ImageUploadError,
     create_upload_presign,
@@ -66,6 +68,36 @@ def get_my_package(package_id: str):
     data = package.to_dict(include_events=True, include_photos=True)
     data["timeline"] = get_tracking_timeline(package)
     return jsonify({"package": data})
+
+
+@packages_bp.route("/me/packages/<package_id>/bill-invoice", methods=["GET"])
+@jwt_required()
+def my_package_bill_invoice(package_id: str):
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
+
+    package = _get_customer_package(user, package_id)
+    if not package:
+        return jsonify({"error": "Package not found"}), 404
+
+    if package.status not in CUSTOMER_BILL_VISIBLE_STATUSES:
+        return jsonify({"error": "Bill is not available for this package yet"}), 400
+
+    if package.billing_status not in ("ready", "paid"):
+        return jsonify({"error": "Bill has not been published yet"}), 400
+
+    if package.total_due_jmd is None:
+        return jsonify({"error": "No bill amount on this package"}), 400
+
+    item = get_package_checkout_item(package)
+    checkout = item.checkout if item else None
+    if checkout and len(checkout.items) > 1:
+        packages = [i.package for i in checkout.items if i.package]
+        html = render_checkout_invoice_html(checkout, user, packages)
+    else:
+        html = render_bill_invoice_html(package, user, checkout)
+    return Response(html, mimetype="text/html")
 
 
 @packages_bp.route("/me/packages/<package_id>/invoice/presign", methods=["POST"])

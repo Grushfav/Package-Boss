@@ -16,6 +16,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { formatAppDateTime } from '../lib/datetime'
 import {
   fetchActivityLog,
   fetchAdminOverview,
@@ -379,7 +380,7 @@ export function AdminOperationsPage() {
                   </p>
                 </div>
                 <p className="text-xs text-muted">
-                  {new Date(entry.created_at).toLocaleString()}
+                  {formatAppDateTime(entry.created_at)}
                 </p>
               </li>
             ))}

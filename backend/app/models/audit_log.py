@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 
 class AuditLog(db.Model):
@@ -31,5 +32,5 @@ class AuditLog(db.Model):
             "entity_id": self.entity_id,
             "summary": self.summary,
             "metadata": self.metadata_json or {},
-            "created_at": self.created_at.isoformat(),
+            "created_at": utc_isoformat(self.created_at),
         }
