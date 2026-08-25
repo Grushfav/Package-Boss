@@ -495,10 +495,15 @@ async function fetchAuthedHtml(path: string): Promise<string> {
 }
 
 function openHtmlInNewTab(html: string) {
-  const win = window.open('', '_blank', 'noopener,noreferrer')
+  if (!html.trim()) {
+    throw new Error('Invoice is empty.')
+  }
+  // Do not pass noopener — it opens a blank tab but returns null, so document.write never runs.
+  const win = window.open('', '_blank')
   if (!win) {
     throw new Error('Pop-up blocked — allow pop-ups to view the invoice.')
   }
+  win.opener = null
   win.document.open()
   win.document.write(html)
   win.document.close()

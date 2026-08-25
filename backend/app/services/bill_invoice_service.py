@@ -262,6 +262,10 @@ def render_bill_invoice_html(
       <div>
         <p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;">Shipment</p>
         <p style="margin:0;font-family:monospace;font-size:15px;font-weight:700;color:#22c55e;">{_esc(package.tracking_number)}</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#64748b;">
+          {_esc(package.carrier_tracking or "No carrier tracking")} ·
+          Billable weight: {_esc(str(package.billable_weight_lbs) + " lbs" if package.billable_weight_lbs else "—")}
+        </p>
       </div>
     </div>
     <table style="width:100%;margin-top:32px;border-collapse:collapse;font-size:14px;">

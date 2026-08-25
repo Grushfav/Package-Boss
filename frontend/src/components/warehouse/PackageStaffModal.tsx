@@ -126,6 +126,7 @@ export function PackageStaffModal({ pkg, onClose, onUpdated, onUnassigned }: Pac
 
   async function handleSaveBilling(publish: boolean) {
     setError('')
+    setSuccess('')
     setLoading(true)
     try {
       const parse = (v: string) => (v.trim() ? parseFloat(v) : undefined)
@@ -138,6 +139,18 @@ export function PackageStaffModal({ pkg, onClose, onUpdated, onUnassigned }: Pac
         publish,
       })
       onUpdated(updated)
+      setBilling({
+        estimated_freight_jmd: updated.estimated_freight_jmd?.toString() ?? '',
+        duties_jmd: updated.duties_jmd?.toString() ?? '',
+        handling_jmd: updated.handling_jmd?.toString() ?? '',
+        other_fees_jmd: updated.other_fees_jmd?.toString() ?? '',
+        declared_value_usd: updated.declared_value_usd?.toString() ?? '',
+      })
+      setSuccess(
+        publish
+          ? `Bill updated${updated.total_due_jmd != null ? ` — total ${formatJmd(updated.total_due_jmd)}` : ''}`
+          : 'Billing draft saved',
+      )
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -428,11 +441,11 @@ export function PackageStaffModal({ pkg, onClose, onUpdated, onUnassigned }: Pac
                 )}
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => handleSaveBilling(false)} disabled={loading}>
-                    Save draft
+                    {loading ? 'Saving…' : 'Save draft'}
                   </Button>
                   {pkg.billing_status !== 'paid' && (
                     <Button onClick={() => handleSaveBilling(true)} disabled={loading}>
-                      Update bill
+                      {loading ? 'Updating…' : 'Update bill'}
                     </Button>
                   )}
                 </div>

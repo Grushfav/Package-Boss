@@ -452,6 +452,7 @@ def _warehouse_list_load_options():
 
 def warehouse_package_list_to_dict(package: Package) -> dict:
     from app.constants import BILLING_STATUS_LABELS, INVOICE_STATUS_LABELS, STATUS_LABELS
+    from app.services.image_upload_service import resolve_stored_url
 
     customer = package.customer
     if customer and customer.shipping_id != UNIDENTIFIED_HOLDER_SHIPPING_ID:
@@ -482,11 +483,15 @@ def warehouse_package_list_to_dict(package: Package) -> dict:
         "invoice_status_label": INVOICE_STATUS_LABELS.get(
             package.invoice_status, package.invoice_status
         ),
+        "invoice_url": resolve_stored_url(package.invoice_object_key)
+        if package.invoice_object_key
+        else None,
         "billing_status": package.billing_status,
         "billing_status_label": BILLING_STATUS_LABELS.get(
             package.billing_status, package.billing_status
         ),
         "total_due_jmd": float(package.total_due_jmd) if package.total_due_jmd is not None else None,
+        "actual_weight_lbs": float(package.actual_weight_lbs) if package.actual_weight_lbs else None,
         "billable_weight_lbs": package.billable_weight_lbs,
         "received_at": package.received_at.isoformat() if package.received_at else None,
         "customer": customer_data,

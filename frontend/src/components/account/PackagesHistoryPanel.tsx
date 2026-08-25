@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { cancelDeliveryRequest } from '../../api/deliveryRequests'
 import {
   formatPackageCost,
+  formatPackageWeight,
   packageCanUploadInvoice,
   packageEligibleForDeliveryRequest,
   packageNeedsInvoiceUpload,
@@ -58,10 +59,10 @@ function PackageTable({
                   )}
                 </th>
               )}
-              <th className="px-4 py-3">Tracking Number</th>
-              <th className="px-4 py-3">Shipper</th>
+              <th className="px-4 py-3">Carrier tracking</th>
               <th className="px-4 py-3">PB tracking</th>
               <th className="px-4 py-3">Weight</th>
+              <th className="px-4 py-3">Shipper</th>
               <th className="px-4 py-3">Cost</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Actions</th>
@@ -69,7 +70,6 @@ function PackageTable({
           </thead>
           <tbody>
             {packages.map((pkg, index) => {
-              const weightLbs = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
               const cost = formatPackageCost(pkg, { customer: true })
               const canSelect = showSelection && packageEligibleForDeliveryRequest(pkg)
               return (
@@ -94,14 +94,14 @@ function PackageTable({
                   <td className="border-t border-border px-4 py-3 font-mono text-foreground">
                     {pkg.carrier_tracking || '—'}
                   </td>
-                  <td className="border-t border-border px-4 py-3 text-foreground">
-                    {pkg.shipper_label || pkg.shipper || '—'}
-                  </td>
                   <td className="border-t border-border px-4 py-3 font-mono font-bold text-boss-gold">
                     {pkg.tracking_number}
                   </td>
                   <td className="border-t border-border px-4 py-3 text-foreground">
-                    {weightLbs != null ? `${weightLbs} lbs` : '—'}
+                    {formatPackageWeight(pkg)}
+                  </td>
+                  <td className="border-t border-border px-4 py-3 text-foreground">
+                    {pkg.shipper_label || pkg.shipper || '—'}
                   </td>
                   <td className="border-t border-border px-4 py-3 text-foreground">
                     {cost ? (

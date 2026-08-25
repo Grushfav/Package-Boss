@@ -33,6 +33,12 @@ export function formatPackageCost(pkg: Package, options?: { customer?: boolean }
   return null
 }
 
+/** Billable weight shown to customers; falls back to actual weight when billable is not set yet. */
+export function formatPackageWeight(pkg: Package): string {
+  const lbs = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
+  return lbs != null ? `${lbs} lbs` : '—'
+}
+
 export function packageNeedsInvoiceUpload(pkg: Package): boolean {
   if (pkg.status === 'received' || pkg.status === 'ready_for_pickup' || pkg.status === 'delivered') {
     return false

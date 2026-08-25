@@ -25,7 +25,7 @@ import {
   clerkHasPermission,
 } from '../lib/clerkPermissions'
 import { formatJmd, sumJmd } from '../lib/money'
-import { formatPackageCost, packageEligibleForPayment } from '../lib/packageBilling'
+import { formatPackageCost, formatPackageWeight, packageEligibleForPayment } from '../lib/packageBilling'
 import type {
   CustomerAccount,
   Package as Pkg,
@@ -107,6 +107,30 @@ export function CustomerAccountPage() {
     handlePackageUpdated({ ...updated, payment })
     setPayPkg(null)
     loadAccount()
+  }
+
+  async function handleOpenBillInvoice(pkg: Pkg) {
+    setError('')
+    setSuccess('')
+    try {
+      if (pkg.payment?.checkout_id) {
+        await openCheckoutBillInvoice(pkg.payment.checkout_id)
+      } else {
+        await openPackageBillInvoice(pkg.id)
+      }
+    } catch (err) {
+      setError(getErrorMessage(err))
+    }
+  }
+
+  async function handleOpenCheckoutBillInvoice(checkoutId: string) {
+    setError('')
+    setSuccess('')
+    try {
+      await openCheckoutBillInvoice(checkoutId)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    }
   }
 
   async function handleBulkInvoiceRequest() {
@@ -331,11 +355,12 @@ export function CustomerAccountPage() {
             <p className="p-8 text-center text-sm text-muted">No packages yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[840px] text-left text-sm">
                 <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wider text-muted">
                   <tr>
                     <th className="px-4 py-3 w-10" />
                     <th className="px-4 py-3">Tracking</th>
+                    <th className="px-4 py-3">Weight</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Billing</th>
                     <th className="px-4 py-3">Amount</th>
@@ -356,6 +381,7 @@ export function CustomerAccountPage() {
                         ) : null}
                       </td>
                       <td className="px-4 py-3 font-mono text-boss-gold">{pkg.tracking_number}</td>
+                      <td className="px-4 py-3">{formatPackageWeight(pkg)}</td>
                       <td className="px-4 py-3">{pkg.status_label}</td>
                       <td className="px-4 py-3">{pkg.billing_status_label}</td>
                       <td className="px-4 py-3 font-semibold">{formatPackageCost(pkg) ?? '—'}</td>
@@ -389,16 +415,23 @@ export function CustomerAccountPage() {
                             <button
                               type="button"
                               disabled={!canManageBilling}
-                              title={canManageBilling ? undefined : 'Requires billing permission'}
-                              onClick={() =>
-                                pkg.payment?.checkout_id
-                                  ? openCheckoutBillInvoice(pkg.payment.checkout_id)
-                                  : openPackageBillInvoice(pkg.id)
-                              }
+                              title={canManageBilling ? 'Print payment bill' : 'Requires billing permission'}
+                              onClick={() => void handleOpenBillInvoice(pkg)}
                               className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold hover:border-boss-gold/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border"
                             >
-                              Invoice
+                              Bill
                             </button>
+                          )}
+                          {pkg.invoice_url && (
+                            <a
+                              href={pkg.invoice_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Customer-uploaded invoice or receipt"
+                              className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold hover:border-boss-gold/40 hover:text-boss-gold"
+                            >
+                              Receipt
+                            </a>
                           )}
                           {pkg.status === 'ready_for_pickup' && pkg.billing_status === 'paid' && (
                             <button
@@ -509,7 +542,7 @@ export function CustomerAccountPage() {
                           type="button"
                           disabled={!canManageBilling}
                           title={canManageBilling ? undefined : 'Requires billing permission'}
-                          onClick={() => openCheckoutBillInvoice(checkout.id)}
+                          onClick={() => void handleOpenCheckoutBillInvoice(checkout.id)}
                           className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold hover:border-boss-gold/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border"
                         >
                           Print
