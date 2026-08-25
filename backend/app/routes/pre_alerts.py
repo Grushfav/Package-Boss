@@ -3,7 +3,7 @@ import uuid
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
-from app.constants import ALLOWED_INVOICE_TYPES
+from app.constants import ALLOWED_INVOICE_TYPES, SHIPPERS
 from app.models.pre_alert import PreAlert
 from app.services.pre_alert_service import cancel_pre_alert, create_pre_alert, update_pre_alert
 from app.services.image_upload_service import (
@@ -29,6 +29,15 @@ def _resolve_customer_user():
     if user.role != "customer":
         return None, _error("Customer access required", 403)
     return user, None
+
+
+@pre_alerts_bp.route("/me/shippers", methods=["GET"])
+@jwt_required()
+def list_customer_shippers():
+    user, auth_err = _resolve_customer_user()
+    if auth_err:
+        return auth_err
+    return jsonify({"shippers": SHIPPERS})
 
 
 @pre_alerts_bp.route("/me/pre-alerts", methods=["GET"])
@@ -59,20 +68,30 @@ def create_my_pre_alert():
     if not carrier_tracking.strip():
         return _error("carrier_tracking is required")
 
+    merchant = data.get("merchant")
+    if not (merchant or "").strip():
+        return _error("merchant is required")
+
+    description = data.get("description")
+    if not (description or "").strip():
+        return _error("description is required")
+
+    if "declared_value_usd" not in data or data.get("declared_value_usd") is None:
+        return _error("declared_value_usd is required")
+
     declared_value = data.get("declared_value_usd")
-    if declared_value is not None:
-        try:
-            declared_value = float(declared_value)
-        except (TypeError, ValueError):
-            return _error("declared_value_usd must be a number")
+    try:
+        declared_value = float(declared_value)
+    except (TypeError, ValueError):
+        return _error("declared_value_usd must be a number")
 
     try:
         pre_alert = create_pre_alert(
             customer=user,
             carrier_tracking=carrier_tracking,
             invoice_object_key=data.get("invoice_object_key"),
-            merchant=data.get("merchant"),
-            description=data.get("description"),
+            merchant=merchant,
+            description=description,
             declared_value_usd=declared_value,
         )
     except ValueError as exc:

@@ -59,14 +59,14 @@ export function PreAlertsPanel() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
                   <span className="font-mono font-bold">{alert.carrier_tracking}</span>
-                  {alert.merchant && (
+                  {alert.merchant_label || alert.merchant ? (
                     <>
                       <span className="text-muted" aria-hidden>
                         ·
                       </span>
-                      <span className="text-muted">{alert.merchant}</span>
+                      <span className="text-muted">{alert.merchant_label || alert.merchant}</span>
                     </>
-                  )}
+                  ) : null}
                   {alert.description && (
                     <>
                       <span className="text-muted" aria-hidden>

@@ -151,6 +151,36 @@ def _assert_no_conflicting_pending_pre_alert(
             raise ValueError("A pending pre-alert already exists for this tracking number")
 
 
+def _validate_pre_alert_merchant(merchant: str | None) -> str:
+    from app.constants import SHIPPER_CODES
+
+    code = (merchant or "").strip()
+    if not code:
+        raise ValueError("merchant is required")
+    if code not in SHIPPER_CODES:
+        raise ValueError("Invalid merchant")
+    return code
+
+
+def _validate_pre_alert_description(description: str | None) -> str:
+    text = (description or "").strip()
+    if not text:
+        raise ValueError("description is required")
+    return text
+
+
+def _validate_pre_alert_declared_value(declared_value_usd) -> float:
+    if declared_value_usd is None:
+        raise ValueError("declared_value_usd is required")
+    try:
+        amount = float(declared_value_usd)
+    except (TypeError, ValueError):
+        raise ValueError("declared_value_usd must be a number")
+    if amount <= 0:
+        raise ValueError("declared_value_usd must be greater than zero")
+    return amount
+
+
 def create_pre_alert(
     customer: User,
     carrier_tracking: str,
@@ -168,12 +198,16 @@ def create_pre_alert(
 
     _assert_no_conflicting_pending_pre_alert(customer.id, tracking)
 
+    merchant_code = _validate_pre_alert_merchant(merchant)
+    description_text = _validate_pre_alert_description(description)
+    validated_declared_value = _validate_pre_alert_declared_value(declared_value_usd)
+
     pre_alert = PreAlert(
         customer_id=customer.id,
         carrier_tracking=tracking,
-        merchant=(merchant or "").strip() or None,
-        description=(description or "").strip() or None,
-        declared_value_usd=declared_value_usd,
+        merchant=merchant_code,
+        description=description_text,
+        declared_value_usd=validated_declared_value,
         invoice_object_key=invoice_object_key,
         status="pending",
     )
@@ -196,15 +230,13 @@ def update_pre_alert(pre_alert: PreAlert, fields: dict) -> PreAlert:
         pre_alert.carrier_tracking = tracking
 
     if "merchant" in fields:
-        merchant = fields["merchant"]
-        pre_alert.merchant = (merchant or "").strip() or None if merchant is not None else None
+        pre_alert.merchant = _validate_pre_alert_merchant(fields["merchant"])
 
     if "description" in fields:
-        description = fields["description"]
-        pre_alert.description = (description or "").strip() or None if description is not None else None
+        pre_alert.description = _validate_pre_alert_description(fields["description"])
 
     if "declared_value_usd" in fields:
-        pre_alert.declared_value_usd = fields["declared_value_usd"]
+        pre_alert.declared_value_usd = _validate_pre_alert_declared_value(fields["declared_value_usd"])
 
     if "invoice_object_key" in fields:
         invoice_object_key = fields["invoice_object_key"]

@@ -25,13 +25,15 @@ class PreAlert(db.Model):
     package = db.relationship("Package", backref="pre_alert", uselist=False)
 
     def to_dict(self) -> dict:
-        from app.constants import PRE_ALERT_STATUS_LABELS
+        from app.constants import PRE_ALERT_STATUS_LABELS, SHIPPER_LABELS
         from app.services.image_upload_service import resolve_stored_url
 
+        merchant = self.merchant
         return {
             "id": str(self.id),
             "carrier_tracking": self.carrier_tracking,
-            "merchant": self.merchant,
+            "merchant": merchant,
+            "merchant_label": SHIPPER_LABELS.get(merchant, merchant) if merchant else None,
             "description": self.description,
             "declared_value_usd": float(self.declared_value_usd) if self.declared_value_usd else None,
             "invoice_object_key": self.invoice_object_key,

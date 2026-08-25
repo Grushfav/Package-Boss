@@ -1,6 +1,11 @@
 import { api } from './client'
 import { presignFilePayload } from '../lib/normalizeUploadFile'
-import type { InvoicePresignResponse, PreAlert } from '../types'
+import type { InvoicePresignResponse, PreAlert, Shipper } from '../types'
+
+export async function fetchPreAlertShippers(): Promise<Shipper[]> {
+  const { data } = await api.get<{ shippers: Shipper[] }>('/me/shippers')
+  return data.shippers
+}
 
 export async function fetchMyPreAlerts(): Promise<PreAlert[]> {
   const { data } = await api.get<{ pre_alerts: PreAlert[] }>('/me/pre-alerts')
@@ -9,10 +14,10 @@ export async function fetchMyPreAlerts(): Promise<PreAlert[]> {
 
 export async function createPreAlert(payload: {
   carrier_tracking: string
+  merchant: string
+  description: string
+  declared_value_usd: number
   invoice_object_key?: string
-  merchant?: string
-  description?: string
-  declared_value_usd?: number
 }): Promise<PreAlert> {
   const { data } = await api.post<{ pre_alert: PreAlert }>('/me/pre-alerts', payload)
   return data.pre_alert

@@ -165,7 +165,7 @@ export function WarehousePreAlertsPage() {
                       )}
                     </td>
                     <td className="hidden px-4 py-3 text-muted md:table-cell">
-                      {alert.merchant || '—'}
+                      {alert.merchant_label || alert.merchant || '—'}
                     </td>
                     <td className="hidden px-4 py-3 lg:table-cell">
                       {alert.declared_value_usd != null

@@ -2,15 +2,17 @@ import { Bell, FileUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
-import { deletePreAlert, fetchPreAlert, updatePreAlert } from '../api/preAlerts'
+import { deletePreAlert, fetchPreAlert, fetchPreAlertShippers, updatePreAlert } from '../api/preAlerts'
 import { useAuth } from '../context/AuthContext'
 import { useCustomerData } from '../context/CustomerDataContext'
 import { getHomeRoute } from '../lib/routing'
+import { resolveMerchantCode } from '../lib/shippers'
 import { uploadInvoice } from '../lib/uploadInvoice'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
-import type { PreAlert } from '../types'
+import { ShipperSelect } from '../components/ui/ShipperSelect'
+import type { PreAlert, Shipper } from '../types'
 
 const INVOICE_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf'
 
@@ -21,6 +23,7 @@ export function EditPreAlertPage() {
   const { refreshPreAlerts } = useCustomerData()
 
   const [preAlert, setPreAlert] = useState<PreAlert | null>(null)
+  const [shippers, setShippers] = useState<Shipper[]>([])
   const [loadError, setLoadError] = useState('')
   const [loadingPreAlert, setLoadingPreAlert] = useState(true)
 
@@ -35,6 +38,12 @@ export function EditPreAlertPage() {
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
+    fetchPreAlertShippers()
+      .then(setShippers)
+      .catch(() => setShippers([]))
+  }, [])
+
+  useEffect(() => {
     if (!id) return
     setLoadingPreAlert(true)
     setLoadError('')
@@ -46,7 +55,6 @@ export function EditPreAlertPage() {
         }
         setPreAlert(alert)
         setCarrierTracking(alert.carrier_tracking)
-        setMerchant(alert.merchant ?? '')
         setDescription(alert.description ?? '')
         setDeclaredValue(
           alert.declared_value_usd != null ? String(alert.declared_value_usd) : '',
@@ -56,9 +64,22 @@ export function EditPreAlertPage() {
       .finally(() => setLoadingPreAlert(false))
   }, [id])
 
+  useEffect(() => {
+    if (!preAlert || shippers.length === 0) return
+    setMerchant(resolveMerchantCode(preAlert.merchant, shippers))
+  }, [preAlert, shippers])
+
   if (user?.role && user.role !== 'customer') {
     return <Navigate to={getHomeRoute(user.role)} replace />
   }
+
+  const canSubmit =
+    carrierTracking.trim() &&
+    merchant &&
+    description.trim() &&
+    declaredValue &&
+    parseFloat(declaredValue) > 0 &&
+    shippers.length > 0
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -70,9 +91,9 @@ export function EditPreAlertPage() {
     try {
       const payload: Parameters<typeof updatePreAlert>[1] = {
         carrier_tracking: carrierTracking.trim().toUpperCase(),
-        merchant: merchant.trim() || null,
-        description: description.trim() || null,
-        declared_value_usd: declaredValue ? parseFloat(declaredValue) : null,
+        merchant,
+        description: description.trim(),
+        declared_value_usd: parseFloat(declaredValue),
       }
 
       if (removeInvoice) {
@@ -146,26 +167,30 @@ export function EditPreAlertPage() {
                 onChange={(e) => setCarrierTracking(e.target.value.toUpperCase())}
                 required
               />
-              <Input
-                label="Store / merchant (optional)"
-                placeholder="Amazon, Shein, etc."
+              <ShipperSelect
+                label="Store / merchant"
                 value={merchant}
-                onChange={(e) => setMerchant(e.target.value)}
+                shippers={shippers}
+                onChange={setMerchant}
+                required
+                placeholder="Select store / merchant"
               />
               <Input
-                label="Item description (optional)"
+                label="Item description"
                 placeholder="Shoes, electronics, etc."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                required
               />
               <Input
-                label="Declared value USD (optional)"
+                label="Declared value USD"
                 type="number"
                 step="0.01"
-                min="0"
+                min="0.01"
                 placeholder="49.99"
                 value={declaredValue}
                 onChange={(e) => setDeclaredValue(e.target.value)}
+                required
               />
 
               <div className="space-y-2">
@@ -223,7 +248,11 @@ export function EditPreAlertPage() {
                 <p className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
               )}
 
-              <Button type="submit" fullWidth disabled={loading || deleting || !carrierTracking.trim()}>
+              <Button
+                type="submit"
+                fullWidth
+                disabled={loading || deleting || !canSubmit}
+              >
                 {loading ? 'Saving…' : 'Save changes'}
               </Button>
 

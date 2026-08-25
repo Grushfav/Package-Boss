@@ -1,8 +1,8 @@
 import { Bell, FileUp } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
-import { createPreAlert } from '../api/preAlerts'
+import { createPreAlert, fetchPreAlertShippers } from '../api/preAlerts'
 import { useAuth } from '../context/AuthContext'
 import { useCustomerData } from '../context/CustomerDataContext'
 import { getHomeRoute } from '../lib/routing'
@@ -10,6 +10,8 @@ import { uploadInvoice } from '../lib/uploadInvoice'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
+import { ShipperSelect } from '../components/ui/ShipperSelect'
+import type { Shipper } from '../types'
 
 const INVOICE_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf'
 
@@ -17,6 +19,7 @@ export function NewPreAlertPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { refreshPreAlerts } = useCustomerData()
+  const [shippers, setShippers] = useState<Shipper[]>([])
   const [carrierTracking, setCarrierTracking] = useState('')
   const [merchant, setMerchant] = useState('')
   const [description, setDescription] = useState('')
@@ -25,9 +28,23 @@ export function NewPreAlertPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    fetchPreAlertShippers()
+      .then(setShippers)
+      .catch(() => setShippers([]))
+  }, [])
+
   if (user?.role && user.role !== 'customer') {
     return <Navigate to={getHomeRoute(user.role)} replace />
   }
+
+  const canSubmit =
+    carrierTracking.trim() &&
+    merchant &&
+    description.trim() &&
+    declaredValue &&
+    parseFloat(declaredValue) > 0 &&
+    shippers.length > 0
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -42,10 +59,10 @@ export function NewPreAlertPage() {
 
       await createPreAlert({
         carrier_tracking: carrierTracking.trim().toUpperCase(),
+        merchant,
+        description: description.trim(),
+        declared_value_usd: parseFloat(declaredValue),
         invoice_object_key: invoiceKey,
-        merchant: merchant || undefined,
-        description: description || undefined,
-        declared_value_usd: declaredValue ? parseFloat(declaredValue) : undefined,
       })
 
       await refreshPreAlerts()
@@ -84,26 +101,30 @@ export function NewPreAlertPage() {
             onChange={(e) => setCarrierTracking(e.target.value.toUpperCase())}
             required
           />
-          <Input
-            label="Store / merchant (optional)"
-            placeholder="Amazon, Shein, etc."
+          <ShipperSelect
+            label="Store / merchant"
             value={merchant}
-            onChange={(e) => setMerchant(e.target.value)}
+            shippers={shippers}
+            onChange={setMerchant}
+            required
+            placeholder="Select store / merchant"
           />
           <Input
-            label="Item description (optional)"
+            label="Item description"
             placeholder="Shoes, electronics, etc."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            required
           />
           <Input
-            label="Declared value USD (optional)"
+            label="Declared value USD"
             type="number"
             step="0.01"
-            min="0"
+            min="0.01"
             placeholder="49.99"
             value={declaredValue}
             onChange={(e) => setDeclaredValue(e.target.value)}
+            required
           />
 
           <div className="space-y-1.5">
@@ -128,7 +149,7 @@ export function NewPreAlertPage() {
             <p className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
           )}
 
-          <Button type="submit" fullWidth disabled={loading || !carrierTracking.trim()}>
+          <Button type="submit" fullWidth disabled={loading || !canSubmit}>
             {loading ? 'Submitting...' : 'Submit pre-alert'}
           </Button>
         </form>

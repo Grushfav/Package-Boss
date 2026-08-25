@@ -402,6 +402,7 @@ export interface PreAlert {
   id: string
   carrier_tracking: string
   merchant?: string | null
+  merchant_label?: string | null
   description?: string | null
   declared_value_usd?: number | null
   invoice_object_key?: string | null
