@@ -109,6 +109,9 @@ def apply_pre_alert_to_package(pre_alert: PreAlert, package: Package) -> None:
     if pre_alert.declared_value_usd is not None and package.declared_value_usd is None:
         package.declared_value_usd = pre_alert.declared_value_usd
 
+    if pre_alert.description and not (package.item_description or "").strip():
+        package.item_description = pre_alert.description.strip()
+
     _apply_pre_alert_invoice(package, pre_alert)
 
 

@@ -136,10 +136,13 @@ def receive_package(
     if normalized_carrier == "":
         normalized_carrier = None
 
+    item_description = (note or "").strip() or None
+
     package = Package(
         tracking_number=tracking_number,
         customer_id=customer.id,
         carrier_tracking=normalized_carrier,
+        item_description=item_description,
         shipper=(shipper or "").strip().lower() or None,
         actual_weight_lbs=quote["actual_weight_lbs"],
         billable_weight_lbs=quote["billable_weight_lbs"],
@@ -210,10 +213,13 @@ def receive_unidentified_package(
             "Provide a label name, BOSS ID from the label, or carrier tracking to identify the package"
         )
 
+    item_description = (note or "").strip() or None
+
     package = Package(
         tracking_number=tracking_number,
         customer_id=holder.id,
         carrier_tracking=normalized_carrier,
+        item_description=item_description,
         label_name=normalized_label_name,
         label_boss_id=normalized_label_boss_id,
         shipper=(shipper or "").strip().lower() or None,
@@ -477,6 +483,7 @@ def warehouse_package_list_to_dict(package: Package) -> dict:
         "id": str(package.id),
         "tracking_number": package.tracking_number,
         "carrier_tracking": package.carrier_tracking,
+        "item_description": package.item_description,
         "status": package.status,
         "status_label": STATUS_LABELS.get(package.status, package.status),
         "invoice_status": package.invoice_status,

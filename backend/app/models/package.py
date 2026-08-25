@@ -13,6 +13,7 @@ class Package(db.Model):
     customer_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
 
     carrier_tracking = db.Column(db.String(100))
+    item_description = db.Column(db.String(255))
     label_name = db.Column(db.String(255))
     label_boss_id = db.Column(db.String(20))
     shipper = db.Column(db.String(30))
@@ -70,6 +71,7 @@ class Package(db.Model):
             "status": self.status,
             "status_label": STATUS_LABELS.get(self.status, self.status),
             "carrier_tracking": self.carrier_tracking,
+            "item_description": self.item_description,
             "label_name": self.label_name,
             "label_boss_id": self.label_boss_id,
             "is_unidentified": self.status == "unidentified",
