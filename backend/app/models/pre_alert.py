@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 
 class PreAlert(db.Model):
@@ -41,6 +42,6 @@ class PreAlert(db.Model):
             "status": self.status,
             "status_label": PRE_ALERT_STATUS_LABELS.get(self.status, self.status),
             "package_id": str(self.package_id) if self.package_id else None,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
+            "created_at": utc_isoformat(self.created_at),
+            "updated_at": utc_isoformat(self.updated_at),
         }

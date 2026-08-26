@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 
 class BankTransferProof(db.Model):
@@ -68,8 +69,8 @@ class BankTransferProof(db.Model):
             "notes": self.notes,
             "status": self.status,
             "status_label": BANK_TRANSFER_PROOF_STATUS_LABELS.get(self.status, self.status),
-            "submitted_at": self.submitted_at.isoformat() if self.submitted_at else None,
-            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
+            "submitted_at": utc_isoformat(self.submitted_at),
+            "reviewed_at": utc_isoformat(self.reviewed_at),
             "reviewed_by_name": self.reviewed_by.full_name if self.reviewed_by else None,
         }
         if include_packages:

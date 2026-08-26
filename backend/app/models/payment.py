@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 
 class PaymentCheckout(db.Model):
@@ -44,7 +45,7 @@ class PaymentCheckout(db.Model):
             "notes": self.notes,
             "recorded_by_id": str(self.recorded_by_id) if self.recorded_by_id else None,
             "recorded_by_name": self.recorded_by.full_name if self.recorded_by else None,
-            "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
+            "recorded_at": utc_isoformat(self.recorded_at),
             "delivery_request_id": str(self.delivery_request_id) if self.delivery_request_id else None,
             "delivery_fee_jmd": float(self.delivery_fee_jmd) if self.delivery_fee_jmd is not None else None,
             "processing_fee_jmd": float(self.processing_fee_jmd)

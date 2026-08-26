@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 
 class DeliveryRequest(db.Model):
@@ -44,12 +45,12 @@ class DeliveryRequest(db.Model):
             "status_label": DELIVERY_REQUEST_STATUS_LABELS.get(self.status, self.status),
             "delivery_fee_jmd": float(self.delivery_fee_jmd),
             "notes": self.notes,
-            "requested_at": self.requested_at.isoformat() if self.requested_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "requested_at": utc_isoformat(self.requested_at),
+            "completed_at": utc_isoformat(self.completed_at),
             "completed_by_name": self.completed_by.full_name if self.completed_by else None,
-            "in_progress_at": self.in_progress_at.isoformat() if self.in_progress_at else None,
+            "in_progress_at": utc_isoformat(self.in_progress_at),
             "in_progress_by_name": self.in_progress_by.full_name if self.in_progress_by else None,
-            "cancelled_at": self.cancelled_at.isoformat() if self.cancelled_at else None,
+            "cancelled_at": utc_isoformat(self.cancelled_at),
             "package_count": len(self.package_links),
         }
         if include_address and self.delivery_address:

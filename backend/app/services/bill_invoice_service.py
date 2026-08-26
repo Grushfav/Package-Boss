@@ -11,6 +11,7 @@ from app.constants import PAYMENT_METHOD_LABELS
 from app.models.package import Package
 from app.models.payment import PaymentCheckout
 from app.models.user import User
+from app.utils.datetime_format import format_jamaica_datetime
 
 _LOGO_ASSET_PATH = Path(__file__).resolve().parent.parent / "assets" / "email-logo.png"
 
@@ -148,7 +149,7 @@ def render_checkout_invoice_html(
       <p style="margin:0;font-size:14px;color:#14532d;">
         {_esc(PAYMENT_METHOD_LABELS.get(checkout.method, checkout.method))}
         {f" · Ref {_esc(checkout.reference)}" if checkout.reference else ""}
-        · {_esc(issued_at.strftime("%b %d, %Y %I:%M %p"))} UTC
+        · {_esc(format_jamaica_datetime(issued_at))}
       </p>
     </div>"""
 
@@ -171,7 +172,7 @@ def render_checkout_invoice_html(
       <div style="text-align:right;">
         <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Invoice</p>
         <p style="margin:4px 0 0;font-family:monospace;font-size:16px;font-weight:700;">{_esc(checkout.invoice_number)}</p>
-        <p style="margin:4px 0 0;font-size:12px;color:#64748b;">{_esc(issued_at.strftime("%B %d, %Y"))}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#64748b;">{_esc(format_jamaica_datetime(issued_at, date_only=True))}</p>
         <p style="margin:8px 0 0;display:inline-block;padding:4px 10px;border-radius:999px;background:#ecfdf5;color:#166534;font-size:11px;font-weight:700;">{_esc(status_label)}</p>
       </div>
     </div>
@@ -249,7 +250,7 @@ def render_bill_invoice_html(
       <div style="text-align:right;">
         <p style="margin:0;font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Bill preview</p>
         <p style="margin:4px 0 0;font-family:monospace;font-size:16px;font-weight:700;">{_esc(invoice_number)}</p>
-        <p style="margin:4px 0 0;font-size:12px;color:#64748b;">{_esc(issued_at.strftime("%B %d, %Y"))}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#64748b;">{_esc(format_jamaica_datetime(issued_at, date_only=True))}</p>
         <p style="margin:8px 0 0;display:inline-block;padding:4px 10px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;">{_esc(status_label)}</p>
       </div>
     </div>

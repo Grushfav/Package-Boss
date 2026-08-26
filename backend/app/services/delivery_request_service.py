@@ -9,6 +9,7 @@ from app.models.package import Package
 from app.models.user import User
 from app.services.delivery_address_service import get_delivery_address
 from app.services.package_service import add_package_event, update_package_status
+from app.utils.datetime_format import utc_isoformat
 from sqlalchemy.orm import selectinload
 
 
@@ -143,7 +144,7 @@ def package_pending_delivery_summary(package: Package) -> dict | None:
         "status": request.status,
         "status_label": request.to_dict()["status_label"],
         "delivery_fee_jmd": float(request.delivery_fee_jmd),
-        "requested_at": request.requested_at.isoformat() if request.requested_at else None,
+        "requested_at": utc_isoformat(request.requested_at),
     }
 
 

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 ANNOUNCEMENT_AUDIENCES = ("public", "customers", "staff", "all")
 ANNOUNCEMENT_SEVERITIES = ("info", "warning", "urgent")
@@ -44,14 +45,14 @@ class Announcement(db.Model):
             "severity": self.severity,
             "audience": self.audience,
             "display_as": self.display_as,
-            "starts_at": self.starts_at.isoformat() if self.starts_at else None,
-            "ends_at": self.ends_at.isoformat() if self.ends_at else None,
+            "starts_at": utc_isoformat(self.starts_at),
+            "ends_at": utc_isoformat(self.ends_at),
             "is_active": self.is_active,
             "dismissible": self.dismissible,
-            "broadcast_at": self.broadcast_at.isoformat() if self.broadcast_at else None,
+            "broadcast_at": utc_isoformat(self.broadcast_at),
             "created_by_id": str(self.created_by_id) if self.created_by_id else None,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
+            "created_at": utc_isoformat(self.created_at),
+            "updated_at": utc_isoformat(self.updated_at),
         }
         if include_body:
             data["body"] = self.body
@@ -129,7 +130,7 @@ class BroadcastJob(db.Model):
             "status": self.status,
             "sent_count": self.sent_count,
             "failed_count": self.failed_count,
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "created_at": self.created_at.isoformat(),
+            "started_at": utc_isoformat(self.started_at),
+            "completed_at": utc_isoformat(self.completed_at),
+            "created_at": utc_isoformat(self.created_at),
         }

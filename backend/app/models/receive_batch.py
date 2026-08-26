@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 
 class ReceiveBatch(db.Model):
@@ -44,10 +45,10 @@ class ReceiveBatch(db.Model):
             "note": self.note,
             "created_by_id": str(self.created_by_id) if self.created_by_id else None,
             "created_by_name": self.created_by.full_name if self.created_by else None,
-            "closed_at": self.closed_at.isoformat() if self.closed_at else None,
+            "closed_at": utc_isoformat(self.closed_at),
             "package_count": self.package_count(),
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
+            "created_at": utc_isoformat(self.created_at),
+            "updated_at": utc_isoformat(self.updated_at),
         }
         if include_packages:
             from app.services.package_service import warehouse_package_to_dict

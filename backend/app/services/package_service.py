@@ -13,6 +13,7 @@ from app.models.user import User
 from app.services.image_upload_service import is_valid_photo_reference
 from app.services.pre_alert_service import match_pre_alert_on_receive, normalize_carrier_tracking
 from app.services.shipping_service import calculate_receive_quote
+from app.utils.datetime_format import utc_isoformat
 
 
 def generate_tracking_number() -> str:
@@ -500,7 +501,7 @@ def warehouse_package_list_to_dict(package: Package) -> dict:
         "total_due_jmd": float(package.total_due_jmd) if package.total_due_jmd is not None else None,
         "actual_weight_lbs": float(package.actual_weight_lbs) if package.actual_weight_lbs else None,
         "billable_weight_lbs": package.billable_weight_lbs,
-        "received_at": package.received_at.isoformat() if package.received_at else None,
+        "received_at": utc_isoformat(package.received_at),
         "customer": customer_data,
         "shipment": shipment_data,
     }
@@ -629,7 +630,7 @@ def list_clerk_receives_today(clerk_id, limit: int = 3) -> list[dict]:
 
         metadata = entry.metadata_json or {}
         item = {
-            "received_at": entry.created_at.isoformat(),
+            "received_at": utc_isoformat(entry.created_at),
             "action": entry.action,
             "tracking_number": metadata.get("tracking_number")
             or (package.tracking_number if package else None),

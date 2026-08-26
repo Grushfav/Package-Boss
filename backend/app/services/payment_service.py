@@ -10,6 +10,7 @@ from app.models.payment import PaymentCheckout, PaymentCheckoutItem
 from app.models.user import User
 from app.services.delivery_request_service import resolve_delivery_request_for_payment
 from app.services.package_service import add_package_event
+from app.utils.datetime_format import utc_isoformat
 
 
 def _decimal(value) -> Decimal:
@@ -56,7 +57,7 @@ def package_payment_summaries_for_packages(packages: list[Package]) -> dict[str,
             "reference": checkout.reference,
             "notes": checkout.notes,
             "recorded_by_name": checkout.recorded_by.full_name if checkout.recorded_by else None,
-            "recorded_at": checkout.recorded_at.isoformat() if checkout.recorded_at else None,
+            "recorded_at": utc_isoformat(checkout.recorded_at),
         }
     return summaries
 
@@ -77,7 +78,7 @@ def package_payment_summary(package: Package) -> dict | None:
         "reference": checkout.reference,
         "notes": checkout.notes,
         "recorded_by_name": checkout.recorded_by.full_name if checkout.recorded_by else None,
-        "recorded_at": checkout.recorded_at.isoformat() if checkout.recorded_at else None,
+        "recorded_at": utc_isoformat(checkout.recorded_at),
     }
 
 

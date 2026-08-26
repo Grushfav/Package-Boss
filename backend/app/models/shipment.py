@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from app.extensions import db
+from app.utils.datetime_format import utc_isoformat
 
 
 class Shipment(db.Model):
@@ -49,11 +50,11 @@ class Shipment(db.Model):
             "note": self.note,
             "created_by_id": str(self.created_by_id) if self.created_by_id else None,
             "created_by_name": self.created_by.full_name if self.created_by else None,
-            "departed_at": self.departed_at.isoformat() if self.departed_at else None,
+            "departed_at": utc_isoformat(self.departed_at),
             "package_count": self.package_count(),
             "total_weight_lbs": self.total_weight_lbs(),
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
+            "created_at": utc_isoformat(self.created_at),
+            "updated_at": utc_isoformat(self.updated_at),
         }
         if include_packages:
             from app.services.package_service import warehouse_package_to_dict
