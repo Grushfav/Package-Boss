@@ -75,10 +75,12 @@ function ReceivedPackagesCard({
   today,
   week,
   month,
+  total,
 }: {
   today: number
   week: number
   month: number
+  total: number
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
@@ -92,6 +94,10 @@ function ReceivedPackagesCard({
         <p>
           30d{' '}
           <span className="font-semibold tabular-nums text-boss-green">{month}</span>
+        </p>
+        <p>
+          Total{' '}
+          <span className="font-semibold tabular-nums text-boss-green">{total.toLocaleString()}</span>
         </p>
       </div>
     </div>
@@ -197,6 +203,7 @@ export function AdminOperationsPage() {
               today={overview.packages_today}
               week={overview.packages_7d}
               month={overview.packages_30d}
+              total={overview.packages_total}
             />
             <KpiCard label="Pending pre-alerts" value={overview.pending_pre_alerts} />
             <KpiCard

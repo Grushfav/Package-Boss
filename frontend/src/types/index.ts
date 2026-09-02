@@ -364,6 +364,7 @@ export interface AdminOverview {
   packages_today: number
   packages_7d: number
   packages_30d: number
+  packages_total: number
   pending_pre_alerts: number
   in_transit: number
   customers_today: number

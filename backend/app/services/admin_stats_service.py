@@ -85,6 +85,7 @@ def get_overview() -> dict:
     packages_today = Package.query.filter(Package.received_at >= today_start).count()
     packages_7d = Package.query.filter(Package.received_at >= week_start).count()
     packages_30d = Package.query.filter(Package.received_at >= month_start).count()
+    packages_total = Package.query.count()
     pending_pre_alerts = PreAlert.query.filter_by(status="pending").count()
     in_transit = Package.query.filter_by(status="in_transit").count()
 
@@ -115,6 +116,7 @@ def get_overview() -> dict:
         "packages_today": packages_today,
         "packages_7d": packages_7d,
         "packages_30d": packages_30d,
+        "packages_total": packages_total,
         "pending_pre_alerts": pending_pre_alerts,
         "in_transit": in_transit,
         **customer_stats,

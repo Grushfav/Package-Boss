@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import selectinload
 
-from app.constants import PAYMENT_ELIGIBLE_STATUS, PAYMENT_METHODS
+from app.constants import DELIVERY_FEE_JMD, PAYMENT_ELIGIBLE_STATUS, PAYMENT_METHODS
 from app.extensions import db
 from app.models.package import Package
 from app.models.payment import PaymentCheckout, PaymentCheckoutItem
@@ -181,12 +181,15 @@ def record_payment_checkout(
     reference: str | None = None,
     notes: str | None = None,
     processing_fee_jmd: float | None = None,
+    include_delivery_fee: bool = False,
 ) -> PaymentCheckout:
     if method not in PAYMENT_METHODS:
         raise ValueError("Invalid payment method")
 
     packages = _validate_checkout_packages(customer, package_ids)
     delivery_request, delivery_fee = resolve_delivery_request_for_payment(customer, packages)
+    if delivery_fee <= 0 and include_delivery_fee:
+        delivery_fee = DELIVERY_FEE_JMD
     total = Decimal("0")
     line_amounts: list[tuple[Package, Decimal]] = []
 

@@ -597,6 +597,7 @@ export function CustomerAccountPage() {
           shippingId={shippingId}
           packages={selectedPackages}
           customerEmail={customer?.email}
+          pendingDeliveryRequests={account?.pending_delivery_requests}
           onClose={() => setCheckoutOpen(false)}
           onCompleted={handleCheckoutCompleted}
         />

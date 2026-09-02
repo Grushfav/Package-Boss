@@ -457,6 +457,7 @@ def customer_checkout(shipping_id: str):
             reference=data.get("reference"),
             notes=data.get("notes"),
             processing_fee_jmd=processing_fee,
+            include_delivery_fee=bool(data.get("include_delivery_fee")),
         )
     except TypeError:
         return jsonify({"error": "Invalid processing_fee_jmd"}), 400

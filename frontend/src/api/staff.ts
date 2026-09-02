@@ -458,6 +458,7 @@ export async function recordCustomerCheckout(
     reference?: string
     notes?: string
     processing_fee_jmd?: number
+    include_delivery_fee?: boolean
     email_invoice?: boolean
     mark_delivered?: boolean
   },
