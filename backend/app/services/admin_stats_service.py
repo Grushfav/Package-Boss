@@ -14,14 +14,15 @@ from app.models.delivery_request import DeliveryRequest
 from app.models.package import Package
 from app.models.pre_alert import PreAlert
 from app.models.user import User
+from app.utils.datetime_format import jamaica_day_start_utc, jamaica_local_date
 
 
 def _utc_now() -> datetime:
     return datetime.utcnow()
 
 
-def _start_of_day(dt: datetime) -> datetime:
-    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+def _today_start() -> datetime:
+    return jamaica_day_start_utc(_utc_now())
 
 
 def _customer_signups_query():
@@ -32,8 +33,7 @@ def _customer_signups_query():
 
 
 def get_customer_signup_stats() -> dict:
-    now = _utc_now()
-    today_start = _start_of_day(now)
+    today_start = _today_start()
     week_start = today_start - timedelta(days=7)
 
     base = _customer_signups_query()
@@ -45,8 +45,7 @@ def get_customer_signup_stats() -> dict:
 
 
 def get_delivery_request_submission_stats() -> dict:
-    now = _utc_now()
-    today_start = _start_of_day(now)
+    today_start = _today_start()
     week_start = today_start - timedelta(days=7)
 
     base = DeliveryRequest.query
@@ -61,8 +60,7 @@ def get_delivery_request_submission_stats() -> dict:
 
 
 def get_bank_transfer_proof_submission_stats() -> dict:
-    now = _utc_now()
-    today_start = _start_of_day(now)
+    today_start = _today_start()
     week_start = today_start - timedelta(days=7)
 
     base = BankTransferProof.query
@@ -77,8 +75,7 @@ def get_bank_transfer_proof_submission_stats() -> dict:
 
 
 def get_overview() -> dict:
-    now = _utc_now()
-    today_start = _start_of_day(now)
+    today_start = _today_start()
     week_start = today_start - timedelta(days=7)
     month_start = today_start - timedelta(days=30)
 
@@ -127,28 +124,38 @@ def get_overview() -> dict:
     }
 
 
-def get_packages_timeline(days: int = 30) -> list[dict]:
-    now = _utc_now()
-    start = _start_of_day(now) - timedelta(days=days - 1)
+def _jamaica_day_series(days: int) -> list[str]:
+    end_date = jamaica_local_date(_utc_now())
+    start_date = end_date - timedelta(days=days - 1)
+    series: list[str] = []
+    current = start_date
+    while current <= end_date:
+        series.append(str(current))
+        current += timedelta(days=1)
+    return series
 
-    rows = (
-        db.session.query(
-            func.date(Package.received_at).label("day"),
-            func.count(Package.id).label("count"),
-        )
-        .filter(Package.received_at >= start)
-        .group_by(func.date(Package.received_at))
-        .order_by(func.date(Package.received_at))
+
+def get_packages_timeline(days: int = 30) -> list[dict]:
+    today_start = _today_start()
+    range_start = today_start - timedelta(days=days - 1)
+
+    received_at_values = (
+        db.session.query(Package.received_at)
+        .filter(Package.received_at >= range_start)
         .all()
     )
 
-    counts_by_day = {str(row.day): row.count for row in rows}
-    timeline = []
-    for i in range(days):
-        day = (start + timedelta(days=i)).date()
-        key = str(day)
-        timeline.append({"date": key, "count": counts_by_day.get(key, 0)})
-    return timeline
+    counts_by_day: dict[str, int] = {}
+    for (received_at,) in received_at_values:
+        if received_at is None:
+            continue
+        key = str(jamaica_local_date(received_at))
+        counts_by_day[key] = counts_by_day.get(key, 0) + 1
+
+    return [
+        {"date": day, "count": counts_by_day.get(day, 0)}
+        for day in _jamaica_day_series(days)
+    ]
 
 
 def get_packages_by_status() -> list[dict]:
@@ -186,40 +193,39 @@ def get_weight_distribution() -> list[dict]:
 
 
 def get_pre_alerts_vs_receives(days: int = 30) -> list[dict]:
-    now = _utc_now()
-    start = _start_of_day(now) - timedelta(days=days - 1)
+    today_start = _today_start()
+    range_start = today_start - timedelta(days=days - 1)
 
     alert_rows = (
-        db.session.query(
-            func.date(PreAlert.created_at).label("day"),
-            func.count(PreAlert.id).label("count"),
-        )
-        .filter(PreAlert.created_at >= start)
-        .group_by(func.date(PreAlert.created_at))
+        db.session.query(PreAlert.created_at)
+        .filter(PreAlert.created_at >= range_start)
         .all()
     )
     package_rows = (
-        db.session.query(
-            func.date(Package.received_at).label("day"),
-            func.count(Package.id).label("count"),
-        )
-        .filter(Package.received_at >= start)
-        .group_by(func.date(Package.received_at))
+        db.session.query(Package.received_at)
+        .filter(Package.received_at >= range_start)
         .all()
     )
 
-    alerts_by_day = {str(r.day): r.count for r in alert_rows}
-    receives_by_day = {str(r.day): r.count for r in package_rows}
+    alerts_by_day: dict[str, int] = {}
+    for (created_at,) in alert_rows:
+        if created_at is None:
+            continue
+        key = str(jamaica_local_date(created_at))
+        alerts_by_day[key] = alerts_by_day.get(key, 0) + 1
 
-    series = []
-    for i in range(days):
-        day = (start + timedelta(days=i)).date()
-        key = str(day)
-        series.append(
-            {
-                "date": key,
-                "pre_alerts": alerts_by_day.get(key, 0),
-                "received": receives_by_day.get(key, 0),
-            }
-        )
-    return series
+    receives_by_day: dict[str, int] = {}
+    for (received_at,) in package_rows:
+        if received_at is None:
+            continue
+        key = str(jamaica_local_date(received_at))
+        receives_by_day[key] = receives_by_day.get(key, 0) + 1
+
+    return [
+        {
+            "date": day,
+            "pre_alerts": alerts_by_day.get(day, 0),
+            "received": receives_by_day.get(day, 0),
+        }
+        for day in _jamaica_day_series(days)
+    ]

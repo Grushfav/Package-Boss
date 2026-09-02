@@ -13,6 +13,7 @@ from app.models.user import User
 from app.services.image_upload_service import is_valid_photo_reference
 from app.services.pre_alert_service import match_pre_alert_on_receive, normalize_carrier_tracking
 from app.services.shipping_service import calculate_receive_quote
+from app.utils.datetime_format import jamaica_date_end_utc, jamaica_date_start_utc, jamaica_day_start_utc
 from app.utils.datetime_format import utc_isoformat
 
 
@@ -520,12 +521,12 @@ def list_unidentified_packages(limit: int = 50, offset: int = 0) -> tuple[list[P
 
 def _parse_date_bound(value: str, end_of_day: bool = False) -> datetime | None:
     try:
-        dt = datetime.strptime(value.strip(), "%Y-%m-%d")
+        parsed = datetime.strptime(value.strip(), "%Y-%m-%d").date()
     except (ValueError, AttributeError):
         return None
     if end_of_day:
-        return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
-    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        return jamaica_date_end_utc(parsed)
+    return jamaica_date_start_utc(parsed)
 
 
 def list_warehouse_packages(
@@ -604,7 +605,7 @@ def list_clerk_receives_today(clerk_id, limit: int = 3) -> list[dict]:
         ACTION_PACKAGE_RECEIVED_UNIDENTIFIED,
     )
 
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = jamaica_day_start_utc()
     logs = (
         AuditLog.query.filter(
             AuditLog.actor_id == clerk_id,
@@ -765,7 +766,7 @@ def get_warehouse_summary() -> dict:
     from app.services.bank_transfer_proof_service import count_open_transfer_proofs
     from app.services.shipment_service import count_open_shipments
 
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = jamaica_day_start_utc()
     print_cutoff = datetime.utcnow() - timedelta(days=7)
 
     print_queue_pending = Package.query.filter(

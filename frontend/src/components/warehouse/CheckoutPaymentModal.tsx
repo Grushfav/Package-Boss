@@ -174,8 +174,13 @@ export function CheckoutPaymentModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold uppercase tracking-wide">Checkout</h2>
-            <p className="text-sm text-muted">
-              {packages.length} package{packages.length === 1 ? '' : 's'} · {formatJmd(total)}
+            <p>
+              <span className="text-sm text-muted">
+                {packages.length} package{packages.length === 1 ? '' : 's'} ·{' '}
+              </span>
+              <span className="text-xl font-black tabular-nums text-boss-green">
+                {formatJmd(total)}
+              </span>
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-muted hover:text-foreground">

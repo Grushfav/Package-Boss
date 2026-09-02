@@ -35,3 +35,8 @@ export function formatAppDate(iso: string | null | undefined): string {
     day: 'numeric',
   })
 }
+
+/** YYYY-MM-DD in Jamaica for date inputs and API date filters. */
+export function formatAppDateInput(date: Date = new Date()): string {
+  return date.toLocaleDateString('en-CA', { timeZone: APP_TIME_ZONE })
+}

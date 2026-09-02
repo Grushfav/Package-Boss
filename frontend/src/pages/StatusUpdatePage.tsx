@@ -39,10 +39,11 @@ import {
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
+import { formatAppDateInput } from '../lib/datetime'
 import type { Package } from '../types'
 
 function formatDateInput(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  return formatAppDateInput(date)
 }
 
 function defaultFromDate(): string {
