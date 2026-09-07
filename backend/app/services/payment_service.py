@@ -10,6 +10,7 @@ from app.models.payment import PaymentCheckout, PaymentCheckoutItem
 from app.models.user import User
 from app.services.delivery_request_service import resolve_delivery_request_for_payment
 from app.services.package_service import add_package_event
+from app.services.bank_transfer_proof_service import auto_confirm_open_transfer_proofs
 from app.utils.datetime_format import utc_isoformat
 
 
@@ -243,6 +244,8 @@ def record_payment_checkout(
             package.status,
             f"Payment recorded ({method_label}) — invoice {checkout.invoice_number}",
         )
+
+    auto_confirm_open_transfer_proofs(customer, recorded_by)
 
     db.session.commit()
     return checkout

@@ -141,17 +141,39 @@ def mark_transfer_proof_in_progress(proof: BankTransferProof, staff_user: User) 
     return proof
 
 
+def auto_confirm_open_transfer_proofs(customer: User, recorded_by: User) -> list[BankTransferProof]:
+    """Close open transfer proofs whose packages are all paid (e.g. after staff checkout)."""
+    confirmed: list[BankTransferProof] = []
+    now = datetime.utcnow()
+
+    for proof in list_open_customer_proofs(customer):
+        packages = [link.package for link in proof.package_links if link.package]
+        if not packages:
+            continue
+        if not all(package.billing_status == "paid" for package in packages):
+            continue
+        proof.status = "confirmed"
+        proof.reviewed_at = now
+        proof.reviewed_by_id = recorded_by.id
+        confirmed.append(proof)
+
+    return confirmed
+
+
 def confirm_transfer_proof(proof: BankTransferProof, staff_user: User) -> BankTransferProof:
+    if proof.status == "confirmed":
+        return proof
     if proof.status not in BANK_TRANSFER_PROOF_OPEN_STATUSES:
         raise ValueError("Only open transfer proofs can be confirmed")
 
-    package_ids = [str(link.package_id) for link in proof.package_links if link.package_id]
-    if package_ids:
+    packages = [link.package for link in proof.package_links if link.package]
+    unpaid_ids = [str(package.id) for package in packages if package.billing_status != "paid"]
+    if unpaid_ids:
         from app.services.payment_service import record_payment_checkout
 
         record_payment_checkout(
             proof.customer,
-            package_ids,
+            unpaid_ids,
             method="bank_transfer",
             recorded_by=staff_user,
             reference=proof.transfer_reference,

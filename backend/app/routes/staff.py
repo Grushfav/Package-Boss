@@ -528,6 +528,19 @@ def customer_checkout(shipping_id: str):
                     }
                 )
 
+        if checkout.delivery_request_id:
+            delivery_request = get_delivery_request(str(checkout.delivery_request_id))
+            if delivery_request and delivery_request.status in ("pending", "in_progress"):
+                try:
+                    complete_delivery_request(delivery_request, actor)
+                except ValueError as exc:
+                    delivery_failed.append(
+                        {
+                            "id": str(delivery_request.id),
+                            "error": str(exc),
+                        }
+                    )
+
     return jsonify(
         {
             "checkout": checkout.to_dict(include_items=True),

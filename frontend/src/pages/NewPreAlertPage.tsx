@@ -102,12 +102,12 @@ export function NewPreAlertPage() {
             required
           />
           <ShipperSelect
-            label="Store / merchant"
+            label="Shipper"
             value={merchant}
             shippers={shippers}
             onChange={setMerchant}
             required
-            placeholder="Select store / merchant"
+            placeholder="Select shipper"
           />
           <Input
             label="Item description"
