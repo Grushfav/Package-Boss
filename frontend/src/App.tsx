@@ -12,10 +12,13 @@ import { AdminActivityPage } from './pages/AdminActivityPage'
 import { AdminAnnouncementsPage } from './pages/AdminAnnouncementsPage'
 import { AdminClerksPage } from './pages/AdminClerksPage'
 import { AdminHubPage } from './pages/AdminHubPage'
+import { AdminLocalDeliveryPage } from './pages/AdminLocalDeliveryPage'
 import { AdminOperationsPage } from './pages/AdminOperationsPage'
 import { AdminLayout } from './components/layout/AdminLayout'
 import { WarehouseLayout } from './components/layout/WarehouseLayout'
 import { CustomerDashboardLayout } from './components/layout/CustomerDashboardLayout'
+import { DashboardLogisticsPage } from './pages/dashboard/DashboardLogisticsPage'
+import { BookLogisticsPage } from './pages/dashboard/BookLogisticsPage'
 import { DashboardBankTransferPage } from './pages/dashboard/DashboardBankTransferPage'
 import { DashboardHomePage } from './pages/dashboard/DashboardHomePage'
 import { DashboardPackagesPage } from './pages/dashboard/DashboardPackagesPage'
@@ -44,6 +47,8 @@ import { CustomerAccountPage } from './pages/CustomerAccountPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { PrintQueuePage } from './pages/PrintQueuePage'
 import { UnidentifiedQueuePage } from './pages/UnidentifiedQueuePage'
+import { ClerkHubPage } from './pages/ClerkHubPage'
+import { ClerkLocalDeliveryPage } from './pages/ClerkLocalDeliveryPage'
 import { WarehouseHomePage } from './pages/WarehouseHomePage'
 import { WarehousePreAlertsPage } from './pages/WarehousePreAlertsPage'
 import { DeparturesPage } from './pages/DeparturesPage'
@@ -80,6 +85,8 @@ function AppRoutes() {
             <Route path="pre-alerts" element={<DashboardPreAlertsPage />} />
             <Route path="packages" element={<DashboardPackagesPage />} />
             <Route path="packages/:packageId/bill" element={<PackageBillPage />} />
+            <Route path="logistics" element={<DashboardLogisticsPage />} />
+            <Route path="logistics/book" element={<BookLogisticsPage />} />
             <Route path="rates" element={<DashboardRatesPage />} />
             <Route path="bank-transfer" element={<DashboardBankTransferPage />} />
             <Route path="notifications" element={<DashboardNotificationsPage />} />
@@ -91,7 +98,9 @@ function AppRoutes() {
 
         <Route element={<RequireWarehouse />}>
           <Route element={<WarehouseLayout />}>
-            <Route path="/warehouse" element={<WarehouseHomePage />} />
+            <Route path="/warehouse" element={<ClerkHubPage />} />
+            <Route path="/warehouse/floor" element={<WarehouseHomePage />} />
+            <Route path="/warehouse/local-delivery" element={<ClerkLocalDeliveryPage />} />
             <Route path="/warehouse/customers" element={<CustomersPage />} />
             <Route path="/warehouse/customers/:shippingId" element={<CustomerAccountPage />} />
             <Route path="/warehouse/receive" element={<ReceivePage />} />
@@ -111,6 +120,7 @@ function AppRoutes() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminHubPage />} />
             <Route path="operations" element={<AdminOperationsPage />} />
+            <Route path="local-delivery" element={<AdminLocalDeliveryPage />} />
             <Route path="clerks" element={<AdminClerksPage />} />
             <Route path="announcements" element={<AdminAnnouncementsPage />} />
           </Route>

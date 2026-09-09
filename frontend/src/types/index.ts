@@ -211,6 +211,53 @@ export interface DeliveryRequest {
   packages?: DeliveryRequestPackage[]
 }
 
+export interface LogisticsJob {
+  id: string
+  reference: string
+  customer_id: string
+  pickup_address_id: string
+  dropoff_address_id: string
+  item_description: string
+  vehicle_type?: 'bike' | 'car' | 'truck' | null
+  vehicle_type_label?: string | null
+  vehicle_weight_label?: string | null
+  delivery_speed?: 'immediate' | 'next_day' | null
+  delivery_speed_label?: string | null
+  payment_method?: 'cash' | 'online' | null
+  payment_method_label?: string | null
+  weight_lbs?: number | null
+  notes?: string | null
+  driver_name?: string | null
+  driver_contact_number?: string | null
+  driver_confirmed_at?: string | null
+  assigned_clerk_id?: string | null
+  assigned_clerk_name?: string | null
+  assigned_at?: string | null
+  assigned_by_name?: string | null
+  rejected_at?: string | null
+  rejected_by_name?: string | null
+  rejection_reason?: string | null
+  status: 'pending' | 'picked_up' | 'in_transit' | 'completed' | 'cancelled' | 'rejected'
+  status_label: string
+  quoted_fee_jmd?: number | null
+  fee_pending_quote: boolean
+  requested_at: string
+  picked_up_at?: string | null
+  picked_up_by_name?: string | null
+  in_transit_at?: string | null
+  in_transit_by_name?: string | null
+  in_progress_at?: string | null
+  in_progress_by_name?: string | null
+  completed_at?: string | null
+  completed_by_name?: string | null
+  customer_receipt_confirmed_at?: string | null
+  cancelled_at?: string | null
+  customer_name?: string | null
+  shipping_id?: string | null
+  pickup_address?: DeliveryAddress
+  dropoff_address?: DeliveryAddress
+}
+
 export interface PaymentTotalSummary {
   packages_total_jmd: number
   delivery_fee_jmd: number
@@ -372,6 +419,9 @@ export interface AdminOverview {
   delivery_requests_active: number
   delivery_requests_today: number
   delivery_requests_total: number
+  logistics_jobs_active: number
+  logistics_jobs_today: number
+  logistics_jobs_total: number
   bank_transfer_proofs_active: number
   bank_transfer_proofs_today: number
   bank_transfer_proofs_total: number

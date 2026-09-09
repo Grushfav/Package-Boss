@@ -14,6 +14,7 @@ from app.routes import (
     auth_bp,
     bank_transfer_proofs_bp,
     delivery_requests_bp,
+    logistics_jobs_bp,
     health_bp,
     me_bp,
     packages_bp,
@@ -77,6 +78,7 @@ def create_app(config_class=None):
     app.register_blueprint(packages_bp, url_prefix="/api")
     app.register_blueprint(bank_transfer_proofs_bp, url_prefix="/api")
     app.register_blueprint(delivery_requests_bp, url_prefix="/api")
+    app.register_blueprint(logistics_jobs_bp, url_prefix="/api")
     app.register_blueprint(staff_bp, url_prefix="/api")
     app.register_blueprint(uploads_bp, url_prefix="/api")
     app.register_blueprint(admin_bp, url_prefix="/api")

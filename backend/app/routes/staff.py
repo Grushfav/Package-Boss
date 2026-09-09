@@ -29,6 +29,20 @@ from app.services.delivery_request_service import (
     list_pending_delivery_requests,
     mark_delivery_request_in_progress,
 )
+from app.services.logistics_job_service import (
+    cancel_logistics_job,
+    complete_logistics_job,
+    confirm_logistics_driver,
+    get_logistics_job,
+    list_all_logistics_jobs,
+    list_clerk_logistics_jobs,
+    list_logistics_job_history,
+    list_logistics_jobs_by_status,
+    list_open_logistics_jobs,
+    list_pending_logistics_jobs,
+    mark_logistics_job_in_transit,
+    mark_logistics_job_picked_up,
+)
 from app.services.bank_transfer_proof_service import (
     confirm_transfer_proof,
     list_all_transfer_proofs,
@@ -1717,6 +1731,138 @@ def cancel_staff_delivery_request(request_id: str):
         return jsonify({"error": str(exc)}), 400
 
     return jsonify({"delivery_request": delivery_request.to_dict(include_packages=True)})
+
+
+@staff_bp.route("/staff/me/logistics-jobs", methods=["GET"])
+@permission_required("receive", "activity", "pre_alerts", "status_transit", "status_customs", "status_pickup", "billing", "invoice_request", "directory")
+def list_my_staff_logistics_jobs():
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    status = (request.args.get("status") or "active").strip().lower()
+    jobs = list_clerk_logistics_jobs(actor, status)
+    return jsonify({"logistics_jobs": [item.to_dict() for item in jobs]})
+
+
+@staff_bp.route("/staff/logistics-jobs", methods=["GET"])
+@permission_required("status_pickup", "billing")
+def list_staff_logistics_jobs():
+    status = (request.args.get("status") or "active").strip().lower()
+    if status == "pending":
+        jobs = list_pending_logistics_jobs()
+    elif status == "active":
+        jobs = list_open_logistics_jobs()
+    elif status == "all":
+        jobs = list_all_logistics_jobs()
+    elif status == "history":
+        jobs = list_logistics_job_history()
+    elif status == "in_progress":
+        jobs = list_logistics_jobs_by_status("in_transit")
+    elif status == "picked_up":
+        jobs = list_logistics_jobs_by_status("picked_up")
+    elif status == "in_transit":
+        jobs = list_logistics_jobs_by_status("in_transit")
+    else:
+        jobs = list_logistics_jobs_by_status(status)
+    return jsonify({"logistics_jobs": [item.to_dict() for item in jobs]})
+
+
+@staff_bp.route("/staff/logistics-jobs/<job_id>/confirm-driver", methods=["POST"])
+@permission_required("status_pickup", "billing")
+def confirm_staff_logistics_driver(job_id: str):
+    job = get_logistics_job(job_id)
+    if not job:
+        return jsonify({"error": "Local delivery request not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    try:
+        job = confirm_logistics_driver(
+            job,
+            actor,
+            driver_name=data.get("driver_name") or "",
+            driver_contact_number=data.get("driver_contact_number") or "",
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"logistics_job": job.to_dict()})
+
+
+@staff_bp.route("/staff/logistics-jobs/<job_id>/picked-up", methods=["POST"])
+@permission_required("status_pickup", "billing")
+def mark_staff_logistics_job_picked_up(job_id: str):
+    job = get_logistics_job(job_id)
+    if not job:
+        return jsonify({"error": "Local delivery request not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        job = mark_logistics_job_picked_up(job, actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"logistics_job": job.to_dict()})
+
+
+@staff_bp.route("/staff/logistics-jobs/<job_id>/in-transit", methods=["POST"])
+@permission_required("status_pickup", "billing")
+def mark_staff_logistics_job_in_transit(job_id: str):
+    job = get_logistics_job(job_id)
+    if not job:
+        return jsonify({"error": "Local delivery request not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        job = mark_logistics_job_in_transit(job, actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"logistics_job": job.to_dict()})
+
+
+@staff_bp.route("/staff/logistics-jobs/<job_id>/complete", methods=["POST"])
+@permission_required("status_pickup", "billing")
+def complete_staff_logistics_job(job_id: str):
+    job = get_logistics_job(job_id)
+    if not job:
+        return jsonify({"error": "Local delivery request not found"}), 404
+
+    actor = get_user_from_jwt()
+    if not actor:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        job = complete_logistics_job(job, actor)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"logistics_job": job.to_dict()})
+
+
+@staff_bp.route("/staff/logistics-jobs/<job_id>/cancel", methods=["POST"])
+@permission_required("status_pickup", "billing")
+def cancel_staff_logistics_job(job_id: str):
+    job = get_logistics_job(job_id)
+    if not job:
+        return jsonify({"error": "Local delivery request not found"}), 404
+
+    try:
+        job = cancel_logistics_job(job, by_customer=False)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"logistics_job": job.to_dict()})
 
 
 @staff_bp.route("/staff/bank-transfer-proofs", methods=["GET"])

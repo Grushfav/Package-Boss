@@ -5,12 +5,14 @@ from sqlalchemy import case, func
 from app.constants import (
     BANK_TRANSFER_PROOF_OPEN_STATUSES,
     DELIVERY_REQUEST_OPEN_STATUSES,
+    LOGISTICS_JOB_OPEN_STATUSES,
     STATUS_LABELS,
     UNIDENTIFIED_HOLDER_SHIPPING_ID,
 )
 from app.extensions import db
 from app.models.bank_transfer_proof import BankTransferProof
 from app.models.delivery_request import DeliveryRequest
+from app.models.logistics_job import LogisticsJob
 from app.models.package import Package
 from app.models.pre_alert import PreAlert
 from app.models.user import User
@@ -60,6 +62,22 @@ def get_delivery_request_submission_stats() -> dict:
     }
 
 
+def get_logistics_job_submission_stats() -> dict:
+    now = _utc_now()
+    today_start = _start_of_day(now)
+    week_start = today_start - timedelta(days=7)
+
+    base = LogisticsJob.query
+    return {
+        "logistics_jobs_active": base.filter(
+            LogisticsJob.status.in_(LOGISTICS_JOB_OPEN_STATUSES)
+        ).count(),
+        "logistics_jobs_today": base.filter(LogisticsJob.requested_at >= today_start).count(),
+        "logistics_jobs_7d": base.filter(LogisticsJob.requested_at >= week_start).count(),
+        "logistics_jobs_total": base.count(),
+    }
+
+
 def get_bank_transfer_proof_submission_stats() -> dict:
     now = _utc_now()
     today_start = _start_of_day(now)
@@ -90,6 +108,7 @@ def get_overview() -> dict:
 
     customer_stats = get_customer_signup_stats()
     delivery_request_stats = get_delivery_request_submission_stats()
+    logistics_job_stats = get_logistics_job_submission_stats()
     bank_transfer_proof_stats = get_bank_transfer_proof_submission_stats()
 
     revenue_30d = (
@@ -119,6 +138,7 @@ def get_overview() -> dict:
         "in_transit": in_transit,
         **customer_stats,
         **delivery_request_stats,
+        **logistics_job_stats,
         **bank_transfer_proof_stats,
         "revenue_30d_jmd": float(revenue_30d or 0),
         "revenue_30d_usd": float(revenue_30d or 0),

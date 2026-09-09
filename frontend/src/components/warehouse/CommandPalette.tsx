@@ -13,7 +13,8 @@ interface CommandItem {
 const COMMANDS: CommandItem[] = [
   { id: 'receive', label: 'Receive package', path: '/warehouse/receive', keywords: 'scan barcode' },
   { id: 'pre-alerts', label: 'Pre-alerts', path: '/warehouse/pre-alerts', keywords: 'tracking pending customer' },
-  { id: 'inbox', label: 'Floor', path: '/warehouse', keywords: 'home dashboard operations' },
+  { id: 'home', label: 'Home', path: '/warehouse', keywords: 'home hub clerk' },
+  { id: 'floor', label: 'Floor', path: '/warehouse/floor', keywords: 'dashboard operations print queue' },
   { id: 'print', label: 'Print queue', path: '/warehouse/print-queue', keywords: 'labels' },
   { id: 'unidentified', label: 'Unidentified queue', path: '/warehouse/unidentified', keywords: 'misc assign' },
   { id: 'departures', label: 'Departures', path: '/warehouse/departures', keywords: 'shipment group transit flight' },

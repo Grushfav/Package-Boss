@@ -126,6 +126,66 @@ DELIVERY_REQUEST_STATUS_LABELS = {
 }
 DELIVERY_REQUEST_OPEN_STATUSES = ("pending", "in_progress")
 
+# Islandwide local delivery (standalone logistics service)
+LOGISTICS_JOB_STATUSES = ["pending", "picked_up", "in_transit", "completed", "cancelled", "rejected"]
+LOGISTICS_JOB_STATUS_LABELS = {
+    "pending": "Searching for driver",
+    "picked_up": "Picked up",
+    "in_transit": "In transit",
+    "completed": "Delivered",
+    "cancelled": "Cancelled",
+    "rejected": "Rejected",
+}
+LOGISTICS_JOB_OPEN_STATUSES = ("pending", "picked_up", "in_transit")
+LOGISTICS_JOB_TRACKING_STEPS = [
+    {"key": "pending", "label": "Searching for driver"},
+    {"key": "picked_up", "label": "Picked up"},
+    {"key": "in_transit", "label": "In transit"},
+    {"key": "completed", "label": "Delivered"},
+]
+LOGISTICS_IN_HOUSE_PARISHES = DELIVERY_PARISHES
+LOGISTICS_IN_HOUSE_FEE_JMD = Decimal("800.00")
+LOGISTICS_ISLAND_FEE_JMD = Decimal("1500.00")
+
+LOGISTICS_ITEM_CATEGORIES = ["food", "clothing", "electronics", "documents", "medicine", "other"]
+LOGISTICS_ITEM_CATEGORY_LABELS = {
+    "food": "Food",
+    "clothing": "Clothing",
+    "electronics": "Electronics",
+    "documents": "Documents",
+    "medicine": "Medicine",
+    "other": "Other",
+}
+
+LOGISTICS_VEHICLE_TYPES = ["bike", "car", "truck"]
+LOGISTICS_VEHICLE_TYPE_LABELS = {
+    "bike": "Bike rider",
+    "car": "Car",
+    "truck": "Truck",
+}
+LOGISTICS_VEHICLE_TYPE_WEIGHT_LABELS = {
+    "bike": "1–10 lbs",
+    "car": "10+ lbs",
+    "truck": "Heavy / bulk",
+}
+
+LOGISTICS_DELIVERY_SPEEDS = ["immediate", "next_day"]
+LOGISTICS_DELIVERY_SPEED_LABELS = {
+    "immediate": "Immediate",
+    "next_day": "Next day",
+}
+LOGISTICS_DELIVERY_SPEED_DESCRIPTIONS = {
+    "immediate": "As soon as possible",
+    "next_day": "Delivered the following business day",
+}
+
+LOGISTICS_PAYMENT_METHODS = ["cash", "online"]
+LOGISTICS_PAYMENT_METHOD_LABELS = {
+    "cash": "Cash",
+    "online": "Online payment",
+}
+LOGISTICS_ENABLED_PAYMENT_METHODS = ("cash",)
+
 MAX_AUTHORIZED_PICKUPS = 5
 
 PICKUP_RELATIONSHIPS = ["spouse", "family", "friend", "colleague", "other"]

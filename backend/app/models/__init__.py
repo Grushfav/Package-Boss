@@ -9,6 +9,7 @@ from app.models.audit_log import AuditLog
 from app.models.authorized_pickup import AuthorizedPickupPerson
 from app.models.delivery_address import DeliveryAddress
 from app.models.delivery_request import DeliveryRequest, DeliveryRequestPackage
+from app.models.logistics_job import LogisticsJob
 from app.models.password_reset_token import PasswordResetToken
 from app.models.payment import PaymentCheckout, PaymentCheckoutItem
 from app.models.pre_alert import PreAlert
@@ -37,6 +38,7 @@ __all__ = [
     "DeliveryAddress",
     "DeliveryRequest",
     "DeliveryRequestPackage",
+    "LogisticsJob",
     "PaymentCheckout",
     "PaymentCheckoutItem",
     "Announcement",

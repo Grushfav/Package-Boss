@@ -247,29 +247,48 @@ export function AdminOperationsPage() {
         <p className="mt-1 text-xs text-muted">
           All submissions by request date (any status)
         </p>
-        <Link
-          to="/warehouse/requests"
-          className="mt-4 grid grid-cols-2 gap-4 rounded-xl transition-colors hover:bg-background/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-boss-gold"
-          aria-label="Open customer requests queue"
-        >
-          <SubmissionStatsSection
-            title="Delivery requests"
-            description="Home delivery requests submitted by customers"
-            icon={Truck}
-            active={overview?.delivery_requests_active}
-            today={overview?.delivery_requests_today}
-            total={overview?.delivery_requests_total}
-          />
-          <SubmissionStatsSection
-            title="Payment proofs"
-            description="Bank transfer proof uploads submitted by customers"
-            icon={Landmark}
-            active={overview?.bank_transfer_proofs_active}
-            today={overview?.bank_transfer_proofs_today}
-            total={overview?.bank_transfer_proofs_total}
-            activeLabel="Active proofs"
-          />
-        </Link>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Link
+            to="/warehouse/requests"
+            className="rounded-xl transition-colors hover:bg-background/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-boss-gold"
+          >
+            <SubmissionStatsSection
+              title="Home delivery"
+              description="Package home delivery requests from customers"
+              icon={Truck}
+              active={overview?.delivery_requests_active}
+              today={overview?.delivery_requests_today}
+              total={overview?.delivery_requests_total}
+            />
+          </Link>
+          <Link
+            to="/admin/local-delivery"
+            className="rounded-xl transition-colors hover:bg-background/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-boss-gold"
+          >
+            <SubmissionStatsSection
+              title="Local delivery"
+              description="Islandwide pickup and drop-off requests"
+              icon={Truck}
+              active={overview?.logistics_jobs_active}
+              today={overview?.logistics_jobs_today}
+              total={overview?.logistics_jobs_total}
+            />
+          </Link>
+          <Link
+            to="/warehouse/requests"
+            className="rounded-xl transition-colors hover:bg-background/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-boss-gold"
+          >
+            <SubmissionStatsSection
+              title="Payment proofs"
+              description="Bank transfer proof uploads submitted by customers"
+              icon={Landmark}
+              active={overview?.bank_transfer_proofs_active}
+              today={overview?.bank_transfer_proofs_today}
+              total={overview?.bank_transfer_proofs_total}
+              activeLabel="Active proofs"
+            />
+          </Link>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">

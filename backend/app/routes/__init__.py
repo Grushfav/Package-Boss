@@ -3,6 +3,7 @@ from app.routes.announcements import announcements_bp
 from app.routes.auth import auth_bp
 from app.routes.bank_transfer_proofs import bank_transfer_proofs_bp
 from app.routes.delivery_requests import delivery_requests_bp
+from app.routes.logistics_jobs import logistics_jobs_bp
 from app.routes.health import health_bp
 from app.routes.me import me_bp
 from app.routes.packages import packages_bp
@@ -18,6 +19,7 @@ __all__ = [
     "auth_bp",
     "bank_transfer_proofs_bp",
     "delivery_requests_bp",
+    "logistics_jobs_bp",
     "health_bp",
     "me_bp",
     "packages_bp",

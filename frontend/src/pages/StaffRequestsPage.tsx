@@ -317,7 +317,11 @@ export function StaffRequestsPage() {
 
   function renderActions(row: RequestRow) {
     const busy = actionId === row.id
-    const isOpen = row.status === 'pending' || row.status === 'in_progress'
+    const isOpen =
+      row.status === 'pending' ||
+      row.status === 'picked_up' ||
+      row.status === 'in_transit' ||
+      row.status === 'in_progress'
 
     if (row.kind === 'delivery' && isOpen) {
       const allPaid = row.allPaid ?? false
@@ -440,7 +444,7 @@ export function StaffRequestsPage() {
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
             <option value="all">All types</option>
-            <option value="delivery">Delivery</option>
+            <option value="delivery">Home delivery</option>
             <option value="transfer">Bank transfer</option>
           </select>
 
@@ -510,7 +514,7 @@ export function StaffRequestsPage() {
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                          {row.kind === 'delivery' ? 'Delivery' : 'Transfer'}
+                          {row.kind === 'delivery' ? 'Home delivery' : 'Transfer'}
                         </span>
                         {row.kind === 'transfer' && row.includesDelivery && (
                           <span className="inline-flex w-fit rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
@@ -592,6 +596,7 @@ export function StaffRequestsPage() {
           </div>
         )}
       </div>
+
     </div>
   )
 }

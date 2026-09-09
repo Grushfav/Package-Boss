@@ -26,12 +26,17 @@ export function WarehouseHomePage() {
             <p className="text-sm text-muted">What needs attention right now</p>
           </div>
         </div>
-        <Link to="/warehouse/receive">
-          <Button className="inline-flex items-center gap-2">
-            <PackagePlus className="h-4 w-4" />
-            Receive package
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link to="/warehouse" className="text-sm font-semibold text-boss-gold hover:underline">
+            ← Back to home
+          </Link>
+          <Link to="/warehouse/receive">
+            <Button className="inline-flex items-center gap-2">
+              <PackagePlus className="h-4 w-4" />
+              Receive package
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

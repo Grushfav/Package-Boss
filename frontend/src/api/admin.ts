@@ -6,6 +6,7 @@ import type {
   ClerkPermission,
   CustomerSignupStats,
   DeliveryRequestSubmissionStats,
+  LogisticsJob,
   User,
 } from '../types'
 
@@ -181,4 +182,35 @@ export async function updateCustomerEmailNotificationSettings(
     { enabled },
   )
   return data
+}
+
+export async function fetchAdminLogisticsJobs(
+  status = 'active',
+): Promise<LogisticsJob[]> {
+  const { data } = await api.get<{ logistics_jobs: LogisticsJob[] }>('/admin/logistics-jobs', {
+    params: { status },
+  })
+  return data.logistics_jobs ?? []
+}
+
+export async function assignAdminLogisticsClerk(
+  jobId: string,
+  clerkId: string,
+): Promise<LogisticsJob> {
+  const { data } = await api.post<{ logistics_job: LogisticsJob }>(
+    `/admin/logistics-jobs/${jobId}/assign-clerk`,
+    { clerk_id: clerkId },
+  )
+  return data.logistics_job
+}
+
+export async function rejectAdminLogisticsJob(
+  jobId: string,
+  reason?: string,
+): Promise<LogisticsJob> {
+  const { data } = await api.post<{ logistics_job: LogisticsJob }>(
+    `/admin/logistics-jobs/${jobId}/reject`,
+    { reason: reason?.trim() || undefined },
+  )
+  return data.logistics_job
 }

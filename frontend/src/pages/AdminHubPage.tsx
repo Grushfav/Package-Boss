@@ -1,4 +1,4 @@
-import { BarChart3, Megaphone, UserCog, Warehouse } from 'lucide-react'
+import { BarChart3, Bike, Megaphone, UserCog, Warehouse } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchAdminOverview, fetchClerks } from '../api/admin'
 import { fetchWarehouseSummary } from '../api/staff'
@@ -61,7 +61,26 @@ export function AdminHubPage() {
           stat={`${activeClerks} active clerk${activeClerks === 1 ? '' : 's'}`}
         />
         <HubCard
-          to="/warehouse"
+          to="/admin/local-delivery"
+          icon={Bike}
+          title="Local requests"
+          description="Islandwide pickup and drop-off delivery jobs."
+          count={
+            overview && overview.logistics_jobs_active > 0
+              ? overview.logistics_jobs_active
+              : undefined
+          }
+          stat={
+            overview
+              ? overview.logistics_jobs_active > 0
+                ? `${overview.logistics_jobs_today} submitted today`
+                : 'All clear'
+              : undefined
+          }
+          statTone={overview && overview.logistics_jobs_active === 0 ? 'success' : 'default'}
+        />
+        <HubCard
+          to="/warehouse/floor"
           icon={Warehouse}
           title="Warehouse floor"
           description="Receive, print labels, and update statuses."

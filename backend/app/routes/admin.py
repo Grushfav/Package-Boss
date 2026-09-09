@@ -17,6 +17,16 @@ from app.services.admin_stats_service import (
     get_pre_alerts_vs_receives,
     get_weight_distribution,
 )
+from app.services.logistics_job_service import (
+    assign_logistics_clerk,
+    get_logistics_job,
+    list_all_logistics_jobs,
+    list_logistics_job_history,
+    list_logistics_jobs_by_status,
+    list_open_logistics_jobs,
+    list_pending_logistics_jobs,
+    reject_logistics_job,
+)
 from app.services.auth_service import hash_password, normalize_phone
 from app.services.clerk_permission_service import normalize_clerk_permissions
 from app.services.email_service import EmailServiceError, send_clerk_invite_email
@@ -455,3 +465,60 @@ def update_customer_email_notifications_setting():
     admin = get_user_from_jwt()
     settings = set_customer_email_notifications_enabled(enabled, updated_by=admin)
     return jsonify(settings)
+
+
+@admin_bp.route("/admin/logistics-jobs", methods=["GET"])
+@admin_required()
+def list_admin_logistics_jobs():
+    status = (request.args.get("status") or "active").strip().lower()
+    if status == "pending":
+        jobs = list_pending_logistics_jobs()
+    elif status == "active":
+        jobs = list_open_logistics_jobs()
+    elif status == "all":
+        jobs = list_all_logistics_jobs()
+    elif status == "history":
+        jobs = list_logistics_job_history()
+    elif status in ("rejected", "cancelled", "completed"):
+        jobs = list_logistics_jobs_by_status(status)
+    else:
+        jobs = list_logistics_jobs_by_status(status)
+    return jsonify({"logistics_jobs": [job.to_dict() for job in jobs]})
+
+
+@admin_bp.route("/admin/logistics-jobs/<job_id>/assign-clerk", methods=["POST"])
+@admin_required()
+def assign_admin_logistics_clerk(job_id: str):
+    job = get_logistics_job(job_id)
+    if not job:
+        return _error("Local delivery request not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    clerk_id = data.get("clerk_id")
+    if not clerk_id:
+        return _error("clerk_id is required")
+
+    admin = get_user_from_jwt()
+    try:
+        job = assign_logistics_clerk(job, admin, clerk_id=clerk_id)
+    except ValueError as exc:
+        return _error(str(exc))
+
+    return jsonify({"logistics_job": job.to_dict()})
+
+
+@admin_bp.route("/admin/logistics-jobs/<job_id>/reject", methods=["POST"])
+@admin_required()
+def reject_admin_logistics_job(job_id: str):
+    job = get_logistics_job(job_id)
+    if not job:
+        return _error("Local delivery request not found", 404)
+
+    data = request.get_json(silent=True) or {}
+    admin = get_user_from_jwt()
+    try:
+        job = reject_logistics_job(job, admin, reason=data.get("reason"))
+    except ValueError as exc:
+        return _error(str(exc))
+
+    return jsonify({"logistics_job": job.to_dict()})

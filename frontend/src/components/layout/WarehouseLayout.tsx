@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  Bike,
   ChevronLeft,
   Inbox,
   LayoutDashboard,
@@ -11,8 +12,9 @@ import {
   RefreshCw,
   Search,
   Users,
+  Warehouse,
 } from 'lucide-react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { clerkHasAnyPermission, clerkHasPermission } from '../../lib/clerkPermissions'
 import { canAccessWarehouse, isAdmin } from '../../lib/roles'
@@ -39,10 +41,12 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   }`
 
 function WarehouseShell() {
+  const { pathname } = useLocation()
   const { counts } = useWarehouseCounts()
   const { user } = useAuth()
   const perms = user?.permissions || user?.clerk_permissions
   const role = user?.role
+  const isClerkHub = pathname === '/warehouse' && !isAdmin(role)
 
   const navItems: {
     to: string
@@ -52,7 +56,14 @@ function WarehouseShell() {
     badge?: number
     permission: ClerkPermission | ClerkPermission[]
   }[] = [
-    { to: '/warehouse', end: true, icon: LayoutDashboard, label: 'Floor', permission: 'receive' },
+    { to: '/warehouse', end: true, icon: LayoutDashboard, label: 'Home', permission: 'receive' },
+    { to: '/warehouse/floor', icon: Warehouse, label: 'Floor', permission: 'receive' },
+    {
+      to: '/warehouse/local-delivery',
+      icon: Bike,
+      label: 'Local delivery',
+      permission: 'receive',
+    },
     { to: '/warehouse/receive', icon: PackagePlus, label: 'Receive', permission: 'receive' },
     {
       to: '/warehouse/pre-alerts',
@@ -110,6 +121,10 @@ function WarehouseShell() {
     clerkHasPermission(perms, 'receive', role)
 
   const showPackageSearch = canAccessWarehouse(role)
+
+  if (isClerkHub) {
+    return <Outlet />
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row print:block print:min-h-0">

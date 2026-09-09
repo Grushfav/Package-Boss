@@ -33,6 +33,12 @@ export function DashboardHomePage() {
           View packages →
         </Link>
         <Link
+          to="/dashboard/logistics/book"
+          className="rounded-xl border border-boss-gold/30 bg-card p-4 text-sm font-semibold shadow-sm shadow-boss-gold/15 transition-colors hover:border-boss-gold/50 hover:shadow-md hover:shadow-boss-gold/25"
+        >
+          Book local delivery →
+        </Link>
+        <Link
           to="/dashboard/profile"
           className="rounded-xl border border-boss-gold/30 bg-card p-4 text-sm font-semibold shadow-sm shadow-boss-gold/15 transition-colors hover:border-boss-gold/50 hover:shadow-md hover:shadow-boss-gold/25"
         >

@@ -19,6 +19,7 @@ from app.models.authorized_pickup import AuthorizedPickupPerson
 from app.models.bank_transfer_proof import BankTransferProof, BankTransferProofPackage
 from app.models.delivery_address import DeliveryAddress
 from app.models.delivery_request import DeliveryRequest, DeliveryRequestPackage
+from app.models.logistics_job import LogisticsJob
 from app.models.package import Package, PackageEvent, PackagePhoto
 from app.models.password_reset_token import PasswordResetToken
 from app.models.payment import PaymentCheckout, PaymentCheckoutItem
@@ -44,6 +45,7 @@ def _count_rows() -> dict[str, int]:
         "bank_transfer_proofs": BankTransferProof.query.count(),
         "delivery_request_packages": DeliveryRequestPackage.query.count(),
         "delivery_requests": DeliveryRequest.query.count(),
+        "logistics_jobs": LogisticsJob.query.count(),
         "pre_alerts": PreAlert.query.count(),
         "package_events": PackageEvent.query.count(),
         "package_photos": PackagePhoto.query.count(),
@@ -86,6 +88,9 @@ def clear_test_data(*, include_announcements: bool = True) -> ClearTestDataSumma
     )
     deleted["delivery_requests"] = (
         db.session.query(DeliveryRequest).delete(synchronize_session=False)
+    )
+    deleted["logistics_jobs"] = (
+        db.session.query(LogisticsJob).delete(synchronize_session=False)
     )
     deleted["pre_alerts"] = db.session.query(PreAlert).delete(synchronize_session=False)
     deleted["package_events"] = db.session.query(PackageEvent).delete(synchronize_session=False)

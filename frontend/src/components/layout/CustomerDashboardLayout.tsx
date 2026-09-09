@@ -5,6 +5,7 @@ import {
   Landmark,
   LayoutDashboard,
   Package,
+  Truck,
   User,
 } from 'lucide-react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
@@ -62,6 +63,12 @@ export function CustomerDashboardLayout() {
       label: 'Packages',
       shortLabel: 'Packages',
       badge: actionCount,
+    },
+    {
+      to: '/dashboard/logistics',
+      icon: Truck,
+      label: 'Local delivery',
+      shortLabel: 'Local',
     },
     { to: '/dashboard/rates', icon: DollarSign, label: 'Rates', shortLabel: 'Rates' },
     {

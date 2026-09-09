@@ -763,6 +763,7 @@ def get_warehouse_summary() -> dict:
     from app.models.pre_alert import PreAlert
     from app.services.delivery_request_service import count_open_delivery_requests
     from app.services.bank_transfer_proof_service import count_open_transfer_proofs
+    from app.services.logistics_job_service import count_open_logistics_jobs
     from app.services.shipment_service import count_open_shipments
 
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -786,8 +787,11 @@ def get_warehouse_summary() -> dict:
         "open_shipments": count_open_shipments(),
         "pending_delivery_requests": count_open_delivery_requests(),
         "pending_transfer_proofs": count_open_transfer_proofs(),
+        "pending_logistics_jobs": count_open_logistics_jobs(),
         "pending_customer_requests": (
-            count_open_delivery_requests() + count_open_transfer_proofs()
+            count_open_delivery_requests()
+            + count_open_transfer_proofs()
+            + count_open_logistics_jobs()
         ),
         "status_counts": status_counts,
     }
