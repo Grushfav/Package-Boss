@@ -131,6 +131,7 @@ export interface Package {
   status: string
   status_label: string
   carrier_tracking?: string | null
+  item_description?: string | null
   label_name?: string | null
   label_boss_id?: string | null
   is_unidentified?: boolean

@@ -41,7 +41,7 @@ function PackageTable({
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] text-left text-sm">
+        <table className="w-full min-w-[1080px] text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-background/80 text-xs font-semibold uppercase tracking-wider text-muted">
               {showSelection && (
@@ -61,6 +61,7 @@ function PackageTable({
               )}
               <th className="px-4 py-3">Carrier tracking</th>
               <th className="px-4 py-3">PB tracking</th>
+              <th className="px-4 py-3">Item</th>
               <th className="px-4 py-3">Weight</th>
               <th className="px-4 py-3">Shipper</th>
               <th className="px-4 py-3">Cost</th>
@@ -96,6 +97,16 @@ function PackageTable({
                   </td>
                   <td className="border-t border-border px-4 py-3 font-mono font-bold text-boss-gold">
                     {pkg.tracking_number}
+                  </td>
+                  <td
+                    className="max-w-[200px] border-t border-border px-4 py-3 text-foreground"
+                    title={pkg.item_description ?? undefined}
+                  >
+                    {pkg.item_description ? (
+                      <span className="line-clamp-2">{pkg.item_description}</span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td className="border-t border-border px-4 py-3 text-foreground">
                     {formatPackageWeight(pkg)}
