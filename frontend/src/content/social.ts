@@ -4,5 +4,5 @@ import { COMPANY_PHONE_TEL } from './legal'
 export const SOCIAL_URLS = {
   instagram: 'https://www.instagram.com/packagebossja/',
   whatsapp: `https://wa.me/${COMPANY_PHONE_TEL.replace(/\D/g, '')}`,
-  tiktok: '',
+  tiktok: 'https://www.tiktok.com/@packagebossja',
 } as const
