@@ -12,6 +12,7 @@ import { AdminActivityPage } from './pages/AdminActivityPage'
 import { AdminAnnouncementsPage } from './pages/AdminAnnouncementsPage'
 import { AdminClerksPage } from './pages/AdminClerksPage'
 import { AdminHubPage } from './pages/AdminHubPage'
+import { AdminInvoicesPage } from './pages/AdminInvoicesPage'
 import { AdminOperationsPage } from './pages/AdminOperationsPage'
 import { AdminLayout } from './components/layout/AdminLayout'
 import { WarehouseLayout } from './components/layout/WarehouseLayout'
@@ -111,6 +112,7 @@ function AppRoutes() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminHubPage />} />
             <Route path="operations" element={<AdminOperationsPage />} />
+            <Route path="invoices" element={<AdminInvoicesPage />} />
             <Route path="clerks" element={<AdminClerksPage />} />
             <Route path="announcements" element={<AdminAnnouncementsPage />} />
           </Route>

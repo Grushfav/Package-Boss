@@ -7,6 +7,7 @@ from app.utils.datetime_format import utc_isoformat
 ANNOUNCEMENT_AUDIENCES = ("public", "customers", "staff", "all")
 ANNOUNCEMENT_SEVERITIES = ("info", "warning", "urgent")
 ANNOUNCEMENT_DISPLAY_TYPES = ("banner", "modal", "inbox_only")
+ANNOUNCEMENT_TARGET_MODES = ("broadcast", "targeted")
 BROADCAST_CHANNELS = ("in_app", "email")
 BROADCAST_STATUSES = ("pending", "running", "completed", "failed")
 
@@ -21,6 +22,8 @@ class Announcement(db.Model):
     body = db.Column(db.Text, nullable=False)
     severity = db.Column(db.String(20), nullable=False, default="info")
     audience = db.Column(db.String(20), nullable=False, default="customers")
+    target_mode = db.Column(db.String(20), nullable=False, default="broadcast")
+    target_criteria = db.Column(db.JSON, nullable=True)
     display_as = db.Column(db.String(20), nullable=False, default="banner")
     starts_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     ends_at = db.Column(db.DateTime, nullable=True)
@@ -37,6 +40,11 @@ class Announcement(db.Model):
     broadcast_jobs = db.relationship(
         "BroadcastJob", back_populates="announcement", cascade="all, delete-orphan"
     )
+    recipients = db.relationship(
+        "AnnouncementRecipient",
+        back_populates="announcement",
+        cascade="all, delete-orphan",
+    )
 
     def to_dict(self, *, include_body: bool = True, job: "BroadcastJob | None" = None) -> dict:
         data = {
@@ -44,6 +52,8 @@ class Announcement(db.Model):
             "title": self.title,
             "severity": self.severity,
             "audience": self.audience,
+            "target_mode": self.target_mode,
+            "target_criteria": self.target_criteria,
             "display_as": self.display_as,
             "starts_at": utc_isoformat(self.starts_at),
             "ends_at": utc_isoformat(self.ends_at),
@@ -134,3 +144,22 @@ class BroadcastJob(db.Model):
             "completed_at": utc_isoformat(self.completed_at),
             "created_at": utc_isoformat(self.created_at),
         }
+
+
+class AnnouncementRecipient(db.Model):
+    __tablename__ = "announcement_recipients"
+    __table_args__ = (
+        db.UniqueConstraint("announcement_id", "user_id", name="uq_announcement_recipient"),
+    )
+
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    announcement_id = db.Column(
+        db.UUID(as_uuid=True), db.ForeignKey("announcements.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False, index=True)
+    package_ids = db.Column(db.JSON, nullable=False, default=list)
+    tracking_numbers = db.Column(db.JSON, nullable=False, default=list)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    announcement = db.relationship("Announcement", back_populates="recipients")
+    user = db.relationship("User", backref="announcement_recipient_rows")

@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronDown, ChevronUp, Package as PackageIcon, Plane, RefreshCw, ScanLine, Search, Shield, ShoppingBag } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronUp, Megaphone, Package as PackageIcon, Plane, RefreshCw, ScanLine, Search, Shield, ShoppingBag } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -14,6 +14,7 @@ import {
   type BulkStatusResult,
   type ShipmentSummary,
 } from '../api/staff'
+import { TargetedAnnouncementModal } from '../components/announcements/TargetedAnnouncementModal'
 import { PackageStaffModal } from '../components/warehouse/PackageStaffModal'
 import {
   ReleaseFromCustomsModal,
@@ -163,6 +164,7 @@ export function StatusUpdatePage() {
   const canManagePackages = clerkCanManagePackageActions(perms, role)
   const canRequestInvoice = clerkHasPermission(perms, 'invoice_request', role)
   const canManageBilling = clerkHasPermission(perms, 'billing', role)
+  const canNotifyCustomers = clerkHasPermission(perms, 'status_customs', role)
 
   const presetParam = (searchParams.get('preset') || '') as QueuePresetId
   const activePreset: QueuePresetId = QUEUE_PRESETS.some((p) => p.id === presetParam)
@@ -190,6 +192,7 @@ export function StatusUpdatePage() {
   const [batchReference, setBatchReference] = useState('')
   const [batchDepartureDate, setBatchDepartureDate] = useState(today)
   const [releaseOpen, setReleaseOpen] = useState(false)
+  const [notifyOpen, setNotifyOpen] = useState(false)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const [actionSuccess, setActionSuccess] = useState('')
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -247,6 +250,11 @@ export function StatusUpdatePage() {
 
   const selectedCustomsPackages = useMemo(
     () => packages.filter((pkg) => selectedIds.has(pkg.id) && pkg.status === 'customs'),
+    [packages, selectedIds],
+  )
+
+  const selectedNotifyPackages = useMemo(
+    () => packages.filter((pkg) => selectedIds.has(pkg.id)),
     [packages, selectedIds],
   )
 
@@ -1182,6 +1190,16 @@ export function StatusUpdatePage() {
 
               {selection.mode === 'customs' && (
                 <>
+                  {canNotifyCustomers && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setNotifyOpen(true)}
+                    >
+                      <Megaphone className="mr-1 h-4 w-4" />
+                      Notify customers ({selection.count})
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -1206,6 +1224,19 @@ export function StatusUpdatePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {notifyOpen && (
+        <TargetedAnnouncementModal
+          packageIds={selectedNotifyPackages.map((pkg) => pkg.id)}
+          packages={selectedNotifyPackages}
+          onClose={() => setNotifyOpen(false)}
+          onCompleted={(summary) => {
+            setNotifyOpen(false)
+            setActionSuccess(summary)
+            setSelectedIds(new Set())
+          }}
+        />
       )}
 
       {releaseOpen && (

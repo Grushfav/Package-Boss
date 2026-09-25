@@ -1,4 +1,4 @@
-import { BarChart3, ChevronLeft, Megaphone, UserCog, Warehouse } from 'lucide-react'
+import { BarChart3, ChevronLeft, FileText, Megaphone, UserCog, Warehouse } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -32,6 +32,10 @@ export function AdminLayout() {
             <NavLink to="/admin/operations" className={navClass}>
               <BarChart3 className="h-4 w-4" />
               Metrics
+            </NavLink>
+            <NavLink to="/admin/invoices" className={navClass}>
+              <FileText className="h-4 w-4" />
+              Invoices
             </NavLink>
             <NavLink to="/admin/clerks" className={navClass}>
               <UserCog className="h-4 w-4" />

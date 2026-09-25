@@ -12,6 +12,7 @@ from app.models.announcement import (
     Announcement,
     AnnouncementDismissal,
     AnnouncementRead,
+    AnnouncementRecipient,
     BroadcastJob,
 )
 from app.models.audit_log import AuditLog
@@ -53,6 +54,7 @@ def _count_rows() -> dict[str, int]:
         "audit_logs": AuditLog.query.count(),
         "announcement_dismissals": AnnouncementDismissal.query.count(),
         "announcement_reads": AnnouncementRead.query.count(),
+        "announcement_recipients": AnnouncementRecipient.query.count(),
         "broadcast_jobs": BroadcastJob.query.count(),
         "announcements": Announcement.query.count(),
         "authorized_pickups": AuthorizedPickupPerson.query.count(),
@@ -101,6 +103,9 @@ def clear_test_data(*, include_announcements: bool = True) -> ClearTestDataSumma
         )
         deleted["announcement_reads"] = (
             db.session.query(AnnouncementRead).delete(synchronize_session=False)
+        )
+        deleted["announcement_recipients"] = (
+            db.session.query(AnnouncementRecipient).delete(synchronize_session=False)
         )
         deleted["broadcast_jobs"] = db.session.query(BroadcastJob).delete(synchronize_session=False)
         deleted["announcements"] = db.session.query(Announcement).delete(synchronize_session=False)

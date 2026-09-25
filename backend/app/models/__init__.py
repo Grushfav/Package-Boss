@@ -3,6 +3,7 @@ from app.models.announcement import (
     Announcement,
     AnnouncementDismissal,
     AnnouncementRead,
+    AnnouncementRecipient,
     BroadcastJob,
 )
 from app.models.audit_log import AuditLog
@@ -42,5 +43,6 @@ __all__ = [
     "Announcement",
     "AnnouncementDismissal",
     "AnnouncementRead",
+    "AnnouncementRecipient",
     "BroadcastJob",
 ]

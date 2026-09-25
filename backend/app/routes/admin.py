@@ -1,9 +1,10 @@
 import secrets
 import uuid
+from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 
-from app.constants import CLERK_PERMISSION_LABELS, CLERK_PERMISSIONS, JAMAICA_PARISHES
+from app.constants import CLERK_PERMISSION_LABELS, CLERK_PERMISSIONS, JAMAICA_PARISHES, PAYMENT_METHODS
 from app.extensions import db
 from app.models.audit_log import AuditLog
 from app.models.user import User
@@ -22,6 +23,7 @@ from app.services.clerk_permission_service import normalize_clerk_permissions
 from app.services.email_service import EmailServiceError, send_clerk_invite_email
 from app.services.rate_limit_service import RateLimitExceeded, assert_clerk_invite_resend_allowed
 from app.services.reset_token_service import build_reset_url, generate_reset_token, store_invite_token
+from app.services.payment_service import list_admin_invoices
 from app.services.notification_settings_service import (
     get_customer_email_notification_settings,
     set_customer_email_notifications_enabled,
@@ -29,6 +31,7 @@ from app.services.notification_settings_service import (
 from app.services.staff_id_service import generate_staff_shipping_id
 from app.services.token_service import bump_token_version
 from app.utils.auth_decorators import admin_required, get_user_from_jwt, permission_required
+from app.utils.datetime_format import jamaica_date_start_utc
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -397,6 +400,21 @@ def delete_announcement_route(announcement_id: str):
     return jsonify({"message": "Deleted"})
 
 
+@admin_bp.route("/admin/announcements/preview-recipients", methods=["POST"])
+@admin_required()
+def preview_announcement_recipients_route():
+    from app.services.announcement_service import preview_target_recipients
+
+    data = request.get_json(silent=True) or {}
+    criteria = data.get("target_criteria") or data
+    try:
+        preview = preview_target_recipients(criteria)
+    except ValueError as exc:
+        return _error(str(exc))
+
+    return jsonify({"preview": preview})
+
+
 @admin_bp.route("/admin/announcements/<announcement_id>/broadcast", methods=["POST"])
 @admin_required()
 def broadcast_announcement_route(announcement_id: str):
@@ -433,6 +451,58 @@ def broadcast_announcement_route(announcement_id: str):
             "broadcast_job": job.to_dict(),
         }
     )
+
+
+def _parse_invoice_day(value: str | None, *, end: bool = False) -> datetime | None:
+    """Jamaica calendar day as a naive UTC instant for recorded_at filters.
+
+    ``end=True`` is exclusive: midnight Jamaica on the day after ``value``.
+    """
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        day = datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise ValueError("Dates must use YYYY-MM-DD") from exc
+    if end:
+        day = day + timedelta(days=1)
+    return jamaica_date_start_utc(day)
+
+
+@admin_bp.route("/admin/invoices", methods=["GET"])
+@admin_required()
+def list_invoices():
+    method = (request.args.get("method") or "").strip().lower() or None
+    if method and method not in PAYMENT_METHODS:
+        return _error("Invalid payment method")
+
+    try:
+        date_from = _parse_invoice_day(request.args.get("from"))
+        date_to = _parse_invoice_day(request.args.get("to"), end=True)
+    except ValueError as exc:
+        return _error(str(exc))
+
+    try:
+        limit = int(request.args.get("limit") or 25)
+        offset = int(request.args.get("offset") or 0)
+    except ValueError:
+        return _error("limit and offset must be integers")
+
+    if limit < 1 or limit > 100:
+        return _error("limit must be between 1 and 100")
+    if offset < 0:
+        return _error("offset must be zero or greater")
+
+    payload = list_admin_invoices(
+        date_from=date_from,
+        date_to=date_to,
+        method=method,
+        query=request.args.get("q"),
+        limit=limit,
+        offset=offset,
+    )
+    return jsonify(payload)
 
 
 @admin_bp.route("/admin/settings/customer-email-notifications", methods=["GET"])
