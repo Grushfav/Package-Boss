@@ -1,4 +1,4 @@
-import { BarChart3, Megaphone, UserCog, Warehouse } from 'lucide-react'
+import { BarChart3, FileText, Megaphone, UserCog, Warehouse } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchAdminOverview, fetchClerks } from '../api/admin'
 import { fetchWarehouseSummary } from '../api/staff'
@@ -46,6 +46,12 @@ export function AdminHubPage() {
               ? `${overview.packages_today} received today · $${overview.revenue_30d_usd.toFixed(0)} (30d)`
               : undefined
           }
+        />
+        <HubCard
+          to="/admin/invoices"
+          icon={FileText}
+          title="Invoices"
+          description="Recorded payments by date for accounting."
         />
         <HubCard
           to="/admin/announcements"

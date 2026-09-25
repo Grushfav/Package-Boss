@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
+from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 
 from app.constants import DELIVERY_FEE_JMD, PAYMENT_ELIGIBLE_STATUS, PAYMENT_METHODS
@@ -80,6 +81,115 @@ def package_payment_summary(package: Package) -> dict | None:
         "notes": checkout.notes,
         "recorded_by_name": checkout.recorded_by.full_name if checkout.recorded_by else None,
         "recorded_at": utc_isoformat(checkout.recorded_at),
+    }
+
+
+def invoice_admin_dict(checkout: PaymentCheckout) -> dict:
+    data = checkout.to_dict(include_items=True)
+    delivery = checkout.delivery_fee_jmd if checkout.delivery_fee_jmd is not None else Decimal("0")
+    processing = checkout.processing_fee_jmd if checkout.processing_fee_jmd is not None else Decimal("0")
+    total = checkout.total_jmd if checkout.total_jmd is not None else Decimal("0")
+    packages = (Decimal(total) - Decimal(delivery) - Decimal(processing)).quantize(Decimal("0.01"))
+    data["packages_jmd"] = float(packages)
+    if checkout.customer:
+        data["customer_name"] = checkout.customer.full_name
+        data["shipping_id"] = checkout.customer.shipping_id
+    return data
+
+
+def _admin_invoice_filters(
+    *,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    method: str | None = None,
+    query: str | None = None,
+) -> list:
+    filters = []
+    if date_from:
+        filters.append(PaymentCheckout.recorded_at >= date_from)
+    if date_to:
+        filters.append(PaymentCheckout.recorded_at < date_to)
+    if method:
+        filters.append(PaymentCheckout.method == method)
+
+    needle = (query or "").strip()
+    if needle:
+        pattern = f"%{needle}%"
+        customer_ids = [
+            row[0]
+            for row in db.session.query(User.id)
+            .filter(
+                or_(
+                    User.shipping_id.ilike(pattern),
+                    User.first_name.ilike(pattern),
+                    User.last_name.ilike(pattern),
+                    func.concat(User.first_name, " ", User.last_name).ilike(pattern),
+                    User.email.ilike(pattern),
+                )
+            )
+            .all()
+        ]
+        clauses = [PaymentCheckout.invoice_number.ilike(pattern)]
+        if customer_ids:
+            clauses.append(PaymentCheckout.customer_id.in_(customer_ids))
+        filters.append(or_(*clauses))
+    return filters
+
+
+def list_admin_invoices(
+    *,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    method: str | None = None,
+    query: str | None = None,
+    limit: int = 25,
+    offset: int = 0,
+) -> dict:
+    filters = _admin_invoice_filters(
+        date_from=date_from,
+        date_to=date_to,
+        method=method,
+        query=query,
+    )
+    count, total_jmd, delivery_jmd, processing_jmd = (
+        db.session.query(
+            func.count(PaymentCheckout.id),
+            func.coalesce(func.sum(PaymentCheckout.total_jmd), 0),
+            func.coalesce(func.sum(PaymentCheckout.delivery_fee_jmd), 0),
+            func.coalesce(func.sum(PaymentCheckout.processing_fee_jmd), 0),
+        )
+        .filter(*filters)
+        .one()
+    )
+    rows = (
+        PaymentCheckout.query.options(
+            selectinload(PaymentCheckout.customer),
+            selectinload(PaymentCheckout.recorded_by),
+            selectinload(PaymentCheckout.items).selectinload(PaymentCheckoutItem.package),
+        )
+        .filter(*filters)
+        .order_by(PaymentCheckout.recorded_at.desc(), PaymentCheckout.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    total = _decimal(total_jmd)
+    delivery = _decimal(delivery_jmd)
+    processing = _decimal(processing_jmd)
+    packages = (total - delivery - processing).quantize(Decimal("0.01"))
+    total_count = int(count or 0)
+    return {
+        "invoices": [invoice_admin_dict(row) for row in rows],
+        "summary": {
+            "count": total_count,
+            "total_jmd": float(total),
+            "packages_jmd": float(packages),
+            "delivery_fee_jmd": float(delivery),
+            "processing_fee_jmd": float(processing),
+        },
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
     }
 
 

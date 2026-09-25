@@ -46,6 +46,7 @@ const routes = [
   'warehouse/activity',
   'admin',
   'admin/operations',
+  'admin/invoices',
   'admin/clerks',
   'staff/receive',
 ]

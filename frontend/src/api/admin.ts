@@ -6,8 +6,23 @@ import type {
   ClerkPermission,
   CustomerSignupStats,
   DeliveryRequestSubmissionStats,
+  PaymentCheckout,
   User,
 } from '../types'
+
+export interface AdminInvoice extends PaymentCheckout {
+  customer_name?: string | null
+  shipping_id?: string | null
+  packages_jmd: number
+}
+
+export interface AdminInvoiceSummary {
+  count: number
+  total_jmd: number
+  packages_jmd: number
+  delivery_fee_jmd: number
+  processing_fee_jmd: number
+}
 
 export interface ClerkPermissionOption {
   code: ClerkPermission
@@ -170,6 +185,39 @@ export async function fetchCustomerEmailNotificationSettings(): Promise<Customer
   const { data } = await api.get<CustomerEmailNotificationSettings>(
     '/admin/settings/customer-email-notifications',
   )
+  return data
+}
+
+export async function fetchAdminInvoices(params: {
+  from?: string
+  to?: string
+  method?: string
+  q?: string
+  limit?: number
+  offset?: number
+}): Promise<{
+  invoices: AdminInvoice[]
+  summary: AdminInvoiceSummary
+  total: number
+  limit: number
+  offset: number
+}> {
+  const { data } = await api.get<{
+    invoices: AdminInvoice[]
+    summary: AdminInvoiceSummary
+    total: number
+    limit: number
+    offset: number
+  }>('/admin/invoices', {
+    params: {
+      from: params.from || undefined,
+      to: params.to || undefined,
+      method: params.method || undefined,
+      q: params.q || undefined,
+      limit: params.limit,
+      offset: params.offset,
+    },
+  })
   return data
 }
 
