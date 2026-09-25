@@ -397,6 +397,21 @@ def delete_announcement_route(announcement_id: str):
     return jsonify({"message": "Deleted"})
 
 
+@admin_bp.route("/admin/announcements/preview-recipients", methods=["POST"])
+@admin_required()
+def preview_announcement_recipients_route():
+    from app.services.announcement_service import preview_target_recipients
+
+    data = request.get_json(silent=True) or {}
+    criteria = data.get("target_criteria") or data
+    try:
+        preview = preview_target_recipients(criteria)
+    except ValueError as exc:
+        return _error(str(exc))
+
+    return jsonify({"preview": preview})
+
+
 @admin_bp.route("/admin/announcements/<announcement_id>/broadcast", methods=["POST"])
 @admin_required()
 def broadcast_announcement_route(announcement_id: str):

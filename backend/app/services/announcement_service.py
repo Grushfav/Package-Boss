@@ -1,22 +1,27 @@
 import threading
 import uuid
+from collections import defaultdict
 from datetime import datetime
 
 from flask import current_app
 from sqlalchemy import or_
 
+from app.constants import PACKAGE_STATUSES, UNIDENTIFIED_HOLDER_SHIPPING_ID
 from app.extensions import db
 from app.models.announcement import (
     ANNOUNCEMENT_AUDIENCES,
     ANNOUNCEMENT_DISPLAY_TYPES,
     ANNOUNCEMENT_SEVERITIES,
+    ANNOUNCEMENT_TARGET_MODES,
     BROADCAST_CHANNELS,
     SEVERITY_ORDER,
     Announcement,
     AnnouncementDismissal,
     AnnouncementRead,
+    AnnouncementRecipient,
     BroadcastJob,
 )
+from app.models.package import Package
 from app.models.user import User
 from app.services.audit_service import log_entity_action
 
@@ -34,6 +39,176 @@ CONTEXT_AUDIENCES = {
 EMAIL_BATCH_SIZE = 50
 
 
+def _parse_uuid_list(values) -> list[uuid.UUID]:
+    if not values:
+        return []
+    parsed: list[uuid.UUID] = []
+    for raw in values:
+        try:
+            parsed.append(uuid.UUID(str(raw)))
+        except ValueError as exc:
+            raise ValueError(f"Invalid package ID: {raw}") from exc
+    return parsed
+
+
+def _parse_status_list(criteria: dict) -> list[str]:
+    raw_statuses = criteria.get("package_statuses")
+    if raw_statuses is None and criteria.get("package_status"):
+        raw_statuses = [criteria.get("package_status")]
+    if not raw_statuses:
+        return []
+
+    if not isinstance(raw_statuses, list):
+        raise ValueError("package_statuses must be an array")
+
+    statuses: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_statuses:
+        status = str(raw or "").strip().lower()
+        if not status or status in seen:
+            continue
+        if status not in PACKAGE_STATUSES:
+            raise ValueError(f"Invalid package status filter: {status}")
+        seen.add(status)
+        statuses.append(status)
+    return statuses
+
+
+def _validate_target_criteria(criteria: dict | None) -> dict:
+    if not criteria:
+        raise ValueError("Targeting criteria are required for targeted announcements")
+
+    package_ids = _parse_uuid_list(criteria.get("package_ids"))
+    shipment_id_raw = criteria.get("shipment_id")
+    package_statuses = _parse_status_list(criteria)
+
+    shipment_id = None
+    if shipment_id_raw:
+        try:
+            shipment_id = uuid.UUID(str(shipment_id_raw))
+        except ValueError as exc:
+            raise ValueError("Invalid shipment ID") from exc
+
+    if not package_ids and not shipment_id and not package_statuses:
+        raise ValueError(
+            "Select at least one target: specific packages, a departure, or a package status"
+        )
+
+    cleaned = {}
+    if package_ids:
+        cleaned["package_ids"] = [str(value) for value in package_ids]
+    if shipment_id:
+        cleaned["shipment_id"] = str(shipment_id)
+    if package_statuses:
+        cleaned["package_statuses"] = package_statuses
+    return cleaned
+
+
+def _targeted_package_query(criteria: dict):
+    query = Package.query.join(User, Package.customer_id == User.id).filter(
+        User.is_active.is_(True),
+        User.role == "customer",
+        User.shipping_id != UNIDENTIFIED_HOLDER_SHIPPING_ID,
+    )
+
+    package_ids = _parse_uuid_list(criteria.get("package_ids"))
+    if package_ids:
+        query = query.filter(Package.id.in_(package_ids))
+
+    shipment_id_raw = criteria.get("shipment_id")
+    if shipment_id_raw:
+        query = query.filter(Package.shipment_id == uuid.UUID(str(shipment_id_raw)))
+
+    package_statuses = criteria.get("package_statuses") or []
+    if not package_statuses and criteria.get("package_status"):
+        package_statuses = [criteria.get("package_status")]
+    if package_statuses:
+        query = query.filter(Package.status.in_(package_statuses))
+
+    return query
+
+
+def resolve_target_packages(criteria: dict) -> list[Package]:
+    cleaned = _validate_target_criteria(criteria)
+    return _targeted_package_query(cleaned).order_by(Package.tracking_number).all()
+
+
+def preview_target_recipients(criteria: dict) -> dict:
+    packages = resolve_target_packages(criteria)
+    by_customer: dict[uuid.UUID, list[Package]] = defaultdict(list)
+    for package in packages:
+        by_customer[package.customer_id].append(package)
+
+    customers = []
+    for customer_id, customer_packages in sorted(
+        by_customer.items(),
+        key=lambda item: item[1][0].customer.full_name if item[1][0].customer else "",
+    ):
+        customer = customer_packages[0].customer
+        customers.append(
+            {
+                "user_id": str(customer_id),
+                "name": customer.full_name if customer else "Unknown",
+                "email": customer.email if customer else None,
+                "package_count": len(customer_packages),
+                "tracking_numbers": [pkg.tracking_number for pkg in customer_packages],
+            }
+        )
+
+    return {
+        "package_count": len(packages),
+        "customer_count": len(customers),
+        "customers": customers,
+    }
+
+
+def _group_packages_by_customer(packages: list[Package]) -> dict[uuid.UUID, list[Package]]:
+    grouped: dict[uuid.UUID, list[Package]] = defaultdict(list)
+    for package in packages:
+        grouped[package.customer_id].append(package)
+    return grouped
+
+
+def _store_target_recipients(announcement: Announcement, packages: list[Package]) -> list[User]:
+    AnnouncementRecipient.query.filter_by(announcement_id=announcement.id).delete(
+        synchronize_session=False
+    )
+
+    grouped = _group_packages_by_customer(packages)
+    recipients: list[User] = []
+    for customer_id, customer_packages in grouped.items():
+        customer = customer_packages[0].customer
+        if customer is None:
+            customer = db.session.get(User, customer_id)
+        if not customer:
+            continue
+        db.session.add(
+            AnnouncementRecipient(
+                announcement_id=announcement.id,
+                user_id=customer.id,
+                package_ids=[str(pkg.id) for pkg in customer_packages],
+                tracking_numbers=[pkg.tracking_number for pkg in customer_packages],
+            )
+        )
+        recipients.append(customer)
+    return recipients
+
+
+def _targeted_recipient_subquery(user_id: uuid.UUID):
+    return db.session.query(AnnouncementRecipient.announcement_id).filter(
+        AnnouncementRecipient.user_id == user_id
+    )
+
+
+def _targeted_visibility_filter(user: User | None):
+    if user is None:
+        return Announcement.target_mode != "targeted"
+    return or_(
+        Announcement.target_mode != "targeted",
+        Announcement.id.in_(_targeted_recipient_subquery(user.id)),
+    )
+
+
 def _parse_dt(value, field_name: str) -> datetime | None:
     if value is None or value == "":
         return None
@@ -45,7 +220,12 @@ def _parse_dt(value, field_name: str) -> datetime | None:
         raise ValueError(f"Invalid {field_name}") from exc
 
 
-def _validate_announcement_data(data: dict, *, partial: bool = False) -> dict:
+def _validate_announcement_data(
+    data: dict,
+    *,
+    partial: bool = False,
+    existing: Announcement | None = None,
+) -> dict:
     cleaned: dict = {}
 
     if "title" in data or not partial:
@@ -75,6 +255,43 @@ def _validate_announcement_data(data: dict, *, partial: bool = False) -> dict:
         if audience not in ANNOUNCEMENT_AUDIENCES:
             raise ValueError("Invalid audience")
         cleaned["audience"] = audience
+
+    if "target_mode" in data or not partial:
+        target_mode = (data.get("target_mode") or "broadcast").strip().lower()
+        if target_mode not in ANNOUNCEMENT_TARGET_MODES:
+            raise ValueError("Invalid target mode")
+        cleaned["target_mode"] = target_mode
+
+    effective_target_mode = (
+        cleaned.get("target_mode")
+        or (existing.target_mode if existing else None)
+        or "broadcast"
+    )
+
+    if cleaned.get("target_mode") == "broadcast":
+        cleaned["target_criteria"] = None
+
+    if partial and cleaned.get("target_mode") == "targeted" and "target_criteria" not in data:
+        if not existing or existing.target_mode != "targeted":
+            raise ValueError("Provide targeting criteria when enabling targeted mode")
+
+    if "target_criteria" in data or (not partial and effective_target_mode == "targeted"):
+        if effective_target_mode == "targeted":
+            cleaned["target_criteria"] = _validate_target_criteria(data.get("target_criteria"))
+        elif data.get("target_criteria") is not None:
+            cleaned["target_criteria"] = None
+    elif effective_target_mode == "targeted" and existing and existing.target_mode == "targeted":
+        _validate_target_criteria(existing.target_criteria)
+
+    if effective_target_mode == "targeted":
+        audience = (
+            cleaned.get("audience")
+            or (existing.audience if existing else None)
+            or data.get("audience")
+            or "customers"
+        )
+        if audience not in ("customers", "all"):
+            raise ValueError("Targeted announcements must use the customers audience")
 
     if "display_as" in data or not partial:
         display_as = (data.get("display_as") or "banner").strip().lower()
@@ -123,14 +340,11 @@ def _recipient_query(audience: str):
         return base.filter(User.role.in_(("clerk", "admin")))
     if audience == "all":
         return base.filter(User.role.in_(("customer", "clerk", "admin")))
-    # public audience email broadcast → customers only
     return base.filter(User.role == "customer")
 
 
 def list_admin_announcements() -> list[Announcement]:
-    return (
-        Announcement.query.order_by(Announcement.created_at.desc()).all()
-    )
+    return Announcement.query.order_by(Announcement.created_at.desc()).all()
 
 
 def get_announcement(announcement_id: uuid.UUID) -> Announcement | None:
@@ -158,7 +372,7 @@ def create_announcement(actor: User, data: dict) -> Announcement:
 
 
 def update_announcement(announcement: Announcement, actor: User, data: dict) -> Announcement:
-    cleaned = _validate_announcement_data(data, partial=True)
+    cleaned = _validate_announcement_data(data, partial=True, existing=announcement)
     for key, value in cleaned.items():
         setattr(announcement, key, value)
     db.session.commit()
@@ -195,6 +409,7 @@ def list_active_banners(
         *_active_time_filter(),
         Announcement.audience.in_(audiences),
         Announcement.display_as.in_(("banner", "modal")),
+        _targeted_visibility_filter(user),
     ]
     rows = Announcement.query.filter(*filters).all()
 
@@ -236,6 +451,7 @@ def list_user_inbox(user: User) -> list[dict]:
             Announcement.audience.in_(audiences),
             Announcement.is_active.is_(True),
             or_(Announcement.ends_at.is_(None), Announcement.ends_at > now),
+            _targeted_visibility_filter(user),
         )
         .order_by(Announcement.broadcast_at.desc())
         .limit(100)
@@ -243,8 +459,7 @@ def list_user_inbox(user: User) -> list[dict]:
     )
 
     read_ids = {
-        r.announcement_id
-        for r in AnnouncementRead.query.filter_by(user_id=user.id).all()
+        r.announcement_id for r in AnnouncementRead.query.filter_by(user_id=user.id).all()
     }
 
     return [
@@ -269,9 +484,7 @@ def dismiss_announcement(user: User, announcement_id: uuid.UUID) -> None:
     if existing:
         return
 
-    db.session.add(
-        AnnouncementDismissal(user_id=user.id, announcement_id=announcement_id)
-    )
+    db.session.add(AnnouncementDismissal(user_id=user.id, announcement_id=announcement_id))
     db.session.commit()
 
 
@@ -302,17 +515,35 @@ def _run_email_broadcast(app, job_id: uuid.UUID) -> None:
         job.started_at = datetime.utcnow()
         db.session.commit()
 
-        recipients = _recipient_query(announcement.audience).all()
+        recipient_rows = AnnouncementRecipient.query.filter_by(
+            announcement_id=announcement.id
+        ).all()
+        if announcement.target_mode == "targeted":
+            email_targets = [
+                (row.user, row.tracking_numbers or [])
+                for row in recipient_rows
+                if row.user
+            ]
+        else:
+            email_targets = [(user, []) for user in _recipient_query(announcement.audience).all()]
+
         sent = 0
         failed = 0
 
-        for user in recipients:
+        for user, tracking_numbers in email_targets:
+            body_text = announcement.body
+            if tracking_numbers:
+                tracking_line = ", ".join(tracking_numbers)
+                body_text = (
+                    f"{announcement.body}\n\n"
+                    f"Your affected package(s): {tracking_line}"
+                )
             try:
                 send_announcement_email(
                     user.email,
                     user.first_name,
                     announcement.title,
-                    announcement.body,
+                    body_text,
                 )
                 sent += 1
             except Exception as exc:
@@ -328,7 +559,7 @@ def _run_email_broadcast(app, job_id: uuid.UUID) -> None:
 
         job.sent_count = sent
         job.failed_count = failed
-        job.status = "completed" if failed == 0 else "completed"
+        job.status = "completed"
         job.completed_at = datetime.utcnow()
         db.session.commit()
 
@@ -349,6 +580,12 @@ def broadcast_announcement(
 
     if also_show_banner and announcement.display_as == "inbox_only":
         announcement.display_as = "banner"
+
+    if announcement.target_mode == "targeted":
+        packages = resolve_target_packages(announcement.target_criteria or {})
+        if not packages:
+            raise ValueError("No packages match the selected targeting criteria")
+        _store_target_recipients(announcement, packages)
 
     announcement.broadcast_at = datetime.utcnow()
     job = BroadcastJob(
@@ -380,6 +617,10 @@ def broadcast_announcement(
         job.status = "completed"
         job.started_at = datetime.utcnow()
         job.completed_at = datetime.utcnow()
+        if announcement.target_mode == "targeted":
+            job.sent_count = AnnouncementRecipient.query.filter_by(
+                announcement_id=announcement.id
+            ).count()
         db.session.commit()
 
     return job

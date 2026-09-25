@@ -137,6 +137,7 @@ def ensure_schema(app) -> None:
         "announcements",
         "announcement_dismissals",
         "announcement_reads",
+        "announcement_recipients",
         "broadcast_jobs",
     }
     bootstrap_tables = announcement_tables | {"app_settings"}

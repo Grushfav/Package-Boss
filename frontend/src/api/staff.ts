@@ -405,6 +405,61 @@ export interface ReleaseFromCustomsResult {
   failed: { id: string; tracking_number?: string; error: string }[]
 }
 
+export interface TargetedAnnouncementResult {
+  announcement: {
+    id: string
+    title: string
+    body: string
+    target_mode: 'targeted'
+    broadcast_at: string | null
+  }
+  broadcast_job: {
+    status: string
+    sent_count: number
+    failed_count: number
+  }
+  preview: {
+    package_count: number
+    customer_count: number
+  }
+}
+
+export async function previewTargetedAnnouncementRecipients(payload: {
+  package_ids?: string[]
+  package_statuses?: string[]
+  shipment_id?: string
+}): Promise<{
+  package_count: number
+  customer_count: number
+  customers: Array<{ name: string; package_count: number; tracking_numbers: string[] }>
+}> {
+  const { data } = await api.post<{
+    preview: {
+      package_count: number
+      customer_count: number
+      customers: Array<{ name: string; package_count: number; tracking_numbers: string[] }>
+    }
+  }>('/staff/targeted-announcements/preview', {
+    target_criteria: payload,
+    package_ids: payload.package_ids,
+    package_statuses: payload.package_statuses,
+    shipment_id: payload.shipment_id,
+  })
+  return data.preview
+}
+
+export async function sendTargetedAnnouncement(payload: {
+  title: string
+  body: string
+  package_ids: string[]
+  severity?: 'info' | 'warning' | 'urgent'
+  channels?: Array<'in_app' | 'email'>
+  also_show_banner?: boolean
+}): Promise<TargetedAnnouncementResult> {
+  const { data } = await api.post<TargetedAnnouncementResult>('/staff/targeted-announcements', payload)
+  return data
+}
+
 export async function releasePackagesFromCustoms(payload: {
   items: Array<{
     package_id: string

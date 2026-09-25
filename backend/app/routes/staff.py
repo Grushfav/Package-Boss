@@ -387,6 +387,78 @@ def release_from_customs():
     )
 
 
+@staff_bp.route("/staff/targeted-announcements/preview", methods=["POST"])
+@permission_required("status_customs")
+def preview_targeted_announcement():
+    from app.services.announcement_service import preview_target_recipients
+
+    data = request.get_json(silent=True) or {}
+    criteria = data.get("target_criteria") or data
+    try:
+        preview = preview_target_recipients(criteria)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"preview": preview})
+
+
+@staff_bp.route("/staff/targeted-announcements", methods=["POST"])
+@permission_required("status_customs")
+def create_targeted_announcement():
+    from app.services.announcement_service import (
+        broadcast_announcement,
+        create_announcement,
+        preview_target_recipients,
+    )
+
+    data = request.get_json(silent=True) or {}
+    channels = data.get("channels") or ["in_app", "email"]
+    also_show_banner = bool(data.get("also_show_banner", True))
+    package_ids = data.get("package_ids") or []
+
+    target_criteria = {"package_ids": package_ids}
+    package_statuses = data.get("package_statuses")
+    if package_statuses is None and data.get("package_status"):
+        package_statuses = [data["package_status"]]
+    if package_statuses:
+        target_criteria["package_statuses"] = package_statuses
+    if data.get("shipment_id"):
+        target_criteria["shipment_id"] = data["shipment_id"]
+
+    payload = {
+        "title": data.get("title"),
+        "body": data.get("body"),
+        "severity": data.get("severity") or "warning",
+        "audience": "customers",
+        "target_mode": "targeted",
+        "display_as": data.get("display_as") or "inbox_only",
+        "dismissible": data.get("dismissible", True),
+        "is_active": True,
+        "target_criteria": target_criteria,
+    }
+
+    actor = get_user_from_jwt()
+    try:
+        preview = preview_target_recipients(target_criteria)
+        announcement = create_announcement(actor, payload)
+        job = broadcast_announcement(
+            announcement,
+            actor,
+            channels=channels,
+            also_show_banner=also_show_banner,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(
+        {
+            "announcement": announcement.to_dict(job=job),
+            "broadcast_job": job.to_dict(),
+            "preview": preview,
+        }
+    ), 201
+
+
 @staff_bp.route("/staff/packages/bulk-request-invoice", methods=["POST"])
 @permission_required("invoice_request")
 def bulk_request_invoice():
