@@ -45,6 +45,16 @@ class Announcement(db.Model):
         back_populates="announcement",
         cascade="all, delete-orphan",
     )
+    dismissals = db.relationship(
+        "AnnouncementDismissal",
+        back_populates="announcement",
+        cascade="all, delete-orphan",
+    )
+    reads = db.relationship(
+        "AnnouncementRead",
+        back_populates="announcement",
+        cascade="all, delete-orphan",
+    )
 
     def to_dict(self, *, include_body: bool = True, job: "BroadcastJob | None" = None) -> dict:
         data = {
@@ -95,7 +105,7 @@ class AnnouncementDismissal(db.Model):
     dismissed_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship("User", backref="announcement_dismissals")
-    announcement = db.relationship("Announcement", backref="dismissals")
+    announcement = db.relationship("Announcement", back_populates="dismissals")
 
 
 class AnnouncementRead(db.Model):
@@ -112,7 +122,7 @@ class AnnouncementRead(db.Model):
     read_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship("User", backref="announcement_reads")
-    announcement = db.relationship("Announcement", backref="reads")
+    announcement = db.relationship("Announcement", back_populates="reads")
 
 
 class BroadcastJob(db.Model):
