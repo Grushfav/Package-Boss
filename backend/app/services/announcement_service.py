@@ -75,7 +75,7 @@ def _parse_status_list(criteria: dict) -> list[str]:
 
 
 def _validate_target_criteria(criteria: dict | None) -> dict:
-    if not criteria:
+    if not criteria or not isinstance(criteria, dict):
         raise ValueError("Targeting criteria are required for targeted announcements")
 
     package_ids = _parse_uuid_list(criteria.get("package_ids"))
@@ -281,7 +281,10 @@ def _validate_announcement_data(
         elif data.get("target_criteria") is not None:
             cleaned["target_criteria"] = None
     elif effective_target_mode == "targeted" and existing and existing.target_mode == "targeted":
-        _validate_target_criteria(existing.target_criteria)
+        if "target_criteria" in data or any(
+            key in data for key in ("target_mode", "title", "body", "audience", "display_as")
+        ):
+            _validate_target_criteria(existing.target_criteria)
 
     if effective_target_mode == "targeted":
         audience = (

@@ -132,6 +132,26 @@ def ensure_schema(app) -> None:
             db.session.commit()
             app.logger.info("Added missing bank_transfer_proofs.include_delivery_fee column")
 
+    if "announcements" in inspector.get_table_names():
+        ann_cols = {col["name"] for col in inspector.get_columns("announcements")}
+        if "target_mode" not in ann_cols:
+            db.session.execute(
+                text(
+                    "ALTER TABLE announcements "
+                    "ADD COLUMN target_mode VARCHAR(20) NOT NULL DEFAULT 'broadcast'"
+                )
+            )
+            db.session.commit()
+            app.logger.info("Added missing announcements.target_mode column")
+            ann_cols.add("target_mode")
+        if "target_criteria" not in ann_cols:
+            json_type = "JSONB" if db.engine.dialect.name == "postgresql" else "TEXT"
+            db.session.execute(
+                text(f"ALTER TABLE announcements ADD COLUMN target_criteria {json_type}")
+            )
+            db.session.commit()
+            app.logger.info("Added missing announcements.target_criteria column")
+
     # Migrations own new tables; create_all only backfills models without migrations.
     announcement_tables = {
         "announcements",
