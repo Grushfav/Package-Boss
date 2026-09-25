@@ -50,17 +50,27 @@ export function setCachedRates(data: RatesResponse) {
   }
 }
 
-/** Use revision-scoped cache when fresh; otherwise fetch and persist. */
+/** Fetch live rates; cache by revision for offline fallback only. */
 export async function loadRates(options?: { force?: boolean }): Promise<RatesResponse> {
   if (options?.force) {
     clearRatesCache()
-  } else {
+  }
+
+  try {
+    const data = await fetchRates()
+    const revision = data.rates_revision ?? null
+    const activeRevision = localStorage.getItem(ACTIVE_REVISION_KEY)
+
+    if (revision && activeRevision && revision !== activeRevision) {
+      clearRatesCache()
+    }
+
+    setCachedRates(data)
+    return data
+  } catch (err) {
     const activeRevision = localStorage.getItem(ACTIVE_REVISION_KEY)
     const cached = getCachedRates(activeRevision)
     if (cached) return cached
+    throw err
   }
-
-  const data = await fetchRates()
-  setCachedRates(data)
-  return data
 }
