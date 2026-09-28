@@ -11,7 +11,7 @@ QUOTE_MESSAGE = (
 )
 
 REVISED_RATE_USD_BY_LBS: dict[int, Decimal] = {
-    1: Decimal("4.0625"),
+    1: Decimal("4.375"),
     2: Decimal("6.875"),
     3: Decimal("9.375"),
     4: Decimal("11.875"),

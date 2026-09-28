@@ -1,6 +1,6 @@
 export const COMPANY_LEGAL_NAME = 'Package Boss Shipping & Logistics'
 export const TERMS_EFFECTIVE_DATE = 'June 21, 2026'
-export const CLAIMS_EMAIL = 'support@packageboss.com'
+export const CLAIMS_EMAIL = 'support@packagebossja.com'
 
 export interface TermsSection {
   title: string

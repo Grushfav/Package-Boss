@@ -70,8 +70,9 @@ def build_rate_table() -> list[dict]:
 
 def calculate_shipping_cost(actual_weight_lbs: Decimal | float) -> dict:
     billable = billable_weight_lbs(actual_weight_lbs)
-    cost = usd_for_billable_lbs(billable).quantize(Decimal("0.01"))
-    cost_jmd = jmd_for_usd(cost)
+    tier_usd = usd_for_billable_lbs(billable)
+    cost_jmd = jmd_for_usd(tier_usd)
+    cost = tier_usd.quantize(Decimal("0.01"))
 
     return {
         "actual_weight_lbs": float(actual_weight_lbs),
@@ -119,8 +120,9 @@ def calculate_receive_quote(actual_weight_lbs: Decimal | float) -> dict:
             "requires_custom_quote": True,
         }
 
-    cost = usd_for_billable_lbs(billable).quantize(Decimal("0.01"))
-    cost_jmd = jmd_for_usd(cost)
+    tier_usd = usd_for_billable_lbs(billable)
+    cost_jmd = jmd_for_usd(tier_usd)
+    cost = tier_usd.quantize(Decimal("0.01"))
     return {
         **base,
         "cost_usd": float(cost),
