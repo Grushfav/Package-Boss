@@ -1,7 +1,13 @@
 import { api } from './client'
+import {
+  DELIVERY_FEE_JMD,
+  DELIVERY_FEE_KINGSTON_JMD,
+  DELIVERY_FEE_PORTMORE_JMD,
+  DELIVERY_FEE_SUMMARY,
+} from '../lib/deliveryFees'
 import type { DeliveryRequest, PaymentTotalSummary } from '../types'
 
-export const DELIVERY_FEE_JMD = 800
+export { DELIVERY_FEE_JMD, DELIVERY_FEE_KINGSTON_JMD, DELIVERY_FEE_PORTMORE_JMD, DELIVERY_FEE_SUMMARY }
 
 export async function fetchMyDeliveryRequests(): Promise<DeliveryRequest[]> {
   const { data } = await api.get<{ delivery_requests: DeliveryRequest[] }>('/me/delivery-requests')

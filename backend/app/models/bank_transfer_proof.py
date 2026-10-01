@@ -37,7 +37,7 @@ class BankTransferProof(db.Model):
             return False
         from decimal import Decimal
 
-        from app.constants import DELIVERY_FEE_JMD
+        from app.constants import DELIVERY_FEE_KINGSTON_JMD
 
         packages_total = Decimal("0")
         for link in self.package_links:
@@ -46,7 +46,7 @@ class BankTransferProof(db.Model):
         if packages_total <= 0:
             return False
         amount = Decimal(str(self.amount_jmd))
-        expected_with_delivery = packages_total + DELIVERY_FEE_JMD
+        expected_with_delivery = packages_total + DELIVERY_FEE_KINGSTON_JMD
         return amount >= expected_with_delivery - Decimal("0.01")
 
     def to_dict(self, include_packages: bool = False) -> dict:

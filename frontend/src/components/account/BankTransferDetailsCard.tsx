@@ -5,7 +5,8 @@ import {
   fetchMyBankTransferProofs,
   submitBankTransferProof,
 } from '../../api/bankTransferProofs'
-import { fetchPaymentTotal, DELIVERY_FEE_JMD } from '../../api/deliveryRequests'
+import { fetchPaymentTotal, DELIVERY_FEE_SUMMARY } from '../../api/deliveryRequests'
+import { DELIVERY_FEE_JMD } from '../../lib/deliveryFees'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import {
@@ -205,7 +206,7 @@ function BankTransferProofUpload() {
                   {formatJmd(deliveryFee > 0 ? deliveryFee : DELIVERY_FEE_JMD)})
                   {deliveryFee > 0
                     ? ' — required for your delivery request'
-                    : ' — add home delivery to this transfer'}
+                    : ` — ${DELIVERY_FEE_SUMMARY}`}
                 </span>
               </label>
               {includeDeliveryFee && (

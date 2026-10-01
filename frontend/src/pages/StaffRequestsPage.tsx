@@ -460,7 +460,7 @@ export function StaffRequestsPage() {
 
           <span className="inline-flex items-center gap-1 text-xs text-muted sm:ml-auto">
             <Truck className="h-3.5 w-3.5" />
-            J$800 / delivery run
+            Kingston J$800 · Portmore J$1,000 / run
           </span>
         </div>
       </div>

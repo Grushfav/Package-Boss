@@ -41,6 +41,8 @@ export interface DeliveryAddress {
   is_default: boolean
   sort_order: number
   formatted: string
+  delivery_fee_jmd?: number
+  delivery_fee_area?: string
   created_at: string
   updated_at: string
 }

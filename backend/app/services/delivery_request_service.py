@@ -2,7 +2,9 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 
-from app.constants import DELIVERY_FEE_JMD, DELIVERY_REQUEST_OPEN_STATUSES, PAYMENT_ELIGIBLE_STATUS
+from app.constants import DELIVERY_REQUEST_OPEN_STATUSES, PAYMENT_ELIGIBLE_STATUS
+from app.services.delivery_fee_service import delivery_fee_for_parish
+from app.services.delivery_address_service import validate_delivery_parish_for_service
 from app.extensions import db
 from app.models.delivery_request import DeliveryRequest, DeliveryRequestPackage
 from app.models.package import Package
@@ -193,6 +195,8 @@ def create_delivery_request(
     address = get_delivery_address(customer, delivery_address_id)
     if not address:
         raise ValueError("Delivery address not found")
+    validate_delivery_parish_for_service(address.parish)
+    delivery_fee = delivery_fee_for_parish(address.parish)
 
     note_text = (notes or "").strip() or None
     if note_text and len(note_text) > 500:
@@ -202,7 +206,7 @@ def create_delivery_request(
         customer_id=customer.id,
         delivery_address_id=address.id,
         status="pending",
-        delivery_fee_jmd=DELIVERY_FEE_JMD,
+        delivery_fee_jmd=delivery_fee,
         notes=note_text,
         requested_at=datetime.utcnow(),
     )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 
 BRAND_NAME = "Package Boss"
+COMPANY_LEGAL_NAME = "Package Boss Shipping & Logistics"
 BRAND_TAGLINE = "Ship Smart. Ship Easy."
 BRAND_GREEN = "#22c55e"
 BRAND_GREEN_DARK = "#16a34a"
@@ -14,8 +15,9 @@ BG_CARD = "#ffffff"
 TEXT_PRIMARY = "#0f172a"
 TEXT_MUTED = "#64748b"
 BORDER = "#e2e8f0"
-EMAIL_LOGO_WIDTH = 144
-EMAIL_LOGO_HEIGHT = 144
+# Match frontend/scripts/generate-icons.mjs email-logo.png aspect ratio (320×122).
+EMAIL_LOGO_WIDTH = 240
+EMAIL_LOGO_HEIGHT = 92
 
 
 def _esc(value: str) -> str:
@@ -37,18 +39,31 @@ def render_layout(
         safe_logo = _esc(logo_url)
         logo_block = f"""
           <tr>
-            <td align="center" style="padding:28px 32px 8px;">
+            <td align="center" style="padding:28px 32px 0;">
               <img src="{safe_logo}" alt="{_esc(BRAND_NAME)}" width="{EMAIL_LOGO_WIDTH}" height="{EMAIL_LOGO_HEIGHT}"
-                   style="display:block;border:0;" />
+                   style="display:block;border:0;width:{EMAIL_LOGO_WIDTH}px;height:auto;max-width:100%;" />
             </td>
           </tr>"""
     else:
         logo_block = f"""
           <tr>
-            <td align="center" style="padding:28px 32px 8px;">
+            <td align="center" style="padding:28px 32px 0;">
               <span style="font-size:22px;font-weight:800;letter-spacing:0.04em;color:{BRAND_GREEN};">
                 {_esc(BRAND_NAME.upper())}
               </span>
+            </td>
+          </tr>"""
+
+    brand_header_block = f"""
+          <tr>
+            <td style="padding:12px 32px 0;text-align:center;">
+              <p style="margin:0;font-size:15px;font-weight:700;line-height:1.3;color:{TEXT_PRIMARY};">
+                {_esc(COMPANY_LEGAL_NAME)}
+              </p>
+              <p style="margin:6px 0 0;font-size:11px;font-weight:600;letter-spacing:0.12em;
+                        text-transform:uppercase;color:{TEXT_MUTED};">
+                {_esc(BRAND_TAGLINE)}
+              </p>
             </td>
           </tr>"""
 
@@ -105,14 +120,7 @@ def render_layout(
             <td style="background:{BRAND_NAVY};height:6px;font-size:0;line-height:0;">&nbsp;</td>
           </tr>
           {logo_block}
-          <tr>
-            <td style="padding:8px 32px 0;text-align:center;">
-              <p style="margin:0;font-size:11px;font-weight:600;letter-spacing:0.12em;
-                        text-transform:uppercase;color:{TEXT_MUTED};">
-                {_esc(BRAND_TAGLINE)}
-              </p>
-            </td>
-          </tr>
+          {brand_header_block}
           <tr>
             <td style="padding:20px 32px 8px;">
               <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:800;color:{TEXT_PRIMARY};">
@@ -131,7 +139,7 @@ def render_layout(
               <hr style="border:none;border-top:1px solid {BORDER};margin:16px 0;" />
               <p style="margin:0;font-size:13px;line-height:1.5;color:{TEXT_MUTED};">
                 Fort Lauderdale → Kingston freight forwarding<br />
-                <strong style="color:{TEXT_PRIMARY};">{_esc(BRAND_NAME)} Shipping &amp; Logistics</strong>
+                <strong style="color:{TEXT_PRIMARY};">{_esc(COMPANY_LEGAL_NAME)}</strong>
               </p>
               {footer_extra}
             </td>

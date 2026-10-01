@@ -7,6 +7,8 @@ import {
 } from '../../api/deliveryAddresses'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
+import { deliveryFeeAreaForParish, deliveryFeeForAddress } from '../../lib/deliveryFees'
+import { formatJmd } from '../../lib/money'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 
@@ -92,7 +94,9 @@ export function DeliveryAddressesSection() {
         )}
       </div>
       <p className="mt-2 text-sm text-muted">
-        Save up to {maxAddresses} Jamaica addresses for Kingston &amp; Portmore delivery.
+        Save up to {maxAddresses} Jamaica addresses for home delivery. Kingston &amp; St. Andrew:{' '}
+        <span className="font-semibold text-foreground">$800 JMD</span> · Portmore (St. Catherine):{' '}
+        <span className="font-semibold text-foreground">$1,000 JMD</span> per delivery run.
       </p>
 
       {error && (
@@ -192,6 +196,10 @@ export function DeliveryAddressesSection() {
                     )}
                   </p>
                   <pre className="mt-2 whitespace-pre-wrap text-sm text-muted">{addr.formatted}</pre>
+                  <p className="mt-1 text-xs text-boss-gold">
+                    Delivery fee: {deliveryFeeAreaForParish(addr.parish)} ·{' '}
+                    {formatJmd(deliveryFeeForAddress(addr))}
+                  </p>
                   <p className="mt-1 text-xs text-muted">{addr.contact_number}</p>
                 </div>
                 <div className="flex gap-2">

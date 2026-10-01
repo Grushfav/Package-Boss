@@ -4,7 +4,8 @@ from decimal import Decimal
 from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 
-from app.constants import DELIVERY_FEE_JMD, PAYMENT_ELIGIBLE_STATUS, PAYMENT_METHODS
+from app.constants import PAYMENT_ELIGIBLE_STATUS, PAYMENT_METHODS
+from app.services.delivery_fee_service import infer_optional_delivery_fee_jmd
 from app.extensions import db
 from app.models.package import Package
 from app.models.payment import PaymentCheckout, PaymentCheckoutItem
@@ -300,7 +301,7 @@ def record_payment_checkout(
     packages = _validate_checkout_packages(customer, package_ids)
     delivery_request, delivery_fee = resolve_delivery_request_for_payment(customer, packages)
     if delivery_fee <= 0 and include_delivery_fee:
-        delivery_fee = DELIVERY_FEE_JMD
+        delivery_fee = infer_optional_delivery_fee_jmd(customer, packages)
     total = Decimal("0")
     line_amounts: list[tuple[Package, Decimal]] = []
 

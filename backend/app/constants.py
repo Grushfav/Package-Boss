@@ -115,7 +115,10 @@ SHIPPER_LABELS = {s["code"]: s["label"] for s in SHIPPERS}
 # Kingston & Portmore delivery area
 DELIVERY_PARISHES = ["Kingston", "St. Andrew", "St. Catherine"]
 MAX_DELIVERY_ADDRESSES = 4
-DELIVERY_FEE_JMD = Decimal("800.00")
+DELIVERY_FEE_KINGSTON_JMD = Decimal("800.00")
+DELIVERY_FEE_PORTMORE_JMD = Decimal("1000.00")
+# Default / legacy alias (Kingston & St. Andrew rate)
+DELIVERY_FEE_JMD = DELIVERY_FEE_KINGSTON_JMD
 
 DELIVERY_REQUEST_STATUSES = ["pending", "in_progress", "completed", "cancelled"]
 DELIVERY_REQUEST_STATUS_LABELS = {

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/client'
-import { createDeliveryRequest, DELIVERY_FEE_JMD } from '../../api/deliveryRequests'
+import { createDeliveryRequest, DELIVERY_FEE_SUMMARY } from '../../api/deliveryRequests'
+import { deliveryFeeAreaForParish, deliveryFeeForAddress } from '../../lib/deliveryFees'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { formatPackageCost } from '../../lib/packageBilling'
 import { formatJmd, sumJmd } from '../../lib/money'
@@ -28,7 +29,9 @@ export function RequestDeliveryModal({
   const [loading, setLoading] = useState(false)
 
   const packagesTotal = sumJmd(packages.map((pkg) => pkg.total_due_jmd))
-  const totalWithDelivery = packagesTotal + DELIVERY_FEE_JMD
+  const selectedAddress = deliveryAddresses.find((addr) => addr.id === addressId)
+  const deliveryFee = selectedAddress ? deliveryFeeForAddress(selectedAddress) : 0
+  const totalWithDelivery = packagesTotal + deliveryFee
 
   const packageSummary = useMemo(
     () => packages.map((pkg) => pkg.tracking_number).join(', '),
@@ -67,8 +70,8 @@ export function RequestDeliveryModal({
           <div>
             <h3 className="text-lg font-bold uppercase tracking-wide">Request delivery</h3>
             <p className="mt-1 text-sm text-muted">
-              {packages.length} package{packages.length === 1 ? '' : 's'} · one delivery fee applies
-              to the whole request.
+              {packages.length} package{packages.length === 1 ? '' : 's'} · one delivery fee per
+              request ({DELIVERY_FEE_SUMMARY}).
             </p>
           </div>
           <button
@@ -126,6 +129,10 @@ export function RequestDeliveryModal({
                   <span>
                     <span className="font-semibold">{addr.label}</span>
                     <span className="mt-1 block text-muted">{addr.formatted}</span>
+                    <span className="mt-1 block text-xs text-boss-gold">
+                      Delivery: {deliveryFeeAreaForParish(addr.parish)} ·{' '}
+                      {formatJmd(deliveryFeeForAddress(addr))}
+                    </span>
                   </span>
                 </label>
               ))}
@@ -154,13 +161,20 @@ export function RequestDeliveryModal({
                 <span>{packagesTotal > 0 ? formatJmd(packagesTotal) : 'Bill pending'}</span>
               </div>
               <div className="mt-2 flex justify-between gap-3">
-                <span className="text-muted">Delivery fee</span>
-                <span>{formatJmd(DELIVERY_FEE_JMD)}</span>
+                <span className="text-muted">
+                  Delivery fee
+                  {selectedAddress ? ` (${deliveryFeeAreaForParish(selectedAddress.parish)})` : ''}
+                </span>
+                <span>{selectedAddress ? formatJmd(deliveryFee) : '—'}</span>
               </div>
               <div className="mt-3 flex justify-between gap-3 border-t border-border pt-3 font-semibold">
                 <span>Estimated total</span>
                 <span className="text-boss-gold">
-                  {packagesTotal > 0 ? formatJmd(totalWithDelivery) : `${formatJmd(DELIVERY_FEE_JMD)} + bills`}
+                  {packagesTotal > 0 && selectedAddress
+                    ? formatJmd(totalWithDelivery)
+                    : selectedAddress
+                      ? `${formatJmd(deliveryFee)} + bills`
+                      : 'Select address'}
                 </span>
               </div>
               <p className="mt-2 text-xs text-muted">

@@ -1,7 +1,7 @@
 import { Truck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
-import { DELIVERY_FEE_JMD } from '../../api/deliveryRequests'
+import { DELIVERY_FEE_SUMMARY } from '../../api/deliveryRequests'
 import { openCheckoutBillInvoice, recordCustomerCheckout } from '../../api/staff'
 import {
   optionalDeliveryFeeAmount,
@@ -270,9 +270,10 @@ export function CheckoutPaymentModal({
                 className="mt-0.5 rounded border-border"
               />
               <span>
-                Include delivery fee ({formatJmd(DELIVERY_FEE_JMD)})
+                Include delivery fee ({DELIVERY_FEE_SUMMARY})
                 <span className="mt-0.5 block text-xs text-muted">
-                  Add home delivery to this checkout
+                  Fee depends on delivery address parish. Kingston &amp; St. Andrew uses $800 JMD;
+                  Portmore uses $1,000 JMD when a delivery address is on file.
                 </span>
               </span>
             </label>

@@ -1,4 +1,6 @@
-import { DELIVERY_FEE_JMD } from '../api/deliveryRequests'
+import { DELIVERY_FEE_JMD, DELIVERY_FEE_SUMMARY } from '../api/deliveryRequests'
+
+export { DELIVERY_FEE_SUMMARY }
 import type { DeliveryRequest } from '../types'
 
 export interface CheckoutDeliveryState {

@@ -40,6 +40,12 @@ class DeliveryAddress(db.Model):
         return "\n".join(lines)
 
     def to_dict(self) -> dict:
+        from app.services.delivery_fee_service import (
+            delivery_fee_area_for_parish,
+            delivery_fee_for_parish,
+        )
+
+        fee = delivery_fee_for_parish(self.parish)
         return {
             "id": str(self.id),
             "label": self.label,
@@ -53,6 +59,8 @@ class DeliveryAddress(db.Model):
             "is_default": self.is_default,
             "sort_order": self.sort_order,
             "formatted": self.formatted(),
+            "delivery_fee_jmd": float(fee),
+            "delivery_fee_area": delivery_fee_area_for_parish(self.parish),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }

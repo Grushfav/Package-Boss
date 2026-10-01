@@ -3,7 +3,8 @@ from decimal import Decimal
 
 from sqlalchemy.orm import selectinload
 
-from app.constants import BANK_TRANSFER_PROOF_OPEN_STATUSES, DELIVERY_FEE_JMD, PAYMENT_ELIGIBLE_STATUS, SENDER_BANKS
+from app.constants import BANK_TRANSFER_PROOF_OPEN_STATUSES, DELIVERY_FEE_KINGSTON_JMD, PAYMENT_ELIGIBLE_STATUS, SENDER_BANKS
+from app.services.delivery_fee_service import infer_optional_delivery_fee_jmd
 from app.extensions import db
 from app.models.bank_transfer_proof import BankTransferProof, BankTransferProofPackage
 from app.models.package import Package
@@ -237,7 +238,7 @@ def _expected_proof_total(
     expected = compute_payment_total_with_delivery(customer, [str(p.id) for p in packages])
     total = Decimal(str(expected["total_jmd"]))
     if include_delivery_fee and Decimal(str(expected["delivery_fee_jmd"])) == 0:
-        total += DELIVERY_FEE_JMD
+        total += infer_optional_delivery_fee_jmd(customer, packages)
     return total.quantize(Decimal("0.01"))
 
 

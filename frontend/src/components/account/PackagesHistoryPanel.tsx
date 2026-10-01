@@ -264,7 +264,8 @@ export function PackagesHistoryPanel() {
           <p className="mt-1 text-muted">
             Packages marked{' '}
             <span className="font-semibold text-boss-gold">Ready for Pickup</span> can be delivered
-            to Kingston and Portmore for a fee. Select eligible
+            home in Kingston &amp; St. Andrew ($800 JMD) or Portmore ($1,000 JMD) per delivery run.
+            Select eligible
             packages in the table below, then tap{' '}
             <span className="font-semibold text-foreground">Request delivery</span>.{' '}
             <Link to="/dashboard/profile" className="font-semibold text-boss-gold hover:underline">

@@ -46,7 +46,7 @@ def _invoice_brand_block() -> str:
     if logo_src:
         return (
             f'<img src="{logo_src}" alt="Package Boss" '
-            'style="display:block;height:72px;width:72px;object-fit:contain;" />'
+            'style="display:block;width:189px;height:auto;max-width:100%;object-fit:contain;" />'
         )
     return (
         '<p style="margin:0;font-size:22px;font-weight:800;color:#22c55e;'
@@ -70,6 +70,24 @@ def _money_jmd(value) -> str:
     if amount == int(amount):
         return f"J${int(amount):,}"
     return f"J${amount:,.2f}"
+
+
+def _checkout_delivery_fee_label(checkout: PaymentCheckout) -> str:
+    from app.constants import DELIVERY_FEE_KINGSTON_JMD, DELIVERY_FEE_PORTMORE_JMD
+    from app.services.delivery_fee_service import delivery_fee_area_for_parish
+
+    if checkout.delivery_request_id and checkout.delivery_request:
+        request = checkout.delivery_request
+        if request.delivery_address:
+            area = delivery_fee_area_for_parish(request.delivery_address.parish)
+            return f"Delivery fee ({area})"
+
+    fee = checkout.delivery_fee_jmd
+    if fee is not None and fee == DELIVERY_FEE_PORTMORE_JMD:
+        return "Delivery fee (Portmore)"
+    if fee is not None and fee == DELIVERY_FEE_KINGSTON_JMD:
+        return "Delivery fee (Kingston & St. Andrew)"
+    return "Delivery fee"
 
 
 def _package_line_items(package: Package) -> list[tuple[str, float]]:
@@ -129,7 +147,7 @@ def render_checkout_invoice_html(
     if checkout.delivery_fee_jmd is not None and float(checkout.delivery_fee_jmd) > 0:
         delivery_fee_block = f"""
     <div style="margin-top:16px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:14px;font-weight:600;color:#64748b;">Delivery fee (Kingston &amp; Portmore)</span>
+      <span style="font-size:14px;font-weight:600;color:#64748b;">{_esc(_checkout_delivery_fee_label(checkout))}</span>
       <span style="font-size:15px;font-weight:700;">{_esc(_money_jmd(checkout.delivery_fee_jmd))}</span>
     </div>"""
 

@@ -49,12 +49,17 @@ export const SERVICES: ServiceItem[] = [
   {
     title: 'Delivery',
     summary:
-      'Kingston & Portmore delivery, Thu–Sat pickup, and islandwide partners.',
+      'Home delivery in Kingston ($800 JMD) and Portmore ($1,000 JMD), plus islandwide partners.',
     description:
-      'Delivery within Kingston and Portmore on designated days for a fee. Outside Kingston and Portmore, we use trusted partners including Knutsford Express and Zipmail for islandwide access.',
+      'Home delivery is available on designated days: Kingston & St. Andrew for $800 JMD per delivery run, and Portmore (St. Catherine) for $1,000 JMD per delivery run. One fee applies to the whole delivery request, regardless of package count. Outside our delivery zone, we use trusted partners including Knutsford Express and Zipmail for islandwide access.',
     icon: Truck,
   },
 ]
+
+export const DELIVERY_FEE_KINGSTON_JMD = 800
+export const DELIVERY_FEE_PORTMORE_JMD = 1000
+export const DELIVERY_FEE_SUMMARY =
+  'Kingston & St. Andrew: $800 JMD · Portmore: $1,000 JMD per delivery run'
 
 export const PICKUP_DAYS = 'Thursdays to Saturdays'
 export const DELIVERY_AREAS = 'Kingston and Portmore'
