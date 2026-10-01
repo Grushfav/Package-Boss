@@ -8,6 +8,7 @@ from flask import current_app
 
 from app.services.email_templates import (
     render_invoice_request_html,
+    render_package_status_batch_html,
     render_package_status_html,
     render_password_reset_html,
     render_welcome_html,
@@ -369,6 +370,90 @@ def send_package_status_email(
             "type": "package_status",
             "trackingNumber": tracking_number,
             "status": status,
+        },
+        async_send=True,
+    )
+
+
+def send_package_status_batch_email(
+    to_email: str,
+    first_name: str,
+    packages: list,
+    status: str,
+    *,
+    status_label: str | None = None,
+    note: str | None = None,
+) -> None:
+    if not packages:
+        return
+
+    if not _customer_notification_emails_enabled():
+        current_app.logger.info(
+            "Customer email notifications disabled — skipping batch status email for %d packages",
+            len(packages),
+        )
+        return
+
+    from app.constants import SHIPPER_LABELS, STATUS_LABELS
+
+    label = status_label or STATUS_LABELS.get(status, status.replace("_", " ").title())
+    count = len(packages)
+    frontend = (current_app.config.get("FRONTEND_URL") or "http://localhost:5173").rstrip("/")
+    packages_url = f"{frontend}/dashboard/packages"
+    if status == "ready_for_pickup":
+        cta_url = packages_url
+        cta_label = "View packages & bills"
+    else:
+        cta_url = packages_url
+        cta_label = "View packages"
+
+    tracking_numbers = [pkg.tracking_number for pkg in packages]
+    subject = f"Package update — {count} packages: {label}"
+
+    tracking_lines = "\n".join(f"  • {tn}" for tn in tracking_numbers)
+    body = (
+        f"Hi {first_name},\n\n"
+        f"Your package status is now: {label}.\n\n"
+        f"{count} packages:\n{tracking_lines}\n\n"
+        f"View your packages: {packages_url}\n\n"
+        f"— Package Boss"
+    )
+    if note:
+        body = (
+            f"Hi {first_name},\n\n"
+            f"Your package status is now: {label}.\n\n"
+            f"{note}\n\n"
+            f"{count} packages:\n{tracking_lines}\n\n"
+            f"View your packages: {packages_url}\n\n"
+            f"— Package Boss"
+        )
+
+    package_rows: list[tuple[str, str | None, str | None]] = []
+    for pkg in packages:
+        shipper_label = SHIPPER_LABELS.get(pkg.shipper, pkg.shipper) if pkg.shipper else None
+        package_rows.append((pkg.tracking_number, pkg.carrier_tracking, shipper_label))
+
+    html_body = render_package_status_batch_html(
+        first_name,
+        package_rows,
+        status,
+        label,
+        packages_url,
+        note=note,
+        logo_url=resolve_logo_url(),
+        cta_url=cta_url,
+        cta_label=cta_label,
+    )
+    _dispatch_email(
+        to_email,
+        subject,
+        body,
+        html_body=html_body,
+        metadata={
+            "type": "package_status_batch",
+            "status": status,
+            "packageCount": count,
+            "trackingNumbers": tracking_numbers,
         },
         async_send=True,
     )

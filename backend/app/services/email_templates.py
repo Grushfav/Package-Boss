@@ -251,6 +251,17 @@ STATUS_CUSTOMER_MESSAGES: dict[str, str] = {
     "delivered": "Your package has been delivered. Thank you for shipping with Package Boss!",
 }
 
+STATUS_CUSTOMER_MESSAGES_BATCH: dict[str, str] = {
+    "awaiting_receipt": "We're waiting for your packages to arrive at our Fort Lauderdale warehouse.",
+    "received": "Your packages have been received at our warehouse.",
+    "in_transit": "Your packages are in transit to Jamaica.",
+    "customs": "Your packages are in customs clearance.",
+    "ready_for_pickup": (
+        "Your packages are ready for pickup or delivery. Your bills are now available."
+    ),
+    "delivered": "Your packages have been delivered. Thank you for shipping with Package Boss!",
+}
+
 
 def render_welcome_html(
     first_name: str,
@@ -368,4 +379,80 @@ def render_package_status_html(
         logo_url=logo_url,
         cta_url=cta_url or track_url,
         cta_label=cta_label or "Track package",
+    )
+
+
+def render_package_status_batch_html(
+    first_name: str,
+    package_rows: list[tuple[str, str | None, str | None]],
+    status: str,
+    status_label: str,
+    packages_url: str,
+    note: str | None = None,
+    logo_url: str | None = None,
+    cta_url: str | None = None,
+    cta_label: str | None = None,
+) -> str:
+    from app.constants import STATUS_LABELS
+
+    safe_name = _esc(first_name)
+    safe_label = _esc(status_label)
+    count = len(package_rows)
+    message = STATUS_CUSTOMER_MESSAGES_BATCH.get(status) or STATUS_CUSTOMER_MESSAGES.get(status)
+    if not message:
+        message = STATUS_LABELS.get(status, status)
+    safe_message = _esc(message)
+    note_block = ""
+    if note:
+        note_block = render_info_box(
+            f'<strong style="color:{TEXT_PRIMARY};">Update</strong><br />{html.escape(note)}'
+        )
+
+    table_rows = ""
+    for tracking, carrier_tracking, shipper_label in package_rows:
+        safe_tracking = _esc(tracking)
+        extra_parts: list[str] = []
+        if carrier_tracking and carrier_tracking.strip():
+            extra_parts.append(f"Carrier: {_esc(carrier_tracking.strip())}")
+        if shipper_label and shipper_label.strip():
+            extra_parts.append(f"Shipper: {_esc(shipper_label.strip())}")
+        extra_html = ""
+        if extra_parts:
+            extra_html = (
+                f'<br /><span style="font-size:12px;color:{TEXT_MUTED};">'
+                f'{" · ".join(extra_parts)}</span>'
+            )
+        table_rows += f"""
+          <tr>
+            <td style="padding:10px 12px;border-bottom:1px solid {BORDER};font-family:ui-monospace,Consolas,monospace;font-size:14px;font-weight:600;color:{BRAND_GREEN_DARK};">
+              {safe_tracking}{extra_html}
+            </td>
+          </tr>"""
+
+    packages_table = f"""
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+             style="border:1px solid {BORDER};border-radius:8px;overflow:hidden;">
+        <tr>
+          <td style="padding:10px 12px;background:{BG_PAGE};font-size:12px;font-weight:700;color:{TEXT_MUTED};text-transform:uppercase;letter-spacing:0.04em;">
+            {count} package{"s" if count != 1 else ""} · {_esc(status_label)}
+          </td>
+        </tr>
+        {table_rows}
+      </table>"""
+
+    body = f"""
+      <p style="margin:0 0 12px;">Hi {safe_name},</p>
+      <p style="margin:0 0 12px;">{safe_message}</p>
+      {packages_table}
+      {note_block}"""
+    tracking_preview = ", ".join(row[0] for row in package_rows[:3])
+    if count > 3:
+        tracking_preview += f" +{count - 3} more"
+    return render_layout(
+        preheader=f"{count} packages — {status_label} ({tracking_preview})",
+        title="Package status update",
+        body_html=body,
+        logo_url=logo_url,
+        cta_url=cta_url or packages_url,
+        cta_label=cta_label or "View packages",
     )

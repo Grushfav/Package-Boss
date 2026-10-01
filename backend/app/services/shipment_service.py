@@ -273,7 +273,7 @@ def depart_shipment(
             )
             continue
         try:
-            add_package_event(package, "in_transit", event_note)
+            add_package_event(package, "in_transit", event_note, skip_status_email=True)
             updated.append(package)
         except ValueError as exc:
             failed.append(
@@ -328,6 +328,9 @@ def depart_shipment(
             )
 
     db.session.commit()
+    from app.services.package_status_notification_service import notify_customers_of_status_batch
+
+    notify_customers_of_status_batch([(pkg, event_note) for pkg in updated], "in_transit")
     return updated, failed
 
 
@@ -423,7 +426,7 @@ def batch_depart_packages(
     )
     updated: list[Package] = []
     for package in packages:
-        add_package_event(package, "in_transit", event_note)
+        add_package_event(package, "in_transit", event_note, skip_status_email=True)
         updated.append(package)
 
     now = datetime.utcnow()
@@ -476,4 +479,7 @@ def batch_depart_packages(
             )
 
     db.session.commit()
+    from app.services.package_status_notification_service import notify_customers_of_status_batch
+
+    notify_customers_of_status_batch([(pkg, event_note) for pkg in updated], "in_transit")
     return shipment, updated

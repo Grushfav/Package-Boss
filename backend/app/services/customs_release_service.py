@@ -13,6 +13,7 @@ def release_package_from_customs(
     handling_jmd: float | None = None,
     other_fees_jmd: float | None = None,
     note: str | None = None,
+    skip_status_email: bool = False,
 ) -> Package:
     if package.status != "customs":
         raise ValueError(f"{package.tracking_number} is not in customs")
@@ -28,6 +29,7 @@ def release_package_from_customs(
         package,
         "ready_for_pickup",
         note or "Released from customs — bill published",
+        skip_status_email=skip_status_email,
     )
     return package
 
@@ -38,6 +40,7 @@ def release_packages_from_customs(
     note: str | None = None,
 ) -> tuple[list[Package], list[dict]]:
     released: list[Package] = []
+    notify_entries: list[tuple[Package, str | None]] = []
     failed: list[dict] = []
 
     for item in items:
@@ -46,6 +49,7 @@ def release_packages_from_customs(
         if not package:
             failed.append({"id": str(raw_id), "error": "Package not found"})
             continue
+        item_note = item.get("note") or note
         try:
             release_package_from_customs(
                 package,
@@ -53,9 +57,13 @@ def release_packages_from_customs(
                 duties_jmd=item.get("duties_jmd"),
                 handling_jmd=item.get("handling_jmd"),
                 other_fees_jmd=item.get("other_fees_jmd"),
-                note=item.get("note") or note,
+                note=item_note,
+                skip_status_email=True,
             )
             released.append(package)
+            notify_entries.append(
+                (package, item_note or "Released from customs — bill published")
+            )
         except ValueError as exc:
             failed.append(
                 {
@@ -67,6 +75,9 @@ def release_packages_from_customs(
 
     if released:
         db.session.commit()
+        from app.services.package_status_notification_service import notify_customers_of_status_batch
+
+        notify_customers_of_status_batch(notify_entries, "ready_for_pickup")
     return released, failed
 
 

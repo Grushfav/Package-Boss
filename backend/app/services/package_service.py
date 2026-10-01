@@ -28,7 +28,31 @@ def generate_tracking_number() -> str:
     return f"PB-{year}-{max_seq + 1:06d}"
 
 
-def add_package_event(package: Package, status: str, note: str | None = None) -> None:
+def _should_notify_status_change(
+    status: str,
+    previous_status: str,
+    had_events: bool,
+    *,
+    package_events: list | None = None,
+    package_status: str | None = None,
+) -> bool:
+    if status == "unidentified":
+        return False
+
+    notify_previous = previous_status
+    if package_events and package_status == status and previous_status == status:
+        notify_previous = package_events[-1].status
+
+    return notify_previous != status or not had_events
+
+
+def add_package_event(
+    package: Package,
+    status: str,
+    note: str | None = None,
+    *,
+    skip_status_email: bool = False,
+) -> None:
     from app.constants import STATUS_LABELS, WORKFLOW_TRANSITIONS
 
     previous_status = package.status
@@ -68,13 +92,16 @@ def add_package_event(package: Package, status: str, note: str | None = None) ->
     package.status = status
     package.updated_at = datetime.utcnow()
 
-    # If a caller pre-set package.status, infer the prior step from the last event so
-    # customers still get notified (e.g. customs release used to set status early).
-    notify_previous = previous_status
-    if package.events and package.status == status and previous_status == status:
-        notify_previous = package.events[-1].status
-
-    if status != "unidentified" and (notify_previous != status or not had_events):
+    if (
+        not skip_status_email
+        and _should_notify_status_change(
+            status,
+            previous_status,
+            had_events,
+            package_events=package.events,
+            package_status=package.status,
+        )
+    ):
         _notify_package_status_email(package, status, note)
 
 
@@ -696,6 +723,7 @@ def bulk_update_package_status(
         raise ValueError(f"Invalid status: {status}")
 
     updated: list[Package] = []
+    notify_entries: list[tuple[Package, str | None]] = []
     failed: list[dict] = []
 
     for raw_id in package_ids:
@@ -720,9 +748,21 @@ def bulk_update_package_status(
             )
             continue
 
+        previous_status = package.status
+        had_events = bool(package.events)
+        should_notify = _should_notify_status_change(
+            status,
+            previous_status,
+            had_events,
+            package_events=package.events,
+            package_status=package.status,
+        )
+
         try:
-            add_package_event(package, status, note)
+            add_package_event(package, status, note, skip_status_email=True)
             updated.append(package)
+            if should_notify:
+                notify_entries.append((package, note))
         except ValueError as exc:
             failed.append(
                 {
@@ -734,6 +774,9 @@ def bulk_update_package_status(
 
     if updated:
         db.session.commit()
+        from app.services.package_status_notification_service import notify_customers_of_status_batch
+
+        notify_customers_of_status_batch(notify_entries, status)
 
     return updated, failed
 
