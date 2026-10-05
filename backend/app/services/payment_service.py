@@ -319,7 +319,7 @@ def record_payment_checkout(
     if processing_fee_jmd is not None:
         processing_fee = _decimal(processing_fee_jmd)
         if processing_fee < 0:
-            raise ValueError("Processing fee cannot be negative")
+            raise ValueError("Handling fee cannot be negative")
         if processing_fee > 0:
             total += processing_fee
 

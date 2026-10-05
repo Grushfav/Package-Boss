@@ -2,7 +2,12 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 
-from app.constants import DELIVERY_REQUEST_OPEN_STATUSES, PAYMENT_ELIGIBLE_STATUS
+from app.constants import (
+    DELIVERY_REQUEST_OPEN_STATUSES,
+    FULFILLMENT_TYPES,
+    PAYMENT_ELIGIBLE_STATUS,
+    PICKUP_LOCATION_LABEL,
+)
 from app.services.delivery_fee_service import delivery_fee_for_parish
 from app.services.delivery_address_service import validate_delivery_parish_for_service
 from app.extensions import db
@@ -141,10 +146,14 @@ def package_pending_delivery_summary(package: Package) -> dict | None:
     request = get_pending_request_for_package(package.id)
     if not request:
         return None
+    summary = request.to_dict()
     return {
         "id": str(request.id),
         "status": request.status,
-        "status_label": request.to_dict()["status_label"],
+        "status_label": summary["status_label"],
+        "fulfillment_type": summary["fulfillment_type"],
+        "fulfillment_type_label": summary["fulfillment_type_label"],
+        "pickup_location": summary.get("pickup_location"),
         "delivery_fee_jmd": float(request.delivery_fee_jmd),
         "requested_at": utc_isoformat(request.requested_at),
     }
@@ -187,24 +196,37 @@ def create_delivery_request(
     customer: User,
     *,
     package_ids: list,
-    delivery_address_id,
+    delivery_address_id=None,
+    fulfillment_type: str = "delivery",
     notes: str | None = None,
 ) -> DeliveryRequest:
     packages = _validate_request_packages(customer, package_ids)
 
-    address = get_delivery_address(customer, delivery_address_id)
-    if not address:
-        raise ValueError("Delivery address not found")
-    validate_delivery_parish_for_service(address.parish)
-    delivery_fee = delivery_fee_for_parish(address.parish)
+    fulfillment_type = (fulfillment_type or "delivery").strip().lower()
+    if fulfillment_type not in FULFILLMENT_TYPES:
+        raise ValueError("fulfillment_type must be delivery or pickup")
 
     note_text = (notes or "").strip() or None
     if note_text and len(note_text) > 500:
         raise ValueError("notes must be 500 characters or fewer")
 
+    address = None
+    delivery_fee = Decimal("0")
+    if fulfillment_type == "delivery":
+        if not delivery_address_id:
+            raise ValueError("delivery_address_id is required for home delivery")
+        address = get_delivery_address(customer, delivery_address_id)
+        if not address:
+            raise ValueError("Delivery address not found")
+        validate_delivery_parish_for_service(address.parish)
+        delivery_fee = delivery_fee_for_parish(address.parish)
+    elif delivery_address_id:
+        raise ValueError("delivery_address_id is not used for pickup requests")
+
     request = DeliveryRequest(
         customer_id=customer.id,
-        delivery_address_id=address.id,
+        delivery_address_id=address.id if address else None,
+        fulfillment_type=fulfillment_type,
         status="pending",
         delivery_fee_jmd=delivery_fee,
         notes=note_text,
@@ -220,13 +242,14 @@ def create_delivery_request(
                 package_id=package.id,
             )
         )
-        package.delivery_address_id = address.id
+        if address:
+            package.delivery_address_id = address.id
         package.updated_at = datetime.utcnow()
-        add_package_event(
-            package,
-            package.status,
-            f"Delivery requested to {address.label}",
-        )
+        if fulfillment_type == "pickup":
+            event_note = f"Pickup requested — {PICKUP_LOCATION_LABEL}"
+        else:
+            event_note = f"Delivery requested to {address.label}"
+        add_package_event(package, package.status, event_note)
 
     db.session.commit()
     return request
@@ -244,7 +267,10 @@ def cancel_delivery_request(request: DeliveryRequest, *, by_customer: bool = Tru
     for link in request.package_links:
         package = link.package
         if package:
-            add_package_event(package, package.status, "Delivery request cancelled")
+            if (request.fulfillment_type or "delivery") == "pickup":
+                add_package_event(package, package.status, "Pickup request cancelled")
+            else:
+                add_package_event(package, package.status, "Delivery request cancelled")
 
     db.session.commit()
     return request
@@ -261,7 +287,14 @@ def mark_delivery_request_in_progress(request: DeliveryRequest, staff_user: User
     for link in request.package_links:
         package = link.package
         if package:
-            add_package_event(package, package.status, "Delivery in progress")
+            if (request.fulfillment_type or "delivery") == "pickup":
+                add_package_event(
+                    package,
+                    package.status,
+                    f"Pickup in progress — {PICKUP_LOCATION_LABEL}",
+                )
+            else:
+                add_package_event(package, package.status, "Delivery in progress")
 
     db.session.commit()
     return request
@@ -277,17 +310,23 @@ def complete_delivery_request(request: DeliveryRequest, staff_user: User) -> Del
         if link.package and link.package.billing_status != "paid"
     ]
     if unpaid:
+        action = "pickup" if (request.fulfillment_type or "delivery") == "pickup" else "delivery"
         raise ValueError(
-            f"Payment required before delivery: {', '.join(unpaid)}"
+            f"Payment required before {action}: {', '.join(unpaid)}"
         )
 
+    completion_note = (
+        f"Pickup completed — {PICKUP_LOCATION_LABEL}"
+        if (request.fulfillment_type or "delivery") == "pickup"
+        else "Delivery completed"
+    )
     for link in request.package_links:
         package = link.package
         if not package:
             continue
         if package.status == "delivered":
             continue
-        update_package_status(package, "delivered", note="Delivery completed")
+        update_package_status(package, "delivered", note=completion_note)
 
     request.status = "completed"
     request.completed_at = datetime.utcnow()

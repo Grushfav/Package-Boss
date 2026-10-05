@@ -35,15 +35,15 @@ def create_my_delivery_request():
     if not isinstance(package_ids, list):
         return jsonify({"error": "package_ids must be an array"}), 400
 
+    fulfillment_type = (data.get("fulfillment_type") or "delivery").strip().lower()
     delivery_address_id = data.get("delivery_address_id")
-    if not delivery_address_id:
-        return jsonify({"error": "delivery_address_id is required"}), 400
 
     try:
         delivery_request = create_delivery_request(
             user,
             package_ids=package_ids,
             delivery_address_id=delivery_address_id,
+            fulfillment_type=fulfillment_type,
             notes=data.get("notes"),
         )
     except ValueError as exc:

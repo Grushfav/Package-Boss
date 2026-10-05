@@ -1,4 +1,4 @@
-import { Truck } from 'lucide-react'
+import { Store, Truck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
 import { DELIVERY_FEE_SUMMARY } from '../../api/deliveryRequests'
@@ -97,7 +97,7 @@ export function CheckoutPaymentModal({
     try {
       const fee = parseOptionalJmd(processingFee)
       if (fee != null && fee < 0) {
-        setError('Processing fee cannot be negative')
+        setError('Handling fee cannot be negative')
         return
       }
 
@@ -191,19 +191,33 @@ export function CheckoutPaymentModal({
         {delivery.isCompleteMatch && delivery.matchedRequest ? (
           <div className="mt-4 rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 text-sm">
             <div className="flex items-start gap-2">
-              <Truck className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+              {delivery.matchedRequest.fulfillment_type === 'pickup' ? (
+                <Store className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+              ) : (
+                <Truck className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+              )}
               <div>
                 <p className="font-semibold text-sky-300">
-                  Delivery requested · {delivery.matchedRequest.status_label}
+                  {delivery.matchedRequest.fulfillment_type === 'pickup'
+                    ? 'Pickup requested'
+                    : 'Delivery requested'}{' '}
+                  · {delivery.matchedRequest.status_label}
                 </p>
-                {delivery.matchedRequest.delivery_address?.formatted ? (
+                {delivery.matchedRequest.fulfillment_type === 'pickup' ? (
+                  <p className="mt-1 text-muted">
+                    {delivery.matchedRequest.pickup_location ?? 'Tropical Plaza, Half Way Tree'} ·
+                    Thu–Sat · no delivery fee
+                  </p>
+                ) : delivery.matchedRequest.delivery_address?.formatted ? (
                   <p className="mt-1 text-muted">
                     {delivery.matchedRequest.delivery_address.formatted}
                   </p>
                 ) : null}
                 <p className="mt-1 text-xs text-muted">
-                  Delivery fee {formatJmd(delivery.requiredDeliveryFee)} included — all packages in
-                  this request must be paid together.
+                  {delivery.requiredDeliveryFee > 0
+                    ? `Delivery fee ${formatJmd(delivery.requiredDeliveryFee)} included — `
+                    : ''}
+                  All packages in this request must be paid together.
                 </p>
               </div>
             </div>
@@ -254,7 +268,7 @@ export function CheckoutPaymentModal({
           )}
           {processingFeeAmount > 0 && (
             <li className="flex items-center justify-between gap-3 border-t border-border pt-2 text-muted">
-              <span>Processing fee</span>
+              <span>Handling fee</span>
               <span className="font-semibold text-foreground">{formatJmd(processingFeeAmount)}</span>
             </li>
           )}
@@ -280,7 +294,7 @@ export function CheckoutPaymentModal({
           ) : null}
 
           <Input
-            label="Processing fee (JMD, optional)"
+            label="Handling fee (JMD, optional)"
             type="number"
             step="1"
             min="0"

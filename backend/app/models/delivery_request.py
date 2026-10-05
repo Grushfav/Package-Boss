@@ -11,8 +11,9 @@ class DeliveryRequest(db.Model):
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     customer_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False, index=True)
     delivery_address_id = db.Column(
-        db.UUID(as_uuid=True), db.ForeignKey("delivery_addresses.id"), nullable=False
+        db.UUID(as_uuid=True), db.ForeignKey("delivery_addresses.id"), nullable=True
     )
+    fulfillment_type = db.Column(db.String(20), nullable=False, default="delivery", index=True)
     status = db.Column(db.String(20), nullable=False, default="pending", index=True)
     delivery_fee_jmd = db.Column(db.Numeric(12, 2), nullable=False)
     notes = db.Column(db.String(500))
@@ -35,14 +36,30 @@ class DeliveryRequest(db.Model):
     )
 
     def to_dict(self, include_packages: bool = False, include_address: bool = True) -> dict:
-        from app.constants import DELIVERY_REQUEST_STATUS_LABELS
+        from app.constants import (
+            DELIVERY_REQUEST_STATUS_LABELS,
+            FULFILLMENT_TYPE_LABELS,
+            PICKUP_LOCATION_LABEL,
+        )
+
+        fulfillment_type = self.fulfillment_type or "delivery"
+        status_label = DELIVERY_REQUEST_STATUS_LABELS.get(self.status, self.status)
+        if fulfillment_type == "pickup" and self.status == "completed":
+            status_label = "Picked up"
+        elif fulfillment_type == "pickup" and self.status == "in_progress":
+            status_label = "Ready for collection"
 
         data = {
             "id": str(self.id),
             "customer_id": str(self.customer_id),
-            "delivery_address_id": str(self.delivery_address_id),
+            "delivery_address_id": str(self.delivery_address_id) if self.delivery_address_id else None,
+            "fulfillment_type": fulfillment_type,
+            "fulfillment_type_label": FULFILLMENT_TYPE_LABELS.get(
+                fulfillment_type, fulfillment_type
+            ),
+            "pickup_location": PICKUP_LOCATION_LABEL if fulfillment_type == "pickup" else None,
             "status": self.status,
-            "status_label": DELIVERY_REQUEST_STATUS_LABELS.get(self.status, self.status),
+            "status_label": status_label,
             "delivery_fee_jmd": float(self.delivery_fee_jmd),
             "notes": self.notes,
             "requested_at": utc_isoformat(self.requested_at),

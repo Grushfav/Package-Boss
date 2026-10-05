@@ -16,7 +16,8 @@ export async function fetchMyDeliveryRequests(): Promise<DeliveryRequest[]> {
 
 export async function createDeliveryRequest(payload: {
   package_ids: string[]
-  delivery_address_id: string
+  fulfillment_type?: 'delivery' | 'pickup'
+  delivery_address_id?: string
   notes?: string
 }): Promise<DeliveryRequest> {
   const { data } = await api.post<{ delivery_request: DeliveryRequest }>(

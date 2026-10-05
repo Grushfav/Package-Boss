@@ -520,7 +520,7 @@ def customer_checkout(shipping_id: str):
         if processing_fee is not None:
             processing_fee = float(processing_fee)
             if processing_fee < 0:
-                return jsonify({"error": "processing_fee_jmd cannot be negative"}), 400
+                return jsonify({"error": "Handling fee cannot be negative"}), 400
         checkout = record_payment_checkout(
             user,
             package_ids,

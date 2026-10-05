@@ -181,7 +181,7 @@ export function AdminInvoicesPage() {
               <th className="px-4 py-3">Method</th>
               <th className="px-4 py-3">Packages</th>
               <th className="px-4 py-3">Delivery</th>
-              <th className="px-4 py-3">Processing</th>
+              <th className="px-4 py-3">Handling</th>
               <th className="px-4 py-3">Total</th>
               <th className="px-4 py-3 text-right print:hidden">Invoice</th>
             </tr>

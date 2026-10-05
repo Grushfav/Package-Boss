@@ -9,6 +9,7 @@ import {
   packageNeedsInvoiceUpload,
 } from '../../lib/packageBilling'
 import { useCustomerData } from '../../context/CustomerDataContext'
+import { pendingFulfillmentBadge } from '../../lib/pickupLocation'
 import { RequestDeliveryModal } from './RequestDeliveryModal'
 import { Button } from '../ui/Button'
 import type { Package } from '../../types'
@@ -139,9 +140,7 @@ function PackageTable({
                               : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
                           }`}
                         >
-                          {pkg.pending_delivery_request.status === 'in_progress'
-                            ? 'Delivery in progress'
-                            : 'Delivery requested'}
+                          {pendingFulfillmentBadge(pkg.pending_delivery_request)}
                         </span>
                       )}
                     </div>
@@ -169,7 +168,7 @@ function PackageTable({
                         >
                           {cancellingId === pkg.pending_delivery_request.id
                             ? 'Cancelling…'
-                            : 'Cancel delivery'}
+                            : 'Cancel request'}
                         </button>
                       )}
                       {pkg.invoice_status === 'received' && pkg.invoice_url && (
@@ -224,7 +223,7 @@ export function PackagesHistoryPanel() {
   }
 
   async function handleCancelDelivery(requestId: string) {
-    if (!window.confirm('Cancel this delivery request?')) return
+    if (!window.confirm('Cancel this pickup/delivery request?')) return
     setCancellingId(requestId)
     try {
       await cancelDeliveryRequest(requestId)
@@ -260,18 +259,14 @@ export function PackagesHistoryPanel() {
 
       {readyForPickupPackages.length > 0 && (
         <div className="mt-4 rounded-xl border border-boss-gold/35 bg-boss-gold/10 px-4 py-3 text-sm">
-          <p className="font-semibold text-foreground">Home delivery is available</p>
+          <p className="font-semibold text-foreground">Pickup or home delivery available</p>
           <p className="mt-1 text-muted">
             Packages marked{' '}
-            <span className="font-semibold text-boss-gold">Ready for Pickup</span> can be delivered
-            home in Kingston &amp; St. Andrew ($800 JMD) or Portmore ($1,000 JMD) per delivery run.
-            Select eligible
-            packages in the table below, then tap{' '}
-            <span className="font-semibold text-foreground">Request delivery</span>.{' '}
-            <Link to="/dashboard/profile" className="font-semibold text-boss-gold hover:underline">
-              Manage delivery addresses
-            </Link>
-            .
+            <span className="font-semibold text-boss-gold">Ready for Pickup</span> can be collected
+            free at Tropical Plaza, Half Way Tree (Thu–Sat), or delivered home in Kingston &amp; St.
+            Andrew ($800 JMD) or Portmore ($1,000 JMD) per run. Select eligible packages below,
+            then tap{' '}
+            <span className="font-semibold text-foreground">Request pickup or delivery</span>.
           </p>
         </div>
       )}
@@ -282,7 +277,7 @@ export function PackagesHistoryPanel() {
             {selectedIds.length} selected
           </span>
           <Button type="button" className="!text-xs" onClick={() => setShowRequestModal(true)}>
-            Request delivery
+            Request pickup or delivery
           </Button>
           <button
             type="button"

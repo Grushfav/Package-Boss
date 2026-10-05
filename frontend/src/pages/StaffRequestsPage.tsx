@@ -1,4 +1,4 @@
-import { Inbox, Search, Truck } from 'lucide-react'
+import { Inbox, Search, Store, Truck } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
@@ -55,6 +55,7 @@ interface RequestRow {
   senderBankLabel?: string | null
   includesDelivery?: boolean
   allPaid?: boolean
+  fulfillmentType?: 'delivery' | 'pickup'
   deliveryRequest?: DeliveryRequest
   transferProof?: BankTransferProof
 }
@@ -135,16 +136,23 @@ function deliveryToRow(request: DeliveryRequest): RequestRow {
     }))
   const packageList = packages.map((pkg) => pkg.trackingNumber).join(', ')
   const allPaid = (request.packages ?? []).every((pkg) => pkg.billing_status === 'paid')
+  const isPickup = request.fulfillment_type === 'pickup'
   const address = request.delivery_address
-  const detail = address
-    ? `${address.label}${address.contact_number ? ` · ${address.contact_number}` : ''} — ${address.formatted}`
-    : request.notes || undefined
+  const detail = isPickup
+    ? `${request.pickup_location ?? 'Tropical Plaza, Half Way Tree'} · Free pickup · Thu–Sat${
+        request.notes ? ` · ${request.notes}` : ''
+      }`
+    : address
+      ? `${address.label}${address.contact_number ? ` · ${address.contact_number}` : ''} — ${address.formatted}`
+      : request.notes || undefined
 
   return {
     id: request.id,
     kind: 'delivery',
     status: request.status,
-    statusLabel: request.status_label,
+    statusLabel: isPickup
+      ? `Pickup · ${request.status_label}`
+      : request.status_label,
     customerName: request.customer_name,
     shippingId: request.shipping_id,
     amountJmd: request.delivery_fee_jmd,
@@ -157,6 +165,7 @@ function deliveryToRow(request: DeliveryRequest): RequestRow {
     packageSummary: packageList,
     detail,
     allPaid,
+    fulfillmentType: request.fulfillment_type ?? 'delivery',
     deliveryRequest: request,
   }
 }
@@ -343,7 +352,7 @@ export function StaffRequestsPage() {
             title={allPaid ? undefined : 'All packages must be paid first'}
             onClick={() => runAction(row.id, () => completeStaffDeliveryRequest(row.id))}
           >
-            {busy ? '…' : 'Complete'}
+            {busy ? '…' : row.fulfillmentType === 'pickup' ? 'Picked up' : 'Complete'}
           </Button>
           <Button
             type="button"
@@ -351,7 +360,7 @@ export function StaffRequestsPage() {
             className="!px-2 !py-1 !text-[11px]"
             disabled={busy}
             onClick={() => {
-              if (!window.confirm('Cancel this delivery request?')) return
+              if (!window.confirm('Cancel this pickup/delivery request?')) return
               runAction(row.id, () => cancelStaffDeliveryRequest(row.id))
             }}
           >
@@ -411,7 +420,7 @@ export function StaffRequestsPage() {
         <div>
           <h1 className="text-2xl font-black uppercase">Requests</h1>
           <p className="text-sm text-muted">
-            Delivery runs and bank transfer proofs
+            Pickup, delivery runs, and bank transfer proofs
             {openCount > 0 && (
               <span className="ml-2 rounded-full bg-boss-gold/15 px-2 py-0.5 text-xs font-semibold text-boss-gold">
                 {openCount} open
@@ -440,7 +449,7 @@ export function StaffRequestsPage() {
             className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
             <option value="all">All types</option>
-            <option value="delivery">Delivery</option>
+            <option value="delivery">Pickup & delivery</option>
             <option value="transfer">Bank transfer</option>
           </select>
 
@@ -510,7 +519,11 @@ export function StaffRequestsPage() {
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                          {row.kind === 'delivery' ? 'Delivery' : 'Transfer'}
+                          {row.kind === 'delivery'
+                            ? row.fulfillmentType === 'pickup'
+                              ? 'Pickup'
+                              : 'Delivery'
+                            : 'Transfer'}
                         </span>
                         {row.kind === 'transfer' && row.includesDelivery && (
                           <span className="inline-flex w-fit rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
@@ -582,7 +595,11 @@ export function StaffRequestsPage() {
                     </td>
                     <td className="px-4 py-3 text-muted">{formatWhen(row.submittedAt)}</td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                      {row.amountJmd != null ? formatJmd(row.amountJmd) : '—'}
+                      {row.fulfillmentType === 'pickup'
+                        ? 'Free'
+                        : row.amountJmd != null && row.amountJmd > 0
+                          ? formatJmd(row.amountJmd)
+                          : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">{renderActions(row)}</td>
                   </tr>

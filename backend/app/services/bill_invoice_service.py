@@ -155,7 +155,7 @@ def render_checkout_invoice_html(
     if checkout.processing_fee_jmd is not None and float(checkout.processing_fee_jmd) > 0:
         processing_fee_block = f"""
     <div style="margin-top:16px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:14px;font-weight:600;color:#64748b;">Processing fee</span>
+      <span style="font-size:14px;font-weight:600;color:#64748b;">Handling fee</span>
       <span style="font-size:15px;font-weight:700;">{_esc(_money_jmd(checkout.processing_fee_jmd))}</span>
     </div>"""
 

@@ -174,10 +174,15 @@ export interface Package {
   payment?: PackagePaymentSummary | null
 }
 
+export type FulfillmentType = 'delivery' | 'pickup'
+
 export interface PendingDeliveryRequest {
   id: string
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
   status_label: string
+  fulfillment_type?: FulfillmentType
+  fulfillment_type_label?: string
+  pickup_location?: string | null
   delivery_fee_jmd: number
   requested_at?: string | null
 }
@@ -196,7 +201,10 @@ export interface DeliveryRequestPackage {
 export interface DeliveryRequest {
   id: string
   customer_id: string
-  delivery_address_id: string
+  delivery_address_id?: string | null
+  fulfillment_type?: FulfillmentType
+  fulfillment_type_label?: string
+  pickup_location?: string | null
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
   status_label: string
   delivery_fee_jmd: number

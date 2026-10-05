@@ -129,6 +129,14 @@ DELIVERY_REQUEST_STATUS_LABELS = {
 }
 DELIVERY_REQUEST_OPEN_STATUSES = ("pending", "in_progress")
 
+FULFILLMENT_TYPES = ["delivery", "pickup"]
+FULFILLMENT_TYPE_LABELS = {
+    "delivery": "Home delivery",
+    "pickup": "Pickup",
+}
+PICKUP_LOCATION_LABEL = "Tropical Plaza, Half Way Tree"
+PICKUP_HOURS_SUMMARY = "Thursdays to Saturdays"
+
 MAX_AUTHORIZED_PICKUPS = 5
 
 PICKUP_RELATIONSHIPS = ["spouse", "family", "friend", "colleague", "other"]

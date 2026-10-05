@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import {
   DELIVERY_AREAS,
+  PICKUP_DAYS,
   SERVICES,
   SHIPPING_FREQUENCY_SHORT,
 } from '../content/marketing'
@@ -63,7 +64,8 @@ export function ServicesPage() {
               designated days (fee applies)
             </li>
             <li>
-              <span className="font-semibold text-foreground">Pickup:</span> Coming soon
+              <span className="font-semibold text-foreground">Pickup:</span> Tropical Plaza, Half
+              Way Tree — {PICKUP_DAYS} (free)
             </li>
             <li>
               <span className="font-semibold text-foreground">Islandwide:</span> Knutsford Express
