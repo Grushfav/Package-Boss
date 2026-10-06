@@ -263,7 +263,8 @@ export function PackagesHistoryPanel() {
           <p className="mt-1 text-muted">
             Packages marked{' '}
             <span className="font-semibold text-boss-gold">Ready for Pickup</span> can be collected
-            free at Tropical Plaza, Half Way Tree (Thu–Sat), or delivered home in Kingston &amp; St.
+            free at the Tropical Plaza parking lot, Half Way Tree (Thu–Sat), or delivered home in
+            Kingston &amp; St.
             Andrew ($800 JMD) or Portmore ($1,000 JMD) per run. Select eligible packages below,
             then tap{' '}
             <span className="font-semibold text-foreground">Request pickup or delivery</span>.

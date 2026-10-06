@@ -205,7 +205,7 @@ export function CheckoutPaymentModal({
                 </p>
                 {delivery.matchedRequest.fulfillment_type === 'pickup' ? (
                   <p className="mt-1 text-muted">
-                    {delivery.matchedRequest.pickup_location ?? 'Tropical Plaza, Half Way Tree'} ·
+                    {delivery.matchedRequest.pickup_location ?? 'Tropical Plaza parking lot, Half Way Tree'} ·
                     Thu–Sat · no delivery fee
                   </p>
                 ) : delivery.matchedRequest.delivery_address?.formatted ? (

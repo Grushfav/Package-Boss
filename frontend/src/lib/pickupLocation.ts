@@ -1,4 +1,4 @@
-export const PICKUP_LOCATION_LABEL = 'Tropical Plaza, Half Way Tree'
+export const PICKUP_LOCATION_LABEL = 'Tropical Plaza parking lot, Half Way Tree'
 export const PICKUP_HOURS_SUMMARY = 'Thursdays to Saturdays'
 export const PICKUP_SUMMARY = `${PICKUP_LOCATION_LABEL} · ${PICKUP_HOURS_SUMMARY} · Free`
 

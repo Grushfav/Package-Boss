@@ -139,7 +139,7 @@ function deliveryToRow(request: DeliveryRequest): RequestRow {
   const isPickup = request.fulfillment_type === 'pickup'
   const address = request.delivery_address
   const detail = isPickup
-    ? `${request.pickup_location ?? 'Tropical Plaza, Half Way Tree'} · Free pickup · Thu–Sat${
+    ? `${request.pickup_location ?? 'Tropical Plaza parking lot, Half Way Tree'} · Free pickup · Thu–Sat${
         request.notes ? ` · ${request.notes}` : ''
       }`
     : address

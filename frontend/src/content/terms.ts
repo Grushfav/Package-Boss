@@ -78,7 +78,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
   {
     title: '10. Delivery & Pickup Services',
     paragraphs: [
-      'Customers may request home delivery or free pickup at Tropical Plaza, Half Way Tree (Thursdays to Saturdays), through their account when packages are ready.',
+      'Customers may request home delivery or free pickup at the Tropical Plaza parking lot, Half Way Tree (Thursdays to Saturdays), through their account when packages are ready.',
       'Where home delivery is offered, packages will be delivered to the address on file subject to applicable delivery fees and service availability. Published home delivery fees are $800 JMD for Kingston and St. Andrew, and $1,000 JMD for Portmore (St. Catherine), per delivery run (one fee per request, regardless of package count).',
       'Customers must present valid government-issued identification upon pickup or delivery and pay all outstanding charges before release. Pickup and delivery times are estimates only and subject to Section 7.',
     ],
