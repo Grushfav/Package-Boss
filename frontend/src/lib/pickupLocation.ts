@@ -1,5 +1,6 @@
 export const PICKUP_LOCATION_LABEL = 'Tropical Plaza parking lot, Half Way Tree'
-export const PICKUP_HOURS_SUMMARY = 'Thursdays to Saturdays'
+export const PICKUP_HOURS_SUMMARY = 'Wednesdays, Thursdays, and Saturdays'
+export const PICKUP_HOURS_SHORT = 'Wed, Thu & Sat'
 export const PICKUP_SUMMARY = `${PICKUP_LOCATION_LABEL} · ${PICKUP_HOURS_SUMMARY} · Free`
 
 export type FulfillmentType = 'delivery' | 'pickup'

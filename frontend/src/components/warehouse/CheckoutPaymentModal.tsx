@@ -7,6 +7,7 @@ import {
   optionalDeliveryFeeAmount,
   resolveCheckoutDelivery,
 } from '../../lib/checkoutDelivery'
+import { PICKUP_HOURS_SHORT, PICKUP_LOCATION_LABEL } from '../../lib/pickupLocation'
 import { formatJmd, sumJmd } from '../../lib/money'
 import type { DeliveryRequest, Package, PaymentCheckout } from '../../types'
 import { Button } from '../ui/Button'
@@ -205,8 +206,8 @@ export function CheckoutPaymentModal({
                 </p>
                 {delivery.matchedRequest.fulfillment_type === 'pickup' ? (
                   <p className="mt-1 text-muted">
-                    {delivery.matchedRequest.pickup_location ?? 'Tropical Plaza parking lot, Half Way Tree'} ·
-                    Thu–Sat · no delivery fee
+                    {delivery.matchedRequest.pickup_location ?? PICKUP_LOCATION_LABEL} ·{' '}
+                    {PICKUP_HOURS_SHORT} · no delivery fee
                   </p>
                 ) : delivery.matchedRequest.delivery_address?.formatted ? (
                   <p className="mt-1 text-muted">

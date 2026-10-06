@@ -18,6 +18,7 @@ import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { formatJmd } from '../lib/money'
+import { PICKUP_HOURS_SHORT, PICKUP_LOCATION_LABEL } from '../lib/pickupLocation'
 import type { BankTransferProof, DeliveryRequest } from '../types'
 
 type RequestKind = 'delivery' | 'transfer'
@@ -139,7 +140,7 @@ function deliveryToRow(request: DeliveryRequest): RequestRow {
   const isPickup = request.fulfillment_type === 'pickup'
   const address = request.delivery_address
   const detail = isPickup
-    ? `${request.pickup_location ?? 'Tropical Plaza parking lot, Half Way Tree'} · Free pickup · Thu–Sat${
+    ? `${request.pickup_location ?? PICKUP_LOCATION_LABEL} · Free pickup · ${PICKUP_HOURS_SHORT}${
         request.notes ? ` · ${request.notes}` : ''
       }`
     : address

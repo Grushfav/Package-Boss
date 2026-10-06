@@ -61,6 +61,6 @@ export const DELIVERY_FEE_PORTMORE_JMD = 1000
 export const DELIVERY_FEE_SUMMARY =
   'Kingston & St. Andrew: $800 JMD · Portmore: $1,000 JMD per delivery run'
 
-export const PICKUP_DAYS = 'Thursdays to Saturdays'
+export const PICKUP_DAYS = 'Wednesdays, Thursdays, and Saturdays'
 export const PICKUP_LOCATION = 'Tropical Plaza parking lot, Half Way Tree'
 export const DELIVERY_AREAS = 'Kingston and Portmore'

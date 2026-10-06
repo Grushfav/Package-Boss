@@ -135,7 +135,7 @@ FULFILLMENT_TYPE_LABELS = {
     "pickup": "Pickup",
 }
 PICKUP_LOCATION_LABEL = "Tropical Plaza parking lot, Half Way Tree"
-PICKUP_HOURS_SUMMARY = "Thursdays to Saturdays"
+PICKUP_HOURS_SUMMARY = "Wednesdays, Thursdays, and Saturdays"
 
 MAX_AUTHORIZED_PICKUPS = 5
 
