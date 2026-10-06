@@ -506,65 +506,131 @@ def mark_announcement_read(user: User, announcement_id: uuid.UUID) -> None:
     db.session.commit()
 
 
-def _run_email_broadcast(app, job_id: uuid.UUID) -> None:
+def _active_broadcast_job(announcement_id: uuid.UUID) -> BroadcastJob | None:
+    return (
+        BroadcastJob.query.filter(
+            BroadcastJob.announcement_id == announcement_id,
+            BroadcastJob.status.in_(("pending", "running", "scheduled")),
+        )
+        .order_by(BroadcastJob.created_at.desc())
+        .first()
+    )
+
+
+def _start_broadcast_job(app, job_id: uuid.UUID) -> None:
+    thread = threading.Thread(
+        target=_execute_broadcast_job,
+        args=(app, job_id),
+        daemon=True,
+    )
+    thread.start()
+
+
+def _execute_broadcast_job(app, job_id: uuid.UUID) -> None:
     with app.app_context():
         from app.services.email_service import send_announcement_email
 
         job = BroadcastJob.query.get(job_id)
-        if not job:
+        if not job or job.status not in ("pending", "scheduled"):
             return
+
         announcement = job.announcement
+        if not announcement:
+            return
+
         job.status = "running"
         job.started_at = datetime.utcnow()
+        if announcement.broadcast_at is None:
+            announcement.broadcast_at = datetime.utcnow()
         db.session.commit()
 
-        recipient_rows = AnnouncementRecipient.query.filter_by(
-            announcement_id=announcement.id
-        ).all()
-        if announcement.target_mode == "targeted":
-            email_targets = [
-                (row.user, row.tracking_numbers or [])
-                for row in recipient_rows
-                if row.user
-            ]
-        else:
-            email_targets = [(user, []) for user in _recipient_query(announcement.audience).all()]
-
+        channels = job.channels or []
         sent = 0
         failed = 0
 
-        for user, tracking_numbers in email_targets:
-            body_text = announcement.body
-            if tracking_numbers:
-                tracking_line = ", ".join(tracking_numbers)
-                body_text = (
-                    f"{announcement.body}\n\n"
-                    f"Your affected package(s): {tracking_line}"
-                )
-            try:
-                send_announcement_email(
-                    user.email,
-                    user.first_name,
-                    announcement.title,
-                    body_text,
-                )
-                sent += 1
-            except Exception as exc:
-                failed += 1
-                app.logger.warning(
-                    "Broadcast email failed for %s: %s", user.email, exc
-                )
+        if "email" in channels:
+            recipient_rows = AnnouncementRecipient.query.filter_by(
+                announcement_id=announcement.id
+            ).all()
+            if announcement.target_mode == "targeted":
+                email_targets = [
+                    (row.user, row.tracking_numbers or [])
+                    for row in recipient_rows
+                    if row.user
+                ]
+            else:
+                email_targets = [
+                    (user, []) for user in _recipient_query(announcement.audience).all()
+                ]
 
-            if (sent + failed) % EMAIL_BATCH_SIZE == 0:
-                job.sent_count = sent
-                job.failed_count = failed
-                db.session.commit()
+            seen_emails: set[str] = set()
+            for user, tracking_numbers in email_targets:
+                email = (user.email or "").strip().lower()
+                if not email or email in seen_emails:
+                    continue
+                seen_emails.add(email)
+
+                body_text = announcement.body
+                if tracking_numbers:
+                    tracking_line = ", ".join(tracking_numbers)
+                    body_text = (
+                        f"{announcement.body}\n\n"
+                        f"Your affected package(s): {tracking_line}"
+                    )
+                try:
+                    send_announcement_email(
+                        user.email,
+                        user.first_name,
+                        announcement.title,
+                        body_text,
+                    )
+                    sent += 1
+                except Exception as exc:
+                    failed += 1
+                    app.logger.warning(
+                        "Broadcast email failed for %s: %s", user.email, exc
+                    )
+
+                if (sent + failed) % EMAIL_BATCH_SIZE == 0:
+                    job.sent_count = sent
+                    job.failed_count = failed
+                    db.session.commit()
+        elif announcement.target_mode == "targeted":
+            sent = AnnouncementRecipient.query.filter_by(
+                announcement_id=announcement.id
+            ).count()
 
         job.sent_count = sent
         job.failed_count = failed
         job.status = "completed"
         job.completed_at = datetime.utcnow()
         db.session.commit()
+
+
+def process_scheduled_broadcasts() -> int:
+    """Send broadcasts whose scheduled_for time has passed. Returns jobs started."""
+    now = datetime.utcnow()
+    due_jobs = (
+        BroadcastJob.query.filter(
+            BroadcastJob.status == "scheduled",
+            BroadcastJob.scheduled_for.isnot(None),
+            BroadcastJob.scheduled_for <= now,
+        )
+        .order_by(BroadcastJob.scheduled_for.asc())
+        .limit(20)
+        .all()
+    )
+    if not due_jobs:
+        return 0
+
+    app = current_app._get_current_object()
+    started = 0
+    for job in due_jobs:
+        job.status = "pending"
+        db.session.commit()
+        _start_broadcast_job(app, job.id)
+        started += 1
+    return started
 
 
 def broadcast_announcement(
@@ -581,6 +647,11 @@ def broadcast_announcement(
     if not normalized:
         raise ValueError("Select at least one broadcast channel")
 
+    if _active_broadcast_job(announcement.id):
+        raise ValueError(
+            "A broadcast is already scheduled or in progress for this announcement"
+        )
+
     if also_show_banner and announcement.display_as == "inbox_only":
         announcement.display_as = "banner"
 
@@ -590,11 +661,15 @@ def broadcast_announcement(
             raise ValueError("No packages match the selected targeting criteria")
         _store_target_recipients(announcement, packages)
 
-    announcement.broadcast_at = datetime.utcnow()
+    now = datetime.utcnow()
+    send_at = announcement.starts_at if announcement.starts_at > now else now
+    is_scheduled = send_at > now
+
     job = BroadcastJob(
         announcement_id=announcement.id,
         channels=normalized,
-        status="pending",
+        status="scheduled" if is_scheduled else "pending",
+        scheduled_for=send_at if is_scheduled else None,
     )
     db.session.add(job)
     db.session.commit()
@@ -604,28 +679,19 @@ def broadcast_announcement(
         ACTION_ANNOUNCEMENT_BROADCAST,
         "announcement",
         str(announcement.id),
-        f"Broadcast announcement: {announcement.title}",
-        {"channels": normalized, "also_show_banner": also_show_banner},
+        f"{'Scheduled' if is_scheduled else 'Broadcast'} announcement: {announcement.title}",
+        {
+            "channels": normalized,
+            "also_show_banner": also_show_banner,
+            "scheduled_for": send_at.isoformat() if is_scheduled else None,
+        },
     )
 
-    if "email" in normalized:
-        app = current_app._get_current_object()
-        thread = threading.Thread(
-            target=_run_email_broadcast,
-            args=(app, job.id),
-            daemon=True,
-        )
-        thread.start()
-    else:
-        job.status = "completed"
-        job.started_at = datetime.utcnow()
-        job.completed_at = datetime.utcnow()
-        if announcement.target_mode == "targeted":
-            job.sent_count = AnnouncementRecipient.query.filter_by(
-                announcement_id=announcement.id
-            ).count()
-        db.session.commit()
+    if is_scheduled:
+        return job
 
+    app = current_app._get_current_object()
+    _start_broadcast_job(app, job.id)
     return job
 
 

@@ -1,4 +1,4 @@
-import { Inbox, Search, Store, Truck } from 'lucide-react'
+import { Inbox, Search, Truck } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'

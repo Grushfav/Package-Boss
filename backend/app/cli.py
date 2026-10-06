@@ -7,6 +7,7 @@ from app.services.unidentified_service import ensure_unidentified_holder
 
 def register_cli(app) -> None:
     app.cli.add_command(clear_test_data_command)
+    app.cli.add_command(process_scheduled_broadcasts_command)
 
 
 @click.command("clear-test-data")
@@ -49,3 +50,13 @@ def clear_test_data_command(yes: bool, keep_announcements: bool) -> None:
         if count:
             click.echo(f"  {key}: {count}")
     click.echo("Done. Admin/clerk accounts and rate tiers were kept.")
+
+
+@click.command("process-scheduled-broadcasts")
+@with_appcontext
+def process_scheduled_broadcasts_command() -> None:
+    """Send announcement broadcasts whose scheduled time has arrived."""
+    from app.services.announcement_service import process_scheduled_broadcasts
+
+    started = process_scheduled_broadcasts()
+    click.echo(f"Started {started} scheduled broadcast(s).")

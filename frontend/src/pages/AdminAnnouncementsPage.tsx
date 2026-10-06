@@ -120,6 +120,7 @@ export function AdminAnnouncementsPage() {
   )
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState('')
+  const [broadcastingId, setBroadcastingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAdminAnnouncements().then(setAnnouncements).catch(() => {})
@@ -230,9 +231,15 @@ export function AdminAnnouncementsPage() {
       item.target_mode === 'targeted'
         ? '\n\nOnly customers with matching packages will receive this update.'
         : ''
-    if (!window.confirm(`Broadcast "${item.title}" via ${channelLabel}?${targetedNote}`)) return
+    const startsAt = new Date(item.starts_at).getTime()
+    const scheduledNote =
+      startsAt > Date.now()
+        ? `\n\nEmail and in-app delivery will wait until the start time (${new Date(item.starts_at).toLocaleString()}).`
+        : ''
+    if (!window.confirm(`Broadcast "${item.title}" via ${channelLabel}?${targetedNote}${scheduledNote}`)) return
     setError('')
     setSuccess('')
+    setBroadcastingId(item.id)
     try {
       const result = await broadcastAnnouncement(item.id, {
         channels,
@@ -242,11 +249,19 @@ export function AdminAnnouncementsPage() {
         prev.map((row) => (row.id === item.id ? result.announcement : row)),
       )
       const job = result.broadcast_job
-      setSuccess(
-        `Broadcast started (${job.status}). Sent: ${job.sent_count}, failed: ${job.failed_count}.`,
-      )
+      if (job.status === 'scheduled' && job.scheduled_for) {
+        setSuccess(
+          `Broadcast scheduled for ${new Date(job.scheduled_for).toLocaleString()}.`,
+        )
+      } else {
+        setSuccess(
+          `Broadcast started (${job.status}). Sent: ${job.sent_count}, failed: ${job.failed_count}.`,
+        )
+      }
     } catch (err) {
       setError(getErrorMessage(err))
+    } finally {
+      setBroadcastingId(null)
     }
   }
 
@@ -448,6 +463,10 @@ export function AdminAnnouncementsPage() {
                 value={form.starts_at}
                 onChange={(e) => setForm((prev) => ({ ...prev, starts_at: e.target.value }))}
               />
+              <p className="mt-1 text-xs text-muted">
+                Banners appear from this time. When you broadcast with email or in-app, delivery
+                also waits until this time if it is still in the future.
+              </p>
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Ends (optional)</label>
@@ -568,8 +587,13 @@ export function AdminAnnouncementsPage() {
                   </p>
                   {item.latest_broadcast && (
                     <p className="mt-1 text-xs text-muted">
-                      Last broadcast: {item.latest_broadcast.status} · sent{' '}
-                      {item.latest_broadcast.sent_count}, failed {item.latest_broadcast.failed_count}
+                      Last broadcast: {item.latest_broadcast.status}
+                      {item.latest_broadcast.status === 'scheduled' &&
+                      item.latest_broadcast.scheduled_for
+                        ? ` for ${new Date(item.latest_broadcast.scheduled_for).toLocaleString()}`
+                        : ''}
+                      {item.latest_broadcast.status !== 'scheduled' &&
+                        ` · sent ${item.latest_broadcast.sent_count}, failed ${item.latest_broadcast.failed_count}`}
                     </p>
                   )}
                 </div>
@@ -580,18 +604,20 @@ export function AdminAnnouncementsPage() {
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={broadcastingId === item.id}
                     onClick={() => handleBroadcast(item, ['in_app'], false)}
                   >
                     <Radio className="mr-1 h-4 w-4" />
-                    In-app
+                    {broadcastingId === item.id ? 'Working…' : 'In-app'}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
+                    disabled={broadcastingId === item.id}
                     onClick={() => handleBroadcast(item, ['in_app', 'email'], true)}
                   >
                     <Radio className="mr-1 h-4 w-4" />
-                    Email + in-app
+                    {broadcastingId === item.id ? 'Working…' : 'Email + in-app'}
                   </Button>
                   <button
                     type="button"

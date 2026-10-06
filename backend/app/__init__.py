@@ -97,6 +97,14 @@ def create_app(config_class=None):
             seed_rate_tiers()
             ensure_unidentified_holder()
             _promote_role_emails(app)
+            try:
+                from app.services.announcement_service import process_scheduled_broadcasts
+
+                started = process_scheduled_broadcasts()
+                if started:
+                    app.logger.info("Started %d scheduled announcement broadcast(s)", started)
+            except Exception:
+                app.logger.exception("Failed to process scheduled announcement broadcasts")
         elif inspector.get_table_names():
             app.logger.warning(
                 "Skipping startup seeds — run `flask db upgrade` to apply pending migrations."

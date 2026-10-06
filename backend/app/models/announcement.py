@@ -9,7 +9,7 @@ ANNOUNCEMENT_SEVERITIES = ("info", "warning", "urgent")
 ANNOUNCEMENT_DISPLAY_TYPES = ("banner", "modal", "inbox_only")
 ANNOUNCEMENT_TARGET_MODES = ("broadcast", "targeted")
 BROADCAST_CHANNELS = ("in_app", "email")
-BROADCAST_STATUSES = ("pending", "running", "completed", "failed")
+BROADCAST_STATUSES = ("pending", "scheduled", "running", "completed", "failed")
 
 SEVERITY_ORDER = {"urgent": 3, "warning": 2, "info": 1}
 
@@ -136,6 +136,7 @@ class BroadcastJob(db.Model):
     status = db.Column(db.String(20), nullable=False, default="pending")
     sent_count = db.Column(db.Integer, default=0, nullable=False)
     failed_count = db.Column(db.Integer, default=0, nullable=False)
+    scheduled_for = db.Column(db.DateTime, nullable=True)
     started_at = db.Column(db.DateTime, nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -150,6 +151,7 @@ class BroadcastJob(db.Model):
             "status": self.status,
             "sent_count": self.sent_count,
             "failed_count": self.failed_count,
+            "scheduled_for": utc_isoformat(self.scheduled_for),
             "started_at": utc_isoformat(self.started_at),
             "completed_at": utc_isoformat(self.completed_at),
             "created_at": utc_isoformat(self.created_at),

@@ -33,9 +33,10 @@ export interface BroadcastJob {
   id: string
   announcement_id: string
   channels: BroadcastChannel[]
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'scheduled' | 'running' | 'completed' | 'failed'
   sent_count: number
   failed_count: number
+  scheduled_for: string | null
   started_at: string | null
   completed_at: string | null
   created_at: string

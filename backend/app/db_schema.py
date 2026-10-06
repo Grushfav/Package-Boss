@@ -160,6 +160,15 @@ def ensure_schema(app) -> None:
         "announcement_recipients",
         "broadcast_jobs",
     }
+    if "broadcast_jobs" in inspector.get_table_names():
+        job_cols = {col["name"] for col in inspector.get_columns("broadcast_jobs")}
+        if "scheduled_for" not in job_cols:
+            db.session.execute(
+                text("ALTER TABLE broadcast_jobs ADD COLUMN scheduled_for TIMESTAMP")
+            )
+            db.session.commit()
+            app.logger.info("Added missing broadcast_jobs.scheduled_for column")
+
     bootstrap_tables = announcement_tables | {"app_settings"}
     existing = set(inspector.get_table_names())
     if not bootstrap_tables.issubset(existing):
