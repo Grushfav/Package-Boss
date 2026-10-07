@@ -4,7 +4,11 @@ from decimal import Decimal
 from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 
-from app.constants import PAYMENT_ELIGIBLE_STATUS, PAYMENT_METHODS
+from app.constants import (
+    MULTI_PACKAGE_HANDLING_FEE_JMD,
+    PAYMENT_ELIGIBLE_STATUS,
+    PAYMENT_METHODS,
+)
 from app.services.delivery_fee_service import infer_optional_delivery_fee_jmd
 from app.extensions import db
 from app.models.package import Package
@@ -316,12 +320,19 @@ def record_payment_checkout(
         total += delivery_fee
 
     processing_fee = Decimal("0")
-    if processing_fee_jmd is not None:
+    if len(packages) > 1:
+        if processing_fee_jmd is None:
+            processing_fee = MULTI_PACKAGE_HANDLING_FEE_JMD
+        else:
+            processing_fee = _decimal(processing_fee_jmd)
+            if processing_fee < 0:
+                raise ValueError("Handling fee cannot be negative")
+    elif processing_fee_jmd is not None:
         processing_fee = _decimal(processing_fee_jmd)
         if processing_fee < 0:
             raise ValueError("Handling fee cannot be negative")
-        if processing_fee > 0:
-            total += processing_fee
+    if processing_fee > 0:
+        total += processing_fee
 
     checkout = PaymentCheckout(
         customer_id=customer.id,

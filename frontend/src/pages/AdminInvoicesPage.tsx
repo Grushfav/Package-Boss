@@ -162,10 +162,11 @@ export function AdminInvoicesPage() {
         </Button>
       </div>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Summary label="Invoices" value={String(summary.count)} />
         <Summary label="Package charges" value={formatJmd(summary.packages_jmd)} />
         <Summary label="Delivery fees" value={formatJmd(summary.delivery_fee_jmd)} />
+        <Summary label="Handling fees" value={formatJmd(summary.processing_fee_jmd)} />
         <Summary label="Collected" value={formatJmd(summary.total_jmd)} emphasis />
       </div>
 

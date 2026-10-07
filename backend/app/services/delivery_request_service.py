@@ -5,6 +5,7 @@ import uuid
 from app.constants import (
     DELIVERY_REQUEST_OPEN_STATUSES,
     FULFILLMENT_TYPES,
+    MULTI_PACKAGE_HANDLING_FEE_JMD,
     PAYMENT_ELIGIBLE_STATUS,
     PICKUP_LOCATION_LABEL,
 )
@@ -381,11 +382,13 @@ def compute_payment_total_with_delivery(
             packages_total += _decimal(package.total_due_jmd)
 
     request, delivery_fee = resolve_delivery_request_for_payment(customer, packages)
-    total = (packages_total + delivery_fee).quantize(Decimal("0.01"))
+    processing_fee = MULTI_PACKAGE_HANDLING_FEE_JMD if len(packages) > 1 else Decimal("0")
+    total = (packages_total + delivery_fee + processing_fee).quantize(Decimal("0.01"))
 
     return {
         "packages_total_jmd": float(packages_total),
         "delivery_fee_jmd": float(delivery_fee),
+        "processing_fee_jmd": float(processing_fee),
         "delivery_request_id": str(request.id) if request else None,
         "total_jmd": float(total),
         "currency": "JMD",

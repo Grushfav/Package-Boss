@@ -275,7 +275,7 @@ def submit_bank_transfer_proof(
             amount = expected_total
         elif amount != expected_total:
             raise ValueError(
-                f"amount_jmd must match the total due ({float(expected_total):.2f} JMD including delivery fee if applicable)"
+                f"amount_jmd must match the total due ({float(expected_total):.2f} JMD including delivery and handling fees if applicable)"
             )
 
     reference = (transfer_reference or "").strip() or None

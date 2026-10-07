@@ -43,6 +43,7 @@ function BankTransferProofUpload() {
   const [recentProofs, setRecentProofs] = useState<BankTransferProof[]>([])
   const [selectedTotal, setSelectedTotal] = useState(0)
   const [deliveryFee, setDeliveryFee] = useState(0)
+  const [handlingFee, setHandlingFee] = useState(0)
   const [includeDeliveryFee, setIncludeDeliveryFee] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -52,6 +53,7 @@ function BankTransferProofUpload() {
     if (selectedIds.length === 0) {
       setSelectedTotal(0)
       setDeliveryFee(0)
+      setHandlingFee(0)
       setIncludeDeliveryFee(false)
       return
     }
@@ -59,6 +61,7 @@ function BankTransferProofUpload() {
       .then((totals) => {
         setSelectedTotal(totals.packages_total_jmd)
         setDeliveryFee(totals.delivery_fee_jmd)
+        setHandlingFee(totals.processing_fee_jmd ?? 0)
         setIncludeDeliveryFee(totals.delivery_fee_jmd > 0)
       })
       .catch(() => {
@@ -70,6 +73,7 @@ function BankTransferProofUpload() {
           ),
         )
         setDeliveryFee(0)
+        setHandlingFee(0)
         setIncludeDeliveryFee(false)
       })
   }, [payablePackages, selectedIds])
@@ -79,7 +83,7 @@ function BankTransferProofUpload() {
       ? deliveryFee
       : DELIVERY_FEE_JMD
     : 0
-  const paymentTotal = selectedTotal + appliedDeliveryFee
+  const paymentTotal = selectedTotal + handlingFee + appliedDeliveryFee
 
   useEffect(() => {
     fetchMyBankTransferProofs()
@@ -215,6 +219,12 @@ function BankTransferProofUpload() {
                   <span className="font-semibold text-foreground">
                     {formatJmd(appliedDeliveryFee)}
                   </span>
+                </p>
+              )}
+              {handlingFee > 0 && (
+                <p>
+                  Handling fee:{' '}
+                  <span className="font-semibold text-foreground">{formatJmd(handlingFee)}</span>
                 </p>
               )}
               <p>

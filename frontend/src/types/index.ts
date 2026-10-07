@@ -225,6 +225,7 @@ export interface DeliveryRequest {
 export interface PaymentTotalSummary {
   packages_total_jmd: number
   delivery_fee_jmd: number
+  processing_fee_jmd: number
   delivery_request_id?: string | null
   total_jmd: number
   currency: 'JMD'

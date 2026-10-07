@@ -573,32 +573,28 @@ def customer_checkout(shipping_id: str):
     delivery_failed: list[dict] = []
     if data.get("mark_delivered"):
         delivery_note = f"Delivered at checkout {checkout.invoice_number}"
-        for item in checkout.items:
-            package = item.package
-            if not package:
-                continue
-            try:
-                update_package_status(package, "delivered", delivery_note)
-                delivered_count += 1
-                log_package_action(
-                    actor,
-                    ACTION_PACKAGE_STATUS_UPDATED,
-                    str(package.id),
-                    f"Marked {package.tracking_number} delivered at checkout",
-                    metadata={
-                        "tracking_number": package.tracking_number,
-                        "to_status": "delivered",
-                        "checkout_id": str(checkout.id),
-                    },
-                )
-            except ValueError as exc:
-                delivery_failed.append(
-                    {
-                        "id": str(package.id),
-                        "tracking_number": package.tracking_number,
-                        "error": str(exc),
-                    }
-                )
+        package_ids_to_deliver = [
+            str(item.package_id) for item in checkout.items if item.package_id
+        ]
+        updated_packages, status_failures = bulk_update_package_status(
+            package_ids_to_deliver,
+            "delivered",
+            delivery_note,
+        )
+        delivered_count = len(updated_packages)
+        delivery_failed.extend(status_failures)
+        for package in updated_packages:
+            log_package_action(
+                actor,
+                ACTION_PACKAGE_STATUS_UPDATED,
+                str(package.id),
+                f"Marked {package.tracking_number} delivered at checkout",
+                metadata={
+                    "tracking_number": package.tracking_number,
+                    "to_status": "delivered",
+                    "checkout_id": str(checkout.id),
+                },
+            )
 
         if checkout.delivery_request_id:
             delivery_request = get_delivery_request(str(checkout.delivery_request_id))

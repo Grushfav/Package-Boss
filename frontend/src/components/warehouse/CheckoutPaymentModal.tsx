@@ -4,6 +4,11 @@ import { getErrorMessage } from '../../api/client'
 import { DELIVERY_FEE_SUMMARY } from '../../api/deliveryRequests'
 import { openCheckoutBillInvoice, recordCustomerCheckout } from '../../api/staff'
 import {
+  checkoutHandlingFeeAmount,
+  checkoutHandlingFeePayload,
+  MULTI_PACKAGE_HANDLING_FEE_JMD,
+} from '../../lib/checkoutHandling'
+import {
   optionalDeliveryFeeAmount,
   resolveCheckoutDelivery,
 } from '../../lib/checkoutDelivery'
@@ -45,6 +50,7 @@ export function CheckoutPaymentModal({
   const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
   const [processingFee, setProcessingFee] = useState('')
+  const [waiveHandlingFee, setWaiveHandlingFee] = useState(false)
   const [includeDeliveryFee, setIncludeDeliveryFee] = useState(false)
   const [printInvoice, setPrintInvoice] = useState(true)
   const [emailInvoice, setEmailInvoice] = useState(false)
@@ -53,6 +59,7 @@ export function CheckoutPaymentModal({
   const [loading, setLoading] = useState(false)
 
   const packageIds = useMemo(() => packages.map((pkg) => pkg.id), [packages])
+  const isMultiPackage = packages.length > 1
   const delivery = useMemo(
     () => resolveCheckoutDelivery(packageIds, pendingDeliveryRequests),
     [packageIds, pendingDeliveryRequests],
@@ -66,8 +73,19 @@ export function CheckoutPaymentModal({
     }
   }, [delivery.isCompleteMatch, packageIds.join(',')])
 
+  useEffect(() => {
+    if (!isMultiPackage) {
+      setWaiveHandlingFee(false)
+    }
+  }, [isMultiPackage])
+
   const packagesTotal = sumJmd(packages.map((pkg) => pkg.total_due_jmd))
-  const processingFeeAmount = parseOptionalJmd(processingFee) ?? 0
+  const manualProcessingFee = parseOptionalJmd(processingFee)
+  const processingFeeAmount = checkoutHandlingFeeAmount(
+    packages.length,
+    waiveHandlingFee,
+    manualProcessingFee,
+  )
   const deliveryFeeAmount = optionalDeliveryFeeAmount(delivery, includeDeliveryFee)
   const total = useMemo(
     () =>
@@ -96,7 +114,7 @@ export function CheckoutPaymentModal({
     setError('')
     setLoading(true)
     try {
-      const fee = parseOptionalJmd(processingFee)
+      const fee = checkoutHandlingFeePayload(packages.length, waiveHandlingFee, manualProcessingFee)
       if (fee != null && fee < 0) {
         setError('Handling fee cannot be negative')
         return
@@ -294,14 +312,32 @@ export function CheckoutPaymentModal({
             </label>
           ) : null}
 
-          <Input
-            label="Handling fee (JMD, optional)"
-            type="number"
-            step="1"
-            min="0"
-            value={processingFee}
-            onChange={(e) => setProcessingFee(e.target.value)}
-          />
+          {isMultiPackage ? (
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-background/50 p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={waiveHandlingFee}
+                onChange={(e) => setWaiveHandlingFee(e.target.checked)}
+                className="mt-0.5 rounded border-border"
+              />
+              <span>
+                Waive handling fee ({formatJmd(MULTI_PACKAGE_HANDLING_FEE_JMD)})
+                <span className="mt-0.5 block text-xs text-muted">
+                  J$300 applies when collecting 2 or more packages. Check to waive for this
+                  checkout.
+                </span>
+              </span>
+            </label>
+          ) : (
+            <Input
+              label="Handling fee (JMD, optional)"
+              type="number"
+              step="1"
+              min="0"
+              value={processingFee}
+              onChange={(e) => setProcessingFee(e.target.value)}
+            />
+          )}
 
           <div className="space-y-1.5">
             <label className="block text-xs font-medium uppercase tracking-wider text-muted">
