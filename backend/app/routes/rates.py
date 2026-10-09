@@ -53,4 +53,4 @@ def estimate_rate():
         result = calculate_shipping_cost(weight)
         return jsonify(result)
     except ValueError as exc:
-        return jsonify({"error": str(exc), "requires_quote": "custom quote" in str(exc).lower()}), 400
+        return jsonify({"error": str(exc), "requires_quote": "specialized quote" in str(exc).lower()}), 400

@@ -6,7 +6,7 @@ JMD_PER_USD = 160
 MAX_AUTO_RATE_LBS = 50
 RATES_REVISION = "revised-rates-newest"
 QUOTE_MESSAGE = (
-    f"Packages over {MAX_AUTO_RATE_LBS} lbs require a custom quote. "
+    f"Packages over {MAX_AUTO_RATE_LBS} lbs require a specialized quote. "
     "Please contact Package Boss Shipping & Logistics."
 )
 

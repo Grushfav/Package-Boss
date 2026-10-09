@@ -48,7 +48,7 @@ def main() -> None:
         f'MAX_AUTO_RATE_LBS = {max_lbs}',
         f'RATES_REVISION = "{path.stem.lower().replace(" ", "-")}"',
         "QUOTE_MESSAGE = (",
-        '    f"Packages over {MAX_AUTO_RATE_LBS} lbs require a custom quote. "',
+        '    f"Packages over {MAX_AUTO_RATE_LBS} lbs require a specialized quote. "',
         '    "Please contact Package Boss Shipping & Logistics."',
         ")",
         "",

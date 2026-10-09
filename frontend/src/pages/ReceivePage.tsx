@@ -1372,7 +1372,7 @@ export function ReceivePage() {
             />
             <p className="text-xs text-muted">
               Up to {MAX_RECEIVE_LBS} lbs. Standard tier rates apply to {MAX_AUTO_RATE_LBS} lbs or
-              less; heavier packages are received with a custom quote.
+              less; heavier packages are received with a specialized quote.
             </p>
 
             {requiresCustomQuote && (

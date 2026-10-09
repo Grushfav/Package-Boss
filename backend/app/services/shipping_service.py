@@ -84,7 +84,7 @@ def calculate_shipping_cost(actual_weight_lbs: Decimal | float) -> dict:
         "currency": "JMD",
         "jmd_per_usd": JMD_PER_USD,
         "rounding_note": "Weights are rounded up to the nearest whole pound.",
-        "quote_note": f"Packages over {MAX_AUTO_RATE_LBS} lbs require a custom quote.",
+        "quote_note": QUOTE_MESSAGE,
         "requires_custom_quote": False,
     }
 
@@ -128,6 +128,6 @@ def calculate_receive_quote(actual_weight_lbs: Decimal | float) -> dict:
         "cost_usd": float(cost),
         "cost_jmd": cost_jmd,
         "tier_label": tier_label_for_billable(billable),
-        "quote_note": f"Packages over {MAX_AUTO_RATE_LBS} lbs require a custom quote.",
+        "quote_note": QUOTE_MESSAGE,
         "requires_custom_quote": False,
     }

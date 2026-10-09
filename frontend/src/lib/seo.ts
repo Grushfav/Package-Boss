@@ -41,7 +41,7 @@ export const PAGE_SEO = {
   rates: {
     title: 'Shipping Rates — Fort Lauderdale to Jamaica (USD & JMD) | Package Boss',
     description:
-      'View tiered freight rates from Fort Lauderdale to Kingston. Transparent pricing in USD and JMD. Packages over 50 lbs require a custom quote.',
+      'View tiered freight rates from Fort Lauderdale to Kingston. Transparent pricing in USD and JMD. Packages over 50 lbs require a specialized quote.',
     path: '/rates',
   },
   signup: {

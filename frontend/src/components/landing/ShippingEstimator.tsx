@@ -41,7 +41,7 @@ export function ShippingEstimator() {
       setEstimate(result)
     } catch (err) {
       const msg = getErrorMessage(err)
-      if (msg.toLowerCase().includes('custom quote')) {
+      if (msg.toLowerCase().includes('specialized quote')) {
         setRequiresQuote(true)
       } else {
         setError(msg)
