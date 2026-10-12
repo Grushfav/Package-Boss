@@ -2,12 +2,50 @@
 
 from __future__ import annotations
 
+import uuid
 from collections import defaultdict
+from threading import Thread
+
+from flask import current_app
 
 from app.constants import UNIDENTIFIED_HOLDER_SHIPPING_ID
 from app.extensions import db
 from app.models.package import Package
 from app.models.user import User
+
+
+def schedule_notify_customers_of_status_batch(
+    entries: list[tuple[Package, str | None]],
+    status: str,
+) -> None:
+    """Send status emails after the HTTP request returns (avoids Gunicorn worker timeouts)."""
+    snapshots: list[tuple[str, str | None]] = []
+    seen: set[str] = set()
+    for package, note in entries:
+        package_id = str(package.id)
+        if package_id in seen:
+            continue
+        if package.status != status or not package.customer_id:
+            continue
+        seen.add(package_id)
+        snapshots.append((package_id, note))
+
+    if not snapshots:
+        return
+
+    app = current_app._get_current_object()
+
+    def _run() -> None:
+        with app.app_context():
+            rebuilt: list[tuple[Package, str | None]] = []
+            for package_id, note in snapshots:
+                package = db.session.get(Package, uuid.UUID(package_id))
+                if package and package.status == status and package.customer_id:
+                    rebuilt.append((package, note))
+            if rebuilt:
+                notify_customers_of_status_batch(rebuilt, status)
+
+    Thread(target=_run, daemon=False).start()
 
 
 def notify_customers_of_status_batch(

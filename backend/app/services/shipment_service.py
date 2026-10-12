@@ -325,12 +325,15 @@ def depart_shipment(
                     "shipment_id": str(shipment.id),
                     "shipment_reference": shipment.reference,
                 },
+                commit=False,
             )
 
     db.session.commit()
-    from app.services.package_status_notification_service import notify_customers_of_status_batch
+    from app.services.package_status_notification_service import (
+        schedule_notify_customers_of_status_batch,
+    )
 
-    notify_customers_of_status_batch([(pkg, event_note) for pkg in updated], "in_transit")
+    schedule_notify_customers_of_status_batch([(pkg, event_note) for pkg in updated], "in_transit")
     return updated, failed
 
 
@@ -476,10 +479,13 @@ def batch_depart_packages(
                     "shipment_reference": shipment.reference,
                     "batch_depart": True,
                 },
+                commit=False,
             )
 
     db.session.commit()
-    from app.services.package_status_notification_service import notify_customers_of_status_batch
+    from app.services.package_status_notification_service import (
+        schedule_notify_customers_of_status_batch,
+    )
 
-    notify_customers_of_status_batch([(pkg, event_note) for pkg in updated], "in_transit")
+    schedule_notify_customers_of_status_batch([(pkg, event_note) for pkg in updated], "in_transit")
     return shipment, updated

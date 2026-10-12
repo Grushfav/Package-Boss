@@ -24,6 +24,8 @@ def log_package_action(
     package_id: str,
     summary: str,
     metadata: dict | None = None,
+    *,
+    commit: bool = True,
 ) -> AuditLog:
     if actor and actor.role not in ("clerk", "admin"):
         raise ValueError("Only clerk or admin actions are logged here")
@@ -39,7 +41,8 @@ def log_package_action(
         metadata_json=metadata or {},
     )
     db.session.add(entry)
-    db.session.commit()
+    if commit:
+        db.session.commit()
     return entry
 
 

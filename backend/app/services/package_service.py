@@ -774,9 +774,11 @@ def bulk_update_package_status(
 
     if updated:
         db.session.commit()
-        from app.services.package_status_notification_service import notify_customers_of_status_batch
+        from app.services.package_status_notification_service import (
+            schedule_notify_customers_of_status_batch,
+        )
 
-        notify_customers_of_status_batch(notify_entries, status)
+        schedule_notify_customers_of_status_batch(notify_entries, status)
 
     return updated, failed
 

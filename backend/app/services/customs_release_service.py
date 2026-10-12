@@ -75,9 +75,11 @@ def release_packages_from_customs(
 
     if released:
         db.session.commit()
-        from app.services.package_status_notification_service import notify_customers_of_status_batch
+        from app.services.package_status_notification_service import (
+            schedule_notify_customers_of_status_batch,
+        )
 
-        notify_customers_of_status_batch(notify_entries, "ready_for_pickup")
+        schedule_notify_customers_of_status_batch(notify_entries, "ready_for_pickup")
     return released, failed
 
 

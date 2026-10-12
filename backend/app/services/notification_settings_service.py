@@ -18,7 +18,14 @@ def _parse_bool(value: str | None, *, default: bool) -> bool:
     return default
 
 
+_settings_table_ready = False
+
+
 def _ensure_settings_table() -> None:
+    global _settings_table_ready
+    if _settings_table_ready:
+        return
+
     from sqlalchemy import inspect
 
     from app.db_schema import ensure_schema
@@ -27,6 +34,7 @@ def _ensure_settings_table() -> None:
     if "app_settings" not in inspect(db.engine).get_table_names():
         ensure_schema(current_app._get_current_object())
         db.session.rollback()
+    _settings_table_ready = True
 
 
 def customer_email_notifications_enabled() -> bool:

@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, jsonify, request, Response
 from sqlalchemy import func, or_
 
+from app.extensions import db
 from app.models.pre_alert import PreAlert
 from app.constants import MAX_RECEIVE_LBS, PRE_ALERT_STATUSES, SHIPPER_CODES, SHIPPERS, STATUS_LABELS, UPDATABLE_STATUSES
 from app.models.package import Package
@@ -594,7 +595,10 @@ def customer_checkout(shipping_id: str):
                     "to_status": "delivered",
                     "checkout_id": str(checkout.id),
                 },
+                commit=False,
             )
+        if updated_packages:
+            db.session.commit()
 
         if checkout.delivery_request_id:
             delivery_request = get_delivery_request(str(checkout.delivery_request_id))
@@ -1148,7 +1152,10 @@ def bulk_update_status():
                     "note": note,
                     "bulk": True,
                 },
+                commit=False,
             )
+        if updated:
+            db.session.commit()
 
     return jsonify(
         {
