@@ -97,6 +97,8 @@ def request_package_invoice(
                 upload_url,
                 note,
             )
+            # None means customer email notifications are disabled (skipped).
+            # Async/console dispatch returns a status dict and still counts as sent.
             if email_result is not None:
                 channels_sent.append("email")
         except (EmailServiceError, NotImplementedError) as exc:

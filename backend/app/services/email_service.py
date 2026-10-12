@@ -227,7 +227,7 @@ def _dispatch_email(
         if html_body:
             current_app.logger.debug("HTML body length: %d chars", len(html_body))
         print(f"\n--- EMAIL ---\nTo: {to_email}\nSubject: {subject}\n\n{body}\n")
-        return None
+        return {"provider": "console", "queued": False}
 
     if provider == "worker":
         send_kwargs = {
@@ -239,7 +239,7 @@ def _dispatch_email(
         }
         if async_send:
             send_email_async(**send_kwargs)
-            return None
+            return {"provider": "worker", "queued": True}
         result = send_email(**send_kwargs)
         current_app.logger.info(
             "Email sent to %s (requestId=%s)",
