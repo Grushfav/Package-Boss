@@ -37,13 +37,25 @@ def schedule_notify_customers_of_status_batch(
 
     def _run() -> None:
         with app.app_context():
-            rebuilt: list[tuple[Package, str | None]] = []
-            for package_id, note in snapshots:
-                package = db.session.get(Package, uuid.UUID(package_id))
-                if package and package.status == status and package.customer_id:
-                    rebuilt.append((package, note))
-            if rebuilt:
-                notify_customers_of_status_batch(rebuilt, status)
+            try:
+                rebuilt: list[tuple[Package, str | None]] = []
+                for package_id, note in snapshots:
+                    package = db.session.get(Package, uuid.UUID(package_id))
+                    if package and package.customer_id:
+                        rebuilt.append((package, note))
+                if rebuilt:
+                    notify_customers_of_status_batch(
+                        rebuilt,
+                        status,
+                        verify_status=False,
+                    )
+            except Exception as exc:
+                app.logger.exception(
+                    "Deferred status email failed for status=%s (%d packages): %s",
+                    status,
+                    len(snapshots),
+                    exc,
+                )
 
     Thread(target=_run, daemon=False).start()
 
@@ -51,6 +63,8 @@ def schedule_notify_customers_of_status_batch(
 def notify_customers_of_status_batch(
     entries: list[tuple[Package, str | None]],
     status: str,
+    *,
+    verify_status: bool = True,
 ) -> None:
     """Send one email per customer (per shared note) when multiple packages change together."""
     seen_package_ids: set = set()
@@ -58,7 +72,9 @@ def notify_customers_of_status_batch(
     for package, note in entries:
         if package.id in seen_package_ids:
             continue
-        if package.status != status or not package.customer_id:
+        if not package.customer_id:
+            continue
+        if verify_status and package.status != status:
             continue
         seen_package_ids.add(package.id)
         groups[(package.customer_id, note)].append(package)
