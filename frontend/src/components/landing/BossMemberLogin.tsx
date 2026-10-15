@@ -4,8 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { login } from '../../api/auth'
 import { getErrorMessage } from '../../api/client'
 import { AuthDivider } from '../auth/AuthDivider'
-import { FacebookSignInButton } from '../auth/FacebookSignInButton'
-import { GoogleSignInButton } from '../auth/GoogleSignInButton'
+import { SocialSignInButtons } from '../auth/SocialSignInButtons'
 import { useAuth } from '../../context/AuthContext'
 import { getPostLoginPath } from '../../lib/routing'
 import { Button } from '../ui/Button'
@@ -74,10 +73,7 @@ export function BossMemberLogin() {
       </form>
 
       <AuthDivider />
-      <div className="space-y-3">
-        <GoogleSignInButton label="signin_with" />
-        <FacebookSignInButton label="signin" />
-      </div>
+      <SocialSignInButtons mode="signin" />
 
       <div className="mt-5 flex items-center justify-between gap-4">
         <Link to="/forgot-password" className="text-xs text-muted underline hover:text-foreground">
