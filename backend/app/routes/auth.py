@@ -262,14 +262,21 @@ def google_login():
     from app.services.google_auth_service import (
         GoogleAuthError,
         authenticate_google_user,
+        verify_google_access_token,
         verify_google_credential,
     )
 
     data = request.get_json(silent=True) or {}
-    credential = data.get("credential") or ""
+    credential = (data.get("credential") or "").strip()
+    google_access_token = (data.get("access_token") or "").strip()
 
     try:
-        profile = verify_google_credential(credential)
+        if credential:
+            profile = verify_google_credential(credential)
+        elif google_access_token:
+            profile = verify_google_access_token(google_access_token)
+        else:
+            return _error("Google credential or access token is required", 400)
         user, pending = authenticate_google_user(profile)
     except GoogleAuthError as exc:
         return _error(str(exc), 400)

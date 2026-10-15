@@ -22,7 +22,7 @@ export function SocialSignInButtons({ mode = 'signin' }: SocialSignInButtonsProp
   return (
     <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
       <div className="w-full min-w-0 sm:flex-1">
-        <GoogleSignInButton label={mode === 'signup' ? 'signup_with' : 'signin_with'} />
+        <GoogleSignInButton label={mode === 'signup' ? 'signup' : 'signin'} />
         <LastUsedHint provider="google" last={last} />
       </div>
       <div className="w-full min-w-0 sm:flex-1">

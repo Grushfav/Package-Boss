@@ -17,8 +17,13 @@ export function isGoogleSignupPending(
   return 'needs_profile' in response && response.needs_profile === true
 }
 
-export async function loginWithGoogle(credential: string): Promise<GoogleLoginResponse> {
-  const { data } = await api.post<GoogleLoginResponse>('/auth/google', { credential })
+export async function loginWithGoogle(
+  token: string,
+  kind: 'credential' | 'access_token' = 'credential',
+): Promise<GoogleLoginResponse> {
+  const body =
+    kind === 'access_token' ? { access_token: token } : { credential: token }
+  const { data } = await api.post<GoogleLoginResponse>('/auth/google', body)
   return data
 }
 

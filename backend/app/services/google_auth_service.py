@@ -1,6 +1,7 @@
 import secrets
 from datetime import timedelta
 
+import requests
 from flask import current_app
 from flask_jwt_extended import create_access_token, get_jwt
 from google.auth.transport import requests as google_requests
@@ -31,6 +32,28 @@ def _google_client_id() -> str:
     return client_id
 
 
+def _profile_from_google_payload(payload: dict) -> dict:
+    email = (payload.get("email") or "").strip().lower()
+    if not email:
+        raise GoogleAuthError("Google account email is required")
+    if payload.get("email_verified") in (False, "false", "False"):
+        raise GoogleAuthError("Google account email is not verified")
+
+    google_id = payload.get("sub") or payload.get("id")
+    if not google_id:
+        raise GoogleAuthError("Invalid Google account")
+
+    first_name = (payload.get("given_name") or email.split("@")[0]).strip()
+    last_name = (payload.get("family_name") or "").strip() or "Member"
+
+    return {
+        "google_id": str(google_id),
+        "email": email,
+        "first_name": first_name[:80],
+        "last_name": last_name[:80],
+    }
+
+
 def verify_google_credential(credential: str) -> dict:
     if not credential or not credential.strip():
         raise GoogleAuthError("Google credential is required")
@@ -47,25 +70,25 @@ def verify_google_credential(credential: str) -> dict:
     if payload.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
         raise GoogleAuthError("Invalid Google token issuer")
 
-    email = (payload.get("email") or "").strip().lower()
-    if not email:
-        raise GoogleAuthError("Google account email is required")
-    if not payload.get("email_verified"):
-        raise GoogleAuthError("Google account email is not verified")
+    return _profile_from_google_payload(payload)
 
-    google_id = payload.get("sub")
-    if not google_id:
-        raise GoogleAuthError("Invalid Google account")
 
-    first_name = (payload.get("given_name") or email.split("@")[0]).strip()
-    last_name = (payload.get("family_name") or "").strip() or "Member"
+def verify_google_access_token(access_token: str) -> dict:
+    if not access_token or not access_token.strip():
+        raise GoogleAuthError("Google access token is required")
 
-    return {
-        "google_id": str(google_id),
-        "email": email,
-        "first_name": first_name[:80],
-        "last_name": last_name[:80],
-    }
+    try:
+        response = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {access_token.strip()}"},
+            timeout=15,
+        )
+        response.raise_for_status()
+        payload = response.json() or {}
+    except requests.RequestException as exc:
+        raise GoogleAuthError("Could not verify Google sign-in") from exc
+
+    return _profile_from_google_payload(payload)
 
 
 def create_google_signup_token(profile: dict) -> str:

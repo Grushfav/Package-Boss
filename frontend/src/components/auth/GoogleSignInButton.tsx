@@ -1,5 +1,5 @@
-import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
-import { useEffect, useRef, useState } from 'react'
+import { useGoogleLogin } from '@react-oauth/google'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { isGoogleSignupPending, loginWithGoogle } from '../../api/auth'
 import { getErrorMessage } from '../../api/client'
@@ -11,104 +11,109 @@ import {
 import { setLastAuthProvider } from '../../lib/lastAuthProvider'
 import { getPostLoginPath } from '../../lib/routing'
 
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      />
+    </svg>
+  )
+}
+
 interface GoogleSignInButtonProps {
-  label?: 'signin_with' | 'signup_with' | 'continue_with'
+  label?: 'signin' | 'signup' | 'continue'
 }
 
-/** Snap width so scrollbar flicker / tiny layout shifts don't remount Google's iframe. */
-function stableWidth(px: number): number {
-  return Math.max(200, Math.floor(px / 16) * 16)
-}
-
-export function GoogleSignInButton({ label = 'continue_with' }: GoogleSignInButtonProps) {
+function GoogleSignInButtonInner({ label = 'continue' }: GoogleSignInButtonProps) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { setSession } = useAuth()
   const [error, setError] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [buttonWidth, setButtonWidth] = useState(0)
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
+  const buttonLabel =
+    label === 'signup' ? 'Sign up with Google' : 'Sign in with Google'
 
-    let frame = 0
-    const update = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        const next = stableWidth(el.getBoundingClientRect().width)
-        if (next > 0) {
-          setButtonWidth((prev) => (prev === next ? prev : next))
+  const startGoogleLogin = useGoogleLogin({
+    scope: 'openid email profile',
+    onSuccess: (tokenResponse) => {
+      void (async () => {
+        setError('')
+        setLoading(true)
+        try {
+          if (!tokenResponse.access_token) {
+            throw new Error('Google sign-in did not return an access token')
+          }
+          const data = await loginWithGoogle(tokenResponse.access_token, 'access_token')
+          if (isGoogleSignupPending(data)) {
+            storeGoogleSignupSession(data.signup_token, {
+              email: data.email,
+              first_name: data.first_name,
+              last_name: data.last_name,
+            })
+            navigate('/signup/google')
+            return
+          }
+
+          setLastAuthProvider('google')
+          setSession(data.access_token, data.user)
+          navigate(getPostLoginPath(data.user.role, searchParams.get('next')))
+        } catch (err) {
+          setError(getErrorMessage(err))
+        } finally {
+          setLoading(false)
         }
-      })
-    }
-
-    update()
-    window.addEventListener('resize', update)
-    // Observe parent size only — not Google iframe internals (avoids remount loops).
-    const ro = new ResizeObserver(update)
-    const parent = el.parentElement
-    if (parent) ro.observe(parent)
-    else ro.observe(el)
-
-    return () => {
-      cancelAnimationFrame(frame)
-      window.removeEventListener('resize', update)
-      ro.disconnect()
-    }
-  }, [])
-
-  if (!isGoogleSignInEnabled()) {
-    return null
-  }
-
-  async function handleSuccess(response: CredentialResponse) {
-    if (!response.credential) {
-      setError('Google sign-in did not return a credential')
-      return
-    }
-
-    setError('')
-    try {
-      const data = await loginWithGoogle(response.credential)
-      if (isGoogleSignupPending(data)) {
-        storeGoogleSignupSession(data.signup_token, {
-          email: data.email,
-          first_name: data.first_name,
-          last_name: data.last_name,
-        })
-        navigate('/signup/google')
-        return
-      }
-
-      setLastAuthProvider('google')
-      setSession(data.access_token, data.user)
-      navigate(getPostLoginPath(data.user.role, searchParams.get('next')))
-    } catch (err) {
-      setError(getErrorMessage(err))
-    }
-  }
+      })()
+    },
+    onError: () => {
+      setLoading(false)
+      setError('Google sign-in was cancelled or failed')
+    },
+    onNonOAuthError: () => {
+      setLoading(false)
+      setError('Google sign-in was cancelled or failed')
+    },
+  })
 
   return (
     <div className="space-y-3">
-      <div ref={containerRef} className="w-full min-w-0">
-        {buttonWidth > 0 && (
-          <GoogleLogin
-            key={buttonWidth}
-            onSuccess={handleSuccess}
-            onError={() => setError('Google sign-in was cancelled or failed')}
-            useOneTap={false}
-            theme="outline"
-            size="large"
-            shape="rectangular"
-            text={label}
-            width={String(buttonWidth)}
-          />
-        )}
-      </div>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => {
+          setError('')
+          setLoading(true)
+          startGoogleLogin()
+        }}
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-700 dark:hover:bg-gray-100"
+      >
+        <GoogleIcon className="h-5 w-5 shrink-0" />
+        <span className="truncate">{loading ? 'Connecting…' : buttonLabel}</span>
+      </button>
       {error && (
         <p className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>
       )}
     </div>
   )
+}
+
+export function GoogleSignInButton(props: GoogleSignInButtonProps) {
+  if (!isGoogleSignInEnabled()) {
+    return null
+  }
+  return <GoogleSignInButtonInner {...props} />
 }
