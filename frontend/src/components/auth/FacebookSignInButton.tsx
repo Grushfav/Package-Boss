@@ -5,7 +5,6 @@ import { getErrorMessage } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
   isFacebookSignInEnabled,
-  isFacebookSignInReady,
   loadFacebookSdk,
   storeFacebookSignupSession,
 } from '../../lib/facebookAuth'
@@ -37,12 +36,10 @@ export function FacebookSignInButton({ label = 'continue' }: FacebookSignInButto
     return null
   }
 
-  const ready = isFacebookSignInReady()
   const buttonLabel =
     label === 'signup' ? 'Sign up with Facebook' : 'Sign in with Facebook'
 
   async function handleClick() {
-    if (!ready) return
     setError('')
     setLoading(true)
     try {
@@ -92,20 +89,12 @@ export function FacebookSignInButton({ label = 'continue' }: FacebookSignInButto
     <div className="space-y-3">
       <button
         type="button"
-        disabled={loading || !ready}
-        title={ready ? undefined : 'Facebook sign-in coming soon'}
-        aria-disabled={!ready}
+        disabled={loading}
         onClick={() => void handleClick()}
-        className={
-          ready
-            ? 'flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#1877F2] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#166FE5] disabled:cursor-not-allowed disabled:opacity-50'
-            : 'flex h-10 w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-sm font-semibold text-muted opacity-60'
-        }
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#1877F2] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#166FE5] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <FacebookIcon className="h-5 w-5 shrink-0" />
-        <span className="truncate">
-          {loading ? 'Connecting…' : ready ? buttonLabel : 'Facebook (coming soon)'}
-        </span>
+        <span className="truncate">{loading ? 'Connecting…' : buttonLabel}</span>
       </button>
       {error && (
         <p className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>

@@ -1,17 +1,8 @@
 export const FACEBOOK_APP_ID =
   (import.meta.env.VITE_FACEBOOK_APP_ID as string | undefined)?.trim() ?? ''
 
-/** Flip to true (or set VITE_FACEBOOK_LOGIN_READY=true) once Meta Live + Advanced Access are done. */
-export const FACEBOOK_LOGIN_READY =
-  (import.meta.env.VITE_FACEBOOK_LOGIN_READY as string | undefined)?.trim().toLowerCase() ===
-  'true'
-
 export function isFacebookSignInEnabled(): boolean {
   return FACEBOOK_APP_ID.length > 0
-}
-
-export function isFacebookSignInReady(): boolean {
-  return isFacebookSignInEnabled() && FACEBOOK_LOGIN_READY
 }
 
 const FACEBOOK_SIGNUP_TOKEN_KEY = 'facebook_signup_token'
