@@ -6,6 +6,7 @@ import { getErrorMessage } from '../../api/client'
 import { AuthDivider } from '../auth/AuthDivider'
 import { SocialSignInButtons } from '../auth/SocialSignInButtons'
 import { useAuth } from '../../context/AuthContext'
+import { setLastAuthProvider } from '../../lib/lastAuthProvider'
 import { getPostLoginPath } from '../../lib/routing'
 import { Button } from '../ui/Button'
 import { IconBadge } from '../ui/IconBadge'
@@ -26,6 +27,7 @@ export function BossMemberLogin() {
     setLoading(true)
     try {
       const data = await login(email, password)
+      setLastAuthProvider('email')
       setSession(data.access_token, data.user)
       navigate(getPostLoginPath(data.user.role, searchParams.get('next')))
     } catch (err) {

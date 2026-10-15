@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { login } from '../api/auth'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { setLastAuthProvider } from '../lib/lastAuthProvider'
 import { getPostLoginPath } from '../lib/routing'
 import { AuthDivider } from '../components/auth/AuthDivider'
 import { SocialSignInButtons } from '../components/auth/SocialSignInButtons'
@@ -30,6 +31,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       const data = await login(email, password)
+      setLastAuthProvider('email')
       setSession(data.access_token, data.user)
       navigate(getPostLoginPath(data.user.role, searchParams.get('next')))
     } catch (err) {

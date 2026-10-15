@@ -11,6 +11,7 @@ import {
   isGoogleSignInEnabled,
   readGoogleSignupSession,
 } from '../lib/googleAuth'
+import { setLastAuthProvider } from '../lib/lastAuthProvider'
 import { cacheShippingAddress } from '../lib/offlineAddress'
 import { getPostLoginPath } from '../lib/routing'
 import { PAGE_SEO } from '../lib/seo'
@@ -57,6 +58,7 @@ export function GoogleSignupCompletePage() {
         accept_terms: true,
       })
       clearGoogleSignupSession()
+      setLastAuthProvider('google')
       setSession(data.access_token, data.user)
       if (data.shipping_address) {
         cacheShippingAddress(data.shipping_address)

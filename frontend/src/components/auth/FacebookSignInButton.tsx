@@ -8,6 +8,7 @@ import {
   loadFacebookSdk,
   storeFacebookSignupSession,
 } from '../../lib/facebookAuth'
+import { setLastAuthProvider } from '../../lib/lastAuthProvider'
 import { getPostLoginPath } from '../../lib/routing'
 
 function FacebookIcon({ className }: { className?: string }) {
@@ -76,6 +77,7 @@ export function FacebookSignInButton({ label = 'continue' }: FacebookSignInButto
         return
       }
 
+      setLastAuthProvider('facebook')
       setSession(data.access_token, data.user)
       navigate(getPostLoginPath(data.user.role, searchParams.get('next')))
     } catch (err) {

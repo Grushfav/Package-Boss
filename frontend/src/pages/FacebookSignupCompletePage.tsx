@@ -11,6 +11,7 @@ import {
   isFacebookSignInEnabled,
   readFacebookSignupSession,
 } from '../lib/facebookAuth'
+import { setLastAuthProvider } from '../lib/lastAuthProvider'
 import { cacheShippingAddress } from '../lib/offlineAddress'
 import { getPostLoginPath } from '../lib/routing'
 import { PAGE_SEO } from '../lib/seo'
@@ -57,6 +58,7 @@ export function FacebookSignupCompletePage() {
         accept_terms: true,
       })
       clearFacebookSignupSession()
+      setLastAuthProvider('facebook')
       setSession(data.access_token, data.user)
       if (data.shipping_address) {
         cacheShippingAddress(data.shipping_address)
