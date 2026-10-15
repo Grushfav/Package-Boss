@@ -41,6 +41,8 @@ import { TermsPage } from './pages/TermsPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { DataProtectionPage } from './pages/DataProtectionPage'
 import { DataDeletionPage } from './pages/DataDeletionPage'
+import { DeletionStatusPage } from './pages/DeletionStatusPage'
+import { FacebookSignupCompletePage } from './pages/FacebookSignupCompletePage'
 import { StatusUpdatePage } from './pages/StatusUpdatePage'
 import { CustomerAccountPage } from './pages/CustomerAccountPage'
 import { CustomersPage } from './pages/CustomersPage'
@@ -64,11 +66,13 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/signup/google" element={<GoogleSignupCompletePage />} />
+        <Route path="/signup/facebook" element={<FacebookSignupCompletePage />} />
         <Route path="/rates" element={<RatesPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/data-protection" element={<DataProtectionPage />} />
         <Route path="/data-deletion" element={<DataDeletionPage />} />
+        <Route path="/deletion-status" element={<DeletionStatusPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/track" element={<Navigate to="/dashboard/packages" replace />} />

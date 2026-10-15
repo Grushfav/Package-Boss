@@ -311,3 +311,89 @@ def google_signup_complete():
             "shipping_address": shipping_address,
         }
     ), 201
+
+
+@auth_bp.route("/auth/facebook", methods=["POST"])
+def facebook_login():
+    from app.services.facebook_auth_service import (
+        FacebookAuthError,
+        authenticate_facebook_user,
+        verify_facebook_access_token,
+    )
+
+    data = request.get_json(silent=True) or {}
+    access_token = data.get("access_token") or ""
+
+    try:
+        profile = verify_facebook_access_token(access_token)
+        user, pending = authenticate_facebook_user(profile)
+    except FacebookAuthError as exc:
+        return _error(str(exc), 400)
+
+    if pending:
+        return jsonify(pending), 200
+
+    if not user.is_active:
+        return _error("This account has been deactivated", 403)
+
+    token = access_token_for_user(user)
+    return jsonify(
+        {
+            "access_token": token,
+            "user": user.to_dict(
+                include_trn=user.role == "customer",
+                include_clerk_fields=user.role in ("clerk", "admin"),
+            ),
+        }
+    )
+
+
+@auth_bp.route("/auth/facebook/complete", methods=["POST"])
+@jwt_required()
+def facebook_signup_complete():
+    from app.services.facebook_auth_service import FacebookAuthError, complete_facebook_signup
+
+    data = request.get_json(silent=True) or {}
+    try:
+        user, shipping_address = complete_facebook_signup(data)
+    except FacebookAuthError as exc:
+        return _error(str(exc), 400)
+
+    token = access_token_for_user(user)
+    return jsonify(
+        {
+            "access_token": token,
+            "user": user.to_dict(include_trn=True),
+            "shipping_address": shipping_address,
+        }
+    ), 201
+
+
+@auth_bp.route("/auth/facebook/data-deletion", methods=["POST"])
+def facebook_data_deletion():
+    """Meta data deletion request callback (signed_request form field)."""
+    from app.services.facebook_auth_service import (
+        FacebookAuthError,
+        process_facebook_data_deletion,
+    )
+
+    signed_request = request.form.get("signed_request") or ""
+    if not signed_request and request.is_json:
+        signed_request = (request.get_json(silent=True) or {}).get("signed_request") or ""
+
+    try:
+        result = process_facebook_data_deletion(signed_request)
+    except FacebookAuthError as exc:
+        return _error(str(exc), 400)
+
+    return jsonify(result)
+
+
+@auth_bp.route("/auth/deletion-status/<confirmation_code>", methods=["GET"])
+def deletion_status(confirmation_code: str):
+    from app.services.facebook_auth_service import get_deletion_request_status
+
+    entry = get_deletion_request_status(confirmation_code)
+    if not entry:
+        return _error("Deletion request not found", 404)
+    return jsonify(entry.to_dict())

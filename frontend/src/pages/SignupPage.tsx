@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { cacheShippingAddress } from '../lib/offlineAddress'
 import { Seo } from '../components/seo/Seo'
 import { AuthDivider } from '../components/auth/AuthDivider'
+import { FacebookSignInButton } from '../components/auth/FacebookSignInButton'
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -69,8 +70,9 @@ export function SignupPage() {
           Create your account and get your Fort Lauderdale shipping address instantly.
         </p>
 
-        <div className="mt-6">
+        <div className="mt-6 space-y-3">
           <GoogleSignInButton label="signup_with" />
+          <FacebookSignInButton label="signup" />
         </div>
         <AuthDivider label="or sign up with email" />
 

@@ -19,9 +19,11 @@ from app.models.shipping_rate_tier import ShippingRateTier
 from app.models.user import User
 from app.models.package import Package, PackageEvent, PackagePhoto
 from app.models.bank_transfer_proof import BankTransferProof, BankTransferProofPackage
+from app.models.data_deletion_request import DataDeletionRequest
 
 __all__ = [
     "AppSetting",
+    "DataDeletionRequest",
     "User",
     "PasswordResetToken",
     "ShippingRateTier",

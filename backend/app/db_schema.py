@@ -102,7 +102,64 @@ def ensure_schema(app) -> None:
                 )
                 db.session.commit()
 
+        if "facebook_id" not in columns:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN facebook_id VARCHAR(255)"))
+            db.session.commit()
+            app.logger.info("Added missing users.facebook_id column")
+            columns.add("facebook_id")
+            if db.engine.dialect.name == "postgresql":
+                db.session.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_facebook_id "
+                        "ON users (facebook_id)"
+                    )
+                )
+                db.session.commit()
+
         _migrate_trn_columns(app, columns)
+
+    if "data_deletion_requests" not in inspector.get_table_names():
+        if db.engine.dialect.name == "postgresql":
+            db.session.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS data_deletion_requests (
+                        confirmation_code VARCHAR(64) PRIMARY KEY,
+                        facebook_user_id VARCHAR(255),
+                        user_id UUID REFERENCES users(id),
+                        status VARCHAR(32) NOT NULL DEFAULT 'completed',
+                        created_at TIMESTAMP NOT NULL,
+                        completed_at TIMESTAMP,
+                        notes VARCHAR(500)
+                    )
+                    """
+                )
+            )
+            db.session.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_data_deletion_requests_facebook_user_id "
+                    "ON data_deletion_requests (facebook_user_id)"
+                )
+            )
+        else:
+            db.session.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS data_deletion_requests (
+                        confirmation_code VARCHAR(64) PRIMARY KEY,
+                        facebook_user_id VARCHAR(255),
+                        user_id CHAR(36),
+                        status VARCHAR(32) NOT NULL DEFAULT 'completed',
+                        created_at DATETIME NOT NULL,
+                        completed_at DATETIME,
+                        notes VARCHAR(500)
+                    )
+                    """
+                )
+            )
+        db.session.commit()
+        app.logger.info("Created data_deletion_requests table")
+        inspector = inspect(db.engine)
 
     if "packages" in inspector.get_table_names():
         pkg_columns = {col["name"] for col in inspector.get_columns("packages")}

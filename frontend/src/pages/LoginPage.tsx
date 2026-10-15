@@ -6,6 +6,7 @@ import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { getPostLoginPath } from '../lib/routing'
 import { AuthDivider } from '../components/auth/AuthDivider'
+import { FacebookSignInButton } from '../components/auth/FacebookSignInButton'
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton'
 import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
@@ -84,7 +85,10 @@ export function LoginPage() {
         </form>
 
         <AuthDivider />
-        <GoogleSignInButton label="signin_with" />
+        <div className="space-y-3">
+          <GoogleSignInButton label="signin_with" />
+          <FacebookSignInButton label="signin" />
+        </div>
 
         <div className="mt-6 flex items-center justify-between gap-4">
           <Link to="/forgot-password" className="text-xs text-muted underline hover:text-foreground">

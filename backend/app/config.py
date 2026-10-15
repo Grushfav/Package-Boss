@@ -87,6 +87,8 @@ class Config:
     STAFF_EMAIL = os.environ.get("STAFF_EMAIL", "").strip().lower()
 
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    FACEBOOK_APP_ID = os.environ.get("FACEBOOK_APP_ID", "").strip()
+    FACEBOOK_APP_SECRET = os.environ.get("FACEBOOK_APP_SECRET", "").strip()
 
     FYGARO_API_KEY = os.environ.get("FYGARO_API_KEY", "").strip()
     FYGARO_SECRET_KEY = os.environ.get("FYGARO_SECRET_KEY", "").strip()

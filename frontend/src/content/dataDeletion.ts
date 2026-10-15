@@ -37,7 +37,8 @@ export const DATA_DELETION_SECTIONS: LegalSection[] = [
     title: '4. Social sign-in (Google / Facebook)',
     paragraphs: [
       'If you signed in with Google or Facebook, emailing us still starts your Package Boss deletion request.',
-      'You may also disconnect Package Boss from your Google or Facebook account settings. Removing the app connection does not by itself delete Package Boss warehouse or billing records; contact us as described above to request full account data removal.',
+      'You may also disconnect Package Boss from your Google or Facebook account settings. When you remove our Facebook app, Meta notifies us automatically and we unlink your Facebook identity from Package Boss.',
+      'Removing the app connection does not by itself delete Package Boss warehouse or billing records required for customs, tax, or accounting; email us as described above to request full account data removal.',
     ],
   },
   {
