@@ -15,6 +15,7 @@ export function TermsPage() {
       relatedLinks={[
         { label: 'Privacy Policy', to: '/privacy' },
         { label: 'Data Protection Policy', to: '/data-protection' },
+        { label: 'Data deletion request', to: '/data-deletion' },
       ]}
     />
     </>

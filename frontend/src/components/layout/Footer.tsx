@@ -45,6 +45,7 @@ export function Footer({ className = '' }: { className?: string }) {
             <li><Link to="/terms" className="hover:text-boss-green">Terms &amp; Conditions</Link></li>
             <li><Link to="/privacy" className="hover:text-boss-green">Privacy Policy</Link></li>
             <li><Link to="/data-protection" className="hover:text-boss-green">Data Protection</Link></li>
+            <li><Link to="/data-deletion" className="hover:text-boss-green">Data deletion</Link></li>
             <li><Link to="/signup" className="hover:text-boss-green">Sign Up</Link></li>
           </ul>
         </div>

@@ -68,6 +68,12 @@ export const PAGE_SEO = {
       'Package Boss data protection principles and safeguards for customer and shipment information.',
     path: '/data-protection',
   },
+  dataDeletion: {
+    title: 'Data deletion request — Package Boss',
+    description:
+      'How to request deletion of your Package Boss account and personal data. Email support@packagebossja.com to start a verified deletion request.',
+    path: '/data-deletion',
+  },
   login: {
     title: 'Boss Member Login — Package Boss',
     description: 'Sign in to your Package Boss customer or staff account.',

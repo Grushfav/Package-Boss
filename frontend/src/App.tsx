@@ -40,6 +40,7 @@ import { ServicesPage } from './pages/ServicesPage'
 import { TermsPage } from './pages/TermsPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { DataProtectionPage } from './pages/DataProtectionPage'
+import { DataDeletionPage } from './pages/DataDeletionPage'
 import { StatusUpdatePage } from './pages/StatusUpdatePage'
 import { CustomerAccountPage } from './pages/CustomerAccountPage'
 import { CustomersPage } from './pages/CustomersPage'
@@ -67,6 +68,7 @@ function AppRoutes() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/data-protection" element={<DataProtectionPage />} />
+        <Route path="/data-deletion" element={<DataDeletionPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/track" element={<Navigate to="/dashboard/packages" replace />} />

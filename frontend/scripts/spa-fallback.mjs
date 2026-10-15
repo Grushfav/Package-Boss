@@ -26,6 +26,7 @@ const routes = [
   'terms',
   'privacy',
   'data-protection',
+  'data-deletion',
   'forgot-password',
   'reset-password',
   'track',

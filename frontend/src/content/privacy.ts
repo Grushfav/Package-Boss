@@ -100,7 +100,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     bullets: [
       'Access the personal information we hold about you.',
       'Correct inaccurate account or contact details through your profile or by contacting us.',
-      'Request deletion of your account, subject to legal and operational retention requirements.',
+      'Request deletion of your account via our Data deletion request page or by emailing support@packagebossja.com, subject to legal and operational retention requirements.',
       'Withdraw consent for optional communications such as WhatsApp notifications.',
       'Object to or restrict certain processing where the law provides such rights.',
     ],
