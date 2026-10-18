@@ -1,7 +1,6 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
-import { estimateRate } from '../../api/rates'
 import {
   releasePackagesFromCustoms,
   requestPackageInvoice,
@@ -10,6 +9,8 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { clerkHasPermission } from '../../lib/clerkPermissions'
 import { formatJmd } from '../../lib/money'
+import { billableWeightLbs, freightFromRatesTable } from '../../lib/rateEstimate'
+import { loadRates } from '../../lib/ratesCache'
 import { MAX_AUTO_RATE_LBS } from '../../lib/warehouseConstants'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -40,20 +41,20 @@ function parseOptionalJmd(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-function billableWeight(lbs: number): number {
-  return Math.ceil(lbs)
+function packageWeight(pkg: Package): number | null {
+  return pkg.billable_weight_lbs ?? pkg.actual_weight_lbs ?? null
 }
 
-function requiresCustomFreightQuote(
-  pkg: Package,
-  autoFreight: number | null | undefined,
-  estimating: boolean,
-): boolean {
-  const weight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
-  if (weight != null && billableWeight(weight) > MAX_AUTO_RATE_LBS) return true
+/** True only when the package genuinely needs a manual freight quote. */
+function requiresCustomFreightQuote(pkg: Package): boolean {
   if (pkg.rate_tier_label === 'Custom quote') return true
-  if (!estimating && autoFreight == null && weight != null) return true
-  return false
+  const weight = packageWeight(pkg)
+  if (weight == null) return false
+  try {
+    return billableWeightLbs(weight) > MAX_AUTO_RATE_LBS
+  } catch {
+    return false
+  }
 }
 
 function rowTotalJmd(freightJmd: number | null, fees: FeeFields): number | null {
@@ -62,6 +63,16 @@ function rowTotalJmd(freightJmd: number | null, fees: FeeFields): number | null 
   const handling = parseOptionalJmd(fees.handling_jmd) ?? 0
   const other = parseOptionalJmd(fees.other_fees_jmd) ?? 0
   return freightJmd + duties + handling + other
+}
+
+function estimateSignature(pkgs: Package[]): string {
+  return pkgs
+    .map((pkg) => {
+      const w = packageWeight(pkg)
+      return `${pkg.id}:${w ?? ''}:${pkg.estimated_freight_jmd ?? ''}:${pkg.rate_tier_label ?? ''}`
+    })
+    .sort()
+    .join('|')
 }
 
 export function ReleaseFromCustomsModal({
@@ -92,6 +103,7 @@ export function ReleaseFromCustomsModal({
   )
   const [loading, setLoading] = useState(false)
   const [estimating, setEstimating] = useState(false)
+  const [estimateError, setEstimateError] = useState('')
   const [invoiceLoadingId, setInvoiceLoadingId] = useState<string | null>(null)
   const [invoiceNotice, setInvoiceNotice] = useState('')
   const [error, setError] = useState('')
@@ -101,52 +113,67 @@ export function ReleaseFromCustomsModal({
   }, [packages])
 
   const customsPackages = localPackages
+  const ratesSig = useMemo(() => estimateSignature(customsPackages), [customsPackages])
 
   useEffect(() => {
     let cancelled = false
 
     async function loadEstimates() {
+      if (customsPackages.length === 0) return
+
       setEstimating(true)
+      setEstimateError('')
       const next: Record<string, number | null> = {}
 
-      await Promise.all(
-        customsPackages.map(async (pkg) => {
+      try {
+        const rates = await loadRates()
+        if (cancelled) return
+
+        for (const pkg of customsPackages) {
           if (pkg.estimated_freight_jmd != null && pkg.estimated_freight_jmd > 0) {
             next[pkg.id] = pkg.estimated_freight_jmd
-            return
+            continue
           }
-          const weight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
+          if (requiresCustomFreightQuote(pkg)) {
+            next[pkg.id] = null
+            continue
+          }
+          const weight = packageWeight(pkg)
           if (weight == null) {
             next[pkg.id] = null
-            return
-          }
-          if (billableWeight(weight) > MAX_AUTO_RATE_LBS || pkg.rate_tier_label === 'Custom quote') {
-            next[pkg.id] = null
-            return
+            continue
           }
           try {
-            const quote = await estimateRate(weight)
-            next[pkg.id] = quote.cost_jmd
+            const quote = freightFromRatesTable(weight, rates)
+            next[pkg.id] = quote?.cost_jmd ?? null
           } catch {
             next[pkg.id] = null
           }
-        }),
-      )
+        }
 
-      if (!cancelled) {
-        setFreightById(next)
-        setEstimating(false)
+        if (!cancelled) {
+          setFreightById(next)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setEstimateError(getErrorMessage(err))
+          setFreightById({})
+        }
+      } finally {
+        if (!cancelled) {
+          setEstimating(false)
+        }
       }
     }
 
-    if (customsPackages.length > 0) {
-      loadEstimates()
-    }
+    void loadEstimates()
 
     return () => {
       cancelled = true
     }
-  }, [customsPackages])
+    // ratesSig captures id/weight/freight/label — avoid refetch on unrelated package object churn
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ratesSig])
 
   function effectiveFreight(pkg: Package): number | null {
     const manual = parseOptionalJmd(freightInputById[pkg.id] ?? '')
@@ -162,8 +189,7 @@ export function ReleaseFromCustomsModal({
     let total = 0
     let hasAny = false
     for (const pkg of customsPackages) {
-      const manual = parseOptionalJmd(freightInputById[pkg.id] ?? '')
-      const freight = manual ?? freightById[pkg.id] ?? null
+      const freight = effectiveFreight(pkg)
       const rowTotal = rowTotalJmd(freight, feesById[pkg.id] ?? emptyFees())
       if (rowTotal != null) {
         total += rowTotal
@@ -171,6 +197,7 @@ export function ReleaseFromCustomsModal({
       }
     }
     return hasAny ? total : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- effectiveFreight reads freightInputById/freightById
   }, [customsPackages, feesById, freightById, freightInputById])
 
   function updateFees(id: string, patch: Partial<FeeFields>) {
@@ -230,13 +257,17 @@ export function ReleaseFromCustomsModal({
 
     setError('')
     for (const pkg of customsPackages) {
-      const autoFreight = freightById[pkg.id] ?? null
-      if (requiresCustomFreightQuote(pkg, autoFreight, estimating)) {
+      if (requiresCustomFreightQuote(pkg)) {
         const freight = effectiveFreight(pkg)
         if (freight == null || freight <= 0) {
           setError(`Enter shipping (JMD) for ${pkg.tracking_number}`)
           return
         }
+      } else if (effectiveFreight(pkg) == null) {
+        setError(
+          `Shipping could not be calculated for ${pkg.tracking_number}. Wait for rates to load or enter a custom amount.`,
+        )
+        return
       }
     }
 
@@ -245,8 +276,7 @@ export function ReleaseFromCustomsModal({
       const result = await releasePackagesFromCustoms({
         items: customsPackages.map((pkg) => {
           const fees = feesById[pkg.id] ?? emptyFees()
-          const autoFreight = freightById[pkg.id] ?? null
-          const needsCustom = requiresCustomFreightQuote(pkg, autoFreight, false)
+          const needsCustom = requiresCustomFreightQuote(pkg)
           const manualInput = freightInputById[pkg.id]?.trim()
           const freight = effectiveFreight(pkg)
           return {
@@ -299,6 +329,11 @@ export function ReleaseFromCustomsModal({
                 {estimating ? ' (calculating…)' : ''}
               </p>
             )}
+            {estimateError && (
+              <p className="mt-2 text-sm text-amber-400">
+                Could not load rate table: {estimateError}
+              </p>
+            )}
           </div>
           <button type="button" onClick={onClose} className="text-muted hover:text-foreground">
             ✕
@@ -314,12 +349,14 @@ export function ReleaseFromCustomsModal({
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
           {customsPackages.map((pkg) => {
             const fees = feesById[pkg.id] ?? emptyFees()
-            const weight = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs
+            const weight = packageWeight(pkg)
             const autoFreight = freightById[pkg.id] ?? null
-            const needsCustom = requiresCustomFreightQuote(pkg, autoFreight, estimating)
+            const needsCustom = requiresCustomFreightQuote(pkg)
             const freight = effectiveFreight(pkg)
             const rowTotal = rowTotalJmd(freight, fees)
             const feesExpanded = expandedFeeIds.has(pkg.id)
+            const estimateFailed =
+              !needsCustom && !estimating && weight != null && autoFreight == null
             return (
               <div key={pkg.id} className="rounded-xl border border-border p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -335,12 +372,22 @@ export function ReleaseFromCustomsModal({
                         Custom quote required (over {MAX_AUTO_RATE_LBS} lbs)
                       </p>
                     )}
+                    {estimateFailed && (
+                      <p className="mt-1 text-xs text-amber-400">
+                        Auto shipping unavailable — enter a custom amount or reopen after rates
+                        load.
+                      </p>
+                    )}
                   </div>
                   <div className="text-right text-xs text-muted">
                     <p>{weight != null ? `${weight} lbs` : 'No weight'}</p>
                     {!needsCustom && (
                       <p className="mt-0.5 font-semibold text-foreground">
-                        {autoFreight != null ? `Shipping ${formatJmd(autoFreight)}` : estimating ? '…' : '—'}
+                        {autoFreight != null
+                          ? `Shipping ${formatJmd(autoFreight)}`
+                          : estimating
+                            ? '…'
+                            : '—'}
                       </p>
                     )}
                     {rowTotal != null && (
@@ -348,7 +395,7 @@ export function ReleaseFromCustomsModal({
                     )}
                   </div>
                 </div>
-                {needsCustom ? (
+                {needsCustom || estimateFailed ? (
                   <Input
                     label="Shipping (JMD)"
                     type="number"
