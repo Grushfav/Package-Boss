@@ -15,6 +15,7 @@ import {
   type AnnouncementTargetMode,
   type BroadcastChannel,
 } from '../api/announcements'
+import { fetchPackagesByStatus } from '../api/admin'
 import { getErrorMessage } from '../api/client'
 import { fetchShipments, type ShipmentSummary } from '../api/staff'
 import { CustomerEmailNotificationsPanel } from '../components/admin/CustomerEmailNotificationsPanel'
@@ -115,6 +116,7 @@ export function AdminAnnouncementsPage() {
   const [form, setForm] = useState(emptyForm)
   const [filter, setFilter] = useState<'all' | 'active' | 'scheduled' | 'expired'>('all')
   const [shipments, setShipments] = useState<ShipmentSummary[]>([])
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [recipientPreview, setRecipientPreview] = useState<AnnouncementRecipientPreview | null>(
     null,
   )
@@ -126,6 +128,13 @@ export function AdminAnnouncementsPage() {
     fetchAdminAnnouncements().then(setAnnouncements).catch(() => {})
     fetchShipments({ limit: 50 })
       .then(({ shipments: rows }) => setShipments(rows))
+      .catch(() => {})
+    fetchPackagesByStatus()
+      .then((rows) => {
+        const next: Record<string, number> = {}
+        for (const row of rows) next[row.status] = row.count
+        setStatusCounts(next)
+      })
       .catch(() => {})
   }, [])
 
@@ -370,6 +379,7 @@ export function AdminAnnouncementsPage() {
                   <div className="flex flex-wrap gap-2">
                     {WORKFLOW_STATUSES.map((option) => {
                       const checked = form.package_statuses.includes(option.value)
+                      const count = statusCounts[option.value] ?? 0
                       return (
                         <label
                           key={option.value}
@@ -392,7 +402,16 @@ export function AdminAnnouncementsPage() {
                               setRecipientPreview(null)
                             }}
                           />
-                          {option.label}
+                          <span>{option.label}</span>
+                          <span
+                            className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+                              checked
+                                ? 'bg-boss-gold/20 text-boss-gold'
+                                : 'bg-background text-muted'
+                            }`}
+                          >
+                            {count}
+                          </span>
                         </label>
                       )
                     })}

@@ -26,6 +26,39 @@ function googleClientId(): string {
   return clientId
 }
 
+function profileFromGooglePayload(payload: {
+  email?: string | null
+  email_verified?: boolean | string
+  sub?: string
+  id?: string
+  given_name?: string | null
+  family_name?: string | null
+}): {
+  google_id: string
+  email: string
+  first_name: string
+  last_name: string
+} {
+  const email = (payload.email ?? '').trim().toLowerCase()
+  if (!email) throw new GoogleAuthError('Google account email is required')
+  if (payload.email_verified === false || payload.email_verified === 'false') {
+    throw new GoogleAuthError('Google account email is not verified')
+  }
+
+  const googleId = payload.sub || payload.id
+  if (!googleId) throw new GoogleAuthError('Invalid Google account')
+
+  const firstName = (payload.given_name ?? email.split('@')[0] ?? '').trim()
+  const lastName = (payload.family_name ?? '').trim() || 'Member'
+
+  return {
+    google_id: String(googleId),
+    email,
+    first_name: firstName.slice(0, 80),
+    last_name: lastName.slice(0, 80),
+  }
+}
+
 export async function verifyGoogleCredential(credential: string): Promise<{
   google_id: string
   email: string
@@ -48,22 +81,31 @@ export async function verifyGoogleCredential(credential: string): Promise<{
     throw new GoogleAuthError('Invalid Google token issuer')
   }
 
-  const email = (payload.email ?? '').trim().toLowerCase()
-  if (!email) throw new GoogleAuthError('Google account email is required')
-  if (!payload.email_verified) throw new GoogleAuthError('Google account email is not verified')
+  return profileFromGooglePayload(payload)
+}
 
-  const googleId = payload.sub
-  if (!googleId) throw new GoogleAuthError('Invalid Google account')
+/** OAuth access-token flow (custom Google button via useGoogleLogin). */
+export async function verifyGoogleAccessToken(accessToken: string): Promise<{
+  google_id: string
+  email: string
+  first_name: string
+  last_name: string
+}> {
+  if (!accessToken?.trim()) throw new GoogleAuthError('Google access token is required')
 
-  const firstName = (payload.given_name ?? email.split('@')[0] ?? '').trim()
-  const lastName = (payload.family_name ?? '').trim() || 'Member'
-
-  return {
-    google_id: String(googleId),
-    email,
-    first_name: firstName.slice(0, 80),
-    last_name: lastName.slice(0, 80),
+  let payload: Record<string, unknown>
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken.trim()}` },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) throw new Error(`userinfo ${res.status}`)
+    payload = (await res.json()) as Record<string, unknown>
+  } catch {
+    throw new GoogleAuthError('Could not verify Google sign-in')
   }
+
+  return profileFromGooglePayload(payload as Parameters<typeof profileFromGooglePayload>[0])
 }
 
 export function readGoogleSignupClaims(claims: JwtPayload): {
@@ -179,6 +221,11 @@ export async function completeGoogleSignup(
       trn,
       shippingId,
       googleId: profile.google_id,
+      role: 'customer',
+      isActive: true,
+      mustSetPassword: false,
+      tokenVersion: 0,
+      whatsappOptIn: false,
       termsAcceptedAt: new Date(),
     })
     .returning()

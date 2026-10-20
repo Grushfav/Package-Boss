@@ -5,7 +5,6 @@ import { authRouter } from './auth.js'
 import { bankTransferProofsRouter } from './bankTransferProofs.js'
 import { deliveryRequestsRouter } from './deliveryRequests.js'
 import { healthRouter } from './health.js'
-import { logisticsJobsRouter } from './logisticsJobs.js'
 import { meRouter } from './me.js'
 import { packagesRouter } from './packages.js'
 import { parishesRouter } from './parishes.js'
@@ -24,7 +23,6 @@ apiRouter.use(ratesRouter)
 apiRouter.use(packagesRouter)
 apiRouter.use(preAlertsRouter)
 apiRouter.use(deliveryRequestsRouter)
-apiRouter.use(logisticsJobsRouter)
 apiRouter.use(bankTransferProofsRouter)
 apiRouter.use(announcementsRouter)
 apiRouter.use(uploadsRouter)

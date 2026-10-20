@@ -2,7 +2,6 @@ import { and, count, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
 import {
   BANK_TRANSFER_PROOF_OPEN_STATUSES,
   DELIVERY_REQUEST_OPEN_STATUSES,
-  LOGISTICS_JOB_OPEN_STATUSES,
   STATUS_LABELS,
   UNIDENTIFIED_HOLDER_SHIPPING_ID,
 } from '../constants.js'
@@ -10,7 +9,6 @@ import { db } from '../db/index.js'
 import {
   bankTransferProofs,
   deliveryRequests,
-  logisticsJobs,
   packages,
   preAlerts,
   users,
@@ -83,36 +81,6 @@ export async function getDeliveryRequestSubmissionStats() {
   }
 }
 
-export async function getLogisticsJobSubmissionStats() {
-  const now = utcNow()
-  const todayStart = startOfDay(now)
-  const weekStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000)
-
-  const [active] = await db
-    .select({ value: count() })
-    .from(logisticsJobs)
-    .where(inArray(logisticsJobs.status, [...LOGISTICS_JOB_OPEN_STATUSES]))
-
-  const [today] = await db
-    .select({ value: count() })
-    .from(logisticsJobs)
-    .where(gte(logisticsJobs.requestedAt, todayStart))
-
-  const [week] = await db
-    .select({ value: count() })
-    .from(logisticsJobs)
-    .where(gte(logisticsJobs.requestedAt, weekStart))
-
-  const [total] = await db.select({ value: count() }).from(logisticsJobs)
-
-  return {
-    logistics_jobs_active: active?.value ?? 0,
-    logistics_jobs_today: today?.value ?? 0,
-    logistics_jobs_7d: week?.value ?? 0,
-    logistics_jobs_total: total?.value ?? 0,
-  }
-}
-
 export async function getBankTransferProofSubmissionStats() {
   const now = utcNow()
   const todayStart = startOfDay(now)
@@ -164,6 +132,8 @@ export async function getOverview() {
     .from(packages)
     .where(gte(packages.receivedAt, monthStart))
 
+  const [packagesTotal] = await db.select({ value: count() }).from(packages)
+
   const [pendingPreAlerts] = await db
     .select({ value: count() })
     .from(preAlerts)
@@ -176,7 +146,6 @@ export async function getOverview() {
 
   const customerStats = await getCustomerSignupStats()
   const deliveryRequestStats = await getDeliveryRequestSubmissionStats()
-  const logisticsJobStats = await getLogisticsJobSubmissionStats()
   const bankTransferProofStats = await getBankTransferProofSubmissionStats()
 
   const [revenueRow] = await db
@@ -192,11 +161,11 @@ export async function getOverview() {
     packages_today: packagesToday?.value ?? 0,
     packages_7d: packages7d?.value ?? 0,
     packages_30d: packages30d?.value ?? 0,
+    packages_total: packagesTotal?.value ?? 0,
     pending_pre_alerts: pendingPreAlerts?.value ?? 0,
     in_transit: inTransit?.value ?? 0,
     ...customerStats,
     ...deliveryRequestStats,
-    ...logisticsJobStats,
     ...bankTransferProofStats,
     revenue_30d_jmd: revenue,
     revenue_30d_usd: revenue,

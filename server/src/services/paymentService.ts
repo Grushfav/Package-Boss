@@ -1,5 +1,9 @@
-import { and, desc, eq, inArray, like, ne, sql } from 'drizzle-orm'
-import { PAYMENT_ELIGIBLE_STATUS, PAYMENT_METHODS } from '../constants.js'
+import { and, count, desc, eq, gte, ilike, inArray, like, lt, ne, or, sql, sum } from 'drizzle-orm'
+import {
+  MULTI_PACKAGE_HANDLING_FEE_JMD,
+  PAYMENT_ELIGIBLE_STATUS,
+  PAYMENT_METHODS,
+} from '../constants.js'
 import {
   packages,
   paymentCheckoutItems,
@@ -8,7 +12,11 @@ import {
   type UserRow,
 } from '../db/schema/index.js'
 import { db } from '../db/index.js'
-import { packagePaymentSummary as packagePaymentSummaryDict } from '../lib/serializers/payment.js'
+import {
+  packagePaymentSummary as packagePaymentSummaryDict,
+  paymentCheckoutToDict,
+} from '../lib/serializers/payment.js'
+import { inferOptionalDeliveryFeeJmd } from './deliveryFeeService.js'
 import { resolveDeliveryRequestForPayment } from './deliveryRequestService.js'
 import { addPackageEvent } from './packageService.js'
 
@@ -190,6 +198,7 @@ export async function recordPaymentCheckout(
     reference?: string | null
     notes?: string | null
     processingFeeJmd?: number | null
+    includeDeliveryFee?: boolean
   },
 ): Promise<CheckoutRow> {
   if (!(PAYMENT_METHODS as readonly string[]).includes(opts.method)) {
@@ -197,7 +206,10 @@ export async function recordPaymentCheckout(
   }
 
   const pkgs = await validateCheckoutPackages(customer, packageIds)
-  const [deliveryRequest, deliveryFee] = await resolveDeliveryRequestForPayment(customer, pkgs)
+  let [deliveryRequest, deliveryFee] = await resolveDeliveryRequestForPayment(customer, pkgs)
+  if (deliveryFee <= 0 && opts.includeDeliveryFee) {
+    deliveryFee = await inferOptionalDeliveryFeeJmd(customer, pkgs)
+  }
 
   let total = 0
   const lineAmounts: Array<[PackageRow, number]> = []
@@ -212,11 +224,18 @@ export async function recordPaymentCheckout(
   if (deliveryFee > 0) total += deliveryFee
 
   let processingFee = 0
-  if (opts.processingFeeJmd != null) {
+  if (pkgs.length > 1) {
+    if (opts.processingFeeJmd == null) {
+      processingFee = parseFloat(MULTI_PACKAGE_HANDLING_FEE_JMD)
+    } else {
+      processingFee = decimal(opts.processingFeeJmd)
+      if (processingFee < 0) throw new Error('Handling fee cannot be negative')
+    }
+  } else if (opts.processingFeeJmd != null) {
     processingFee = decimal(opts.processingFeeJmd)
-    if (processingFee < 0) throw new Error('Processing fee cannot be negative')
-    if (processingFee > 0) total += processingFee
+    if (processingFee < 0) throw new Error('Handling fee cannot be negative')
   }
+  if (processingFee > 0) total += processingFee
 
   const invoiceNumber = await generateInvoiceNumber()
   const methodLabel = opts.method.replace(/_/g, ' ')
@@ -244,6 +263,9 @@ export async function recordPaymentCheckout(
       packageId: pkg.id,
       amountJmd: amount.toFixed(2),
     })
+    // Persist paid on the row and keep the in-memory object in sync. addPackageEvent
+    // for a same-status note must not rewrite billing columns (see warehousePackageService).
+    pkg.billingStatus = 'paid'
     await db
       .update(packages)
       .set({ billingStatus: 'paid', updatedAt: sql`now()` })
@@ -254,6 +276,9 @@ export async function recordPaymentCheckout(
       `Payment recorded (${methodLabel}) — invoice ${checkout!.invoiceNumber}`,
     )
   }
+
+  const { autoConfirmOpenTransferProofs } = await import('./bankTransferProofService.js')
+  await autoConfirmOpenTransferProofs(customer, opts.recordedBy)
 
   return checkout!
 }
@@ -283,15 +308,154 @@ export async function getCheckoutItems(checkoutId: string): Promise<
     .from(paymentCheckoutItems)
     .where(eq(paymentCheckoutItems.checkoutId, checkoutId))
 
-  const result = []
+  if (!items.length) return []
+
+  const packageIds = [...new Set(items.map((item) => item.packageId))]
+  const pkgs = await db.select().from(packages).where(inArray(packages.id, packageIds))
+  const byId = new Map(pkgs.map((pkg) => [pkg.id, pkg]))
+
+  return items.map((item) => ({ item, pkg: byId.get(item.packageId) ?? null }))
+}
+
+async function loadCheckoutItemsForCheckouts(
+  checkoutIds: string[],
+): Promise<Map<string, Array<{ item: CheckoutItemRow; pkg: PackageRow | null }>>> {
+  const byCheckout = new Map<string, Array<{ item: CheckoutItemRow; pkg: PackageRow | null }>>()
+  for (const id of checkoutIds) byCheckout.set(id, [])
+  if (!checkoutIds.length) return byCheckout
+
+  const items = await db
+    .select()
+    .from(paymentCheckoutItems)
+    .where(inArray(paymentCheckoutItems.checkoutId, checkoutIds))
+
+  const packageIds = [...new Set(items.map((item) => item.packageId))]
+  const pkgs = packageIds.length
+    ? await db.select().from(packages).where(inArray(packages.id, packageIds))
+    : []
+  const pkgById = new Map(pkgs.map((pkg) => [pkg.id, pkg]))
+
   for (const item of items) {
-    const [pkg] = await db.select().from(packages).where(eq(packages.id, item.packageId)).limit(1)
-    result.push({ item, pkg: pkg ?? null })
+    const list = byCheckout.get(item.checkoutId)
+    if (list) list.push({ item, pkg: pkgById.get(item.packageId) ?? null })
   }
-  return result
+  return byCheckout
 }
 
 export async function getCheckoutCustomer(customerId: string): Promise<UserRow | null> {
   const [customer] = await db.select().from(users).where(eq(users.id, customerId)).limit(1)
   return customer ?? null
+}
+
+export async function listAdminInvoices(opts: {
+  dateFrom?: Date | null
+  dateTo?: Date | null
+  method?: string | null
+  query?: string | null
+  limit?: number
+  offset?: number
+}) {
+  const limit = opts.limit ?? 25
+  const offset = opts.offset ?? 0
+  const filters = []
+  if (opts.dateFrom) filters.push(gte(paymentCheckouts.recordedAt, opts.dateFrom))
+  if (opts.dateTo) filters.push(lt(paymentCheckouts.recordedAt, opts.dateTo))
+  if (opts.method) filters.push(eq(paymentCheckouts.method, opts.method))
+
+  const needle = (opts.query || '').trim()
+  if (needle) {
+    const pattern = `%${needle}%`
+    const customerRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        or(
+          ilike(users.shippingId, pattern),
+          ilike(users.firstName, pattern),
+          ilike(users.lastName, pattern),
+          ilike(users.email, pattern),
+          sql`concat(${users.firstName}, ' ', ${users.lastName}) ilike ${pattern}`,
+        ),
+      )
+    const customerIds = customerRows.map((r) => r.id)
+    const queryFilter =
+      customerIds.length > 0
+        ? or(ilike(paymentCheckouts.invoiceNumber, pattern), inArray(paymentCheckouts.customerId, customerIds))
+        : ilike(paymentCheckouts.invoiceNumber, pattern)
+    filters.push(queryFilter!)
+  }
+
+  const whereClause = filters.length ? and(...filters) : undefined
+
+  const [agg] = await db
+    .select({
+      count: count(paymentCheckouts.id),
+      totalJmd: sum(paymentCheckouts.totalJmd),
+      deliveryJmd: sum(paymentCheckouts.deliveryFeeJmd),
+      processingJmd: sum(paymentCheckouts.processingFeeJmd),
+    })
+    .from(paymentCheckouts)
+    .where(whereClause)
+
+  const rows = await db
+    .select()
+    .from(paymentCheckouts)
+    .where(whereClause)
+    .orderBy(desc(paymentCheckouts.recordedAt), desc(paymentCheckouts.id))
+    .offset(offset)
+    .limit(limit)
+
+  // Batch-load relations (Flask selectinload equivalent) — avoids N+1 round-trips to Neon.
+  const userIds = [
+    ...new Set(
+      rows.flatMap((checkout) =>
+        [checkout.customerId, checkout.recordedById].filter((id): id is string => Boolean(id)),
+      ),
+    ),
+  ]
+  const userRows = userIds.length
+    ? await db.select().from(users).where(inArray(users.id, userIds))
+    : []
+  const userById = new Map(userRows.map((user) => [user.id, user]))
+
+  const itemsByCheckout = await loadCheckoutItemsForCheckouts(rows.map((checkout) => checkout.id))
+
+  const invoices = rows.map((checkout) => {
+    const items = itemsByCheckout.get(checkout.id) ?? []
+    const customer = userById.get(checkout.customerId) ?? null
+    const recordedBy = checkout.recordedById ? (userById.get(checkout.recordedById) ?? null) : null
+    const data = paymentCheckoutToDict(checkout, {
+      includeItems: true,
+      items,
+      recordedBy,
+    })
+    const delivery = checkout.deliveryFeeJmd != null ? parseFloat(checkout.deliveryFeeJmd) : 0
+    const processing = checkout.processingFeeJmd != null ? parseFloat(checkout.processingFeeJmd) : 0
+    const total = parseFloat(checkout.totalJmd)
+    data.packages_jmd = Math.round((total - delivery - processing) * 100) / 100
+    if (customer) {
+      data.customer_name = `${customer.firstName} ${customer.lastName}`.trim()
+      data.shipping_id = customer.shippingId
+    }
+    return data
+  })
+
+  const total = parseFloat(String(agg?.totalJmd ?? 0))
+  const delivery = parseFloat(String(agg?.deliveryJmd ?? 0))
+  const processing = parseFloat(String(agg?.processingJmd ?? 0))
+  const totalCount = Number(agg?.count ?? 0)
+
+  return {
+    invoices,
+    summary: {
+      count: totalCount,
+      total_jmd: total,
+      packages_jmd: Math.round((total - delivery - processing) * 100) / 100,
+      delivery_fee_jmd: delivery,
+      processing_fee_jmd: processing,
+    },
+    total: totalCount,
+    limit,
+    offset,
+  }
 }

@@ -41,32 +41,30 @@ npm run clear-test-data                # delete
 npm run clear-test-data -- --keep-announcements
 ```
 
-## Frontend cutover
+## Stage 3 cutover (Express is primary)
 
-Point the Vite frontend at the Express API:
+Local defaults already point at Express:
 
-```env
-# frontend/.env.local (development)
-VITE_API_URL=http://localhost:5001/api
-```
+- Vite proxies `/api` → `http://127.0.0.1:5001`
+- `frontend/.env.local` uses `VITE_API_URL=/api`
+- k6 defaults to `http://localhost:5001`
 
-Production (Render or other host):
+### Production cutover checklist
 
-```env
-VITE_API_URL=https://package-boss-api.onrender.com/api
-```
-
-Rebuild/redeploy the frontend after changing `VITE_API_URL`. The SPA calls `${VITE_API_URL}/...` for all API requests.
+1. Confirm `package-boss-api` on Render is the Express service (`server/`, health `/api/health`).
+2. Copy the same secrets Flask used: `DATABASE_URL`, `SECRET_KEY`, `JWT_SECRET_KEY`, email/upload/WhatsApp keys, `FRONTEND_URL`, `CORS_ORIGINS`, OAuth client IDs/secrets.
+3. Set frontend `VITE_API_URL` to the Express public URL **with** `/api` suffix, e.g. `https://package-boss-api.onrender.com/api`.
+4. Redeploy the static frontend so the baked-in `VITE_API_URL` updates.
+5. Smoke: login (email/Google/Facebook), receive package, release & bill, checkout, admin stats.
+6. Keep Flask deploy available until soak is clean, then scale it down (do not delete until confident).
 
 ### Ports
 
 | Service | Port |
 |---------|------|
 | Vite dev server | `5173` |
-| Flask (legacy) | `5000` |
-| Express (new) | `5001` |
-
-Run Flask and Express side-by-side during migration; switch `VITE_API_URL` when ready.
+| Express (primary) | `5001` |
+| Flask (legacy / DDL only) | `5000` |
 
 ## Rollback
 
@@ -76,7 +74,7 @@ If Express causes issues in production:
 2. Redeploy the frontend static site.
 3. Stop or scale down the Express web service on Render.
 
-No database rollback is required — both APIs share the same Postgres schema and migrations managed by Flask/Alembic today.
+No database rollback is required — both APIs share the same Postgres schema and migrations managed by Flask/Alembic.
 
 ## Render deployment
 

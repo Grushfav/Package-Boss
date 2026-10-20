@@ -2,13 +2,37 @@ name: k6 regression
 
 on:
   push:
-    branches: [main]
+    branches: [main, test]
   pull_request:
-    branches: [main]
+    branches: [main, test]
 
 jobs:
   regression:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: package_boss
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d package_boss"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/package_boss
+      SECRET_KEY: ci-secret-key-not-for-production
+      JWT_SECRET_KEY: ci-jwt-secret-key-not-for-production
+      EMAIL_PROVIDER: console
+      WHATSAPP_PROVIDER: console
+      FRONTEND_URL: http://localhost:5173
+      FLASK_ENV: development
 
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +43,13 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
 
-      - name: Install backend dependencies
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install Flask (Alembic DDL owner)
         working-directory: backend
         run: pip install -r requirements.txt
 
@@ -27,21 +57,29 @@ jobs:
         working-directory: backend
         env:
           FLASK_APP: wsgi:app
-          DATABASE_URL: sqlite:///ci_k6_test.db
         run: flask db upgrade
 
-      - name: Start API server
-        working-directory: backend
-        env:
-          FLASK_APP: wsgi:app
-          DATABASE_URL: sqlite:///ci_k6_test.db
+      - name: Install and build Express API
+        working-directory: server
         run: |
-          flask run --host 0.0.0.0 --port 5000 &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:5000/api/health && exit 0
+          npm ci
+          npm run build
+
+      - name: Seed admin, clerk, and customer test users
+        working-directory: server
+        run: npx tsx scripts/seedTestUsers.ts
+
+      - name: Start Express API
+        working-directory: server
+        env:
+          PORT: '5001'
+        run: |
+          npm start &
+          for i in $(seq 1 45); do
+            curl -sf http://localhost:5001/api/health && exit 0
             sleep 1
           done
-          echo "API failed to start"
+          echo "Express API failed to start"
           exit 1
 
       - name: Run k6 regression suite
@@ -49,4 +87,7 @@ jobs:
         with:
           filename: k6/smoke/regression.js
         env:
-          K6_BASE_URL: http://localhost:5000
+          K6_BASE_URL: http://localhost:5001
+          K6_ADMIN_EMAIL: admin@package-boss.test
+          K6_CLERK_EMAIL: clerk@package-boss.test
+          K6_STAFF_PASSWORD: TestPass123!

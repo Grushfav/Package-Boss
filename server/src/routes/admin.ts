@@ -2,7 +2,12 @@ import { randomBytes } from 'node:crypto'
 import { and, count, desc, eq } from 'drizzle-orm'
 import { Router } from 'express'
 import { validate as validateUuid } from 'uuid'
-import { CLERK_PERMISSION_LABELS, CLERK_PERMISSIONS, JAMAICA_PARISHES } from '../constants.js'
+import {
+  CLERK_PERMISSION_LABELS,
+  CLERK_PERMISSIONS,
+  JAMAICA_PARISHES,
+  PAYMENT_METHODS,
+} from '../constants.js'
 import { db } from '../db/index.js'
 import { auditLogs, users } from '../db/schema/index.js'
 import { auditLogToDict } from '../lib/auditDto.js'
@@ -27,27 +32,19 @@ import {
   getAnnouncement,
   latestBroadcastJob,
   listAdminAnnouncements,
+  previewTargetRecipients,
   updateAnnouncement,
 } from '../services/announcementService.js'
 import { normalizePhone } from '../services/authService.js'
 import { normalizeClerkPermissions } from '../services/clerkPermissionService.js'
 import { EmailServiceError, sendClerkInviteEmail } from '../services/emailService.js'
 import {
-  assignLogisticsClerk,
-  getLogisticsJob,
-  listAllLogisticsJobs,
-  listLogisticsJobHistory,
-  listLogisticsJobsByStatus,
-  listOpenLogisticsJobs,
-  listPendingLogisticsJobs,
-  rejectLogisticsJob,
-  serializeJob,
-} from '../services/logisticsJobService.js'
-import {
   getCustomerEmailNotificationSettings,
   setCustomerEmailNotificationsEnabled,
 } from '../services/notificationSettingsService.js'
+import { listAdminInvoices } from '../services/paymentService.js'
 import { RateLimitExceeded, assertClerkInviteResendAllowed } from '../services/rateLimitService.js'
+import { parseInvoiceDay } from '../lib/dates.js'
 import { buildResetUrl, generateResetToken, storeInviteToken } from '../services/resetTokenService.js'
 import { generateStaffShippingId } from '../services/staffIdService.js'
 import { bumpTokenVersion } from '../services/tokenService.js'
@@ -341,6 +338,17 @@ adminRouter.get('/admin/announcements', requireAdmin, async (_req, res) => {
   res.json({ announcements: result })
 })
 
+adminRouter.post('/admin/announcements/preview-recipients', requireAdmin, async (req, res) => {
+  const data = req.body ?? {}
+  const criteria = data.target_criteria ?? data
+  try {
+    const preview = await previewTargetRecipients(criteria)
+    res.json({ preview })
+  } catch (err) {
+    return sendError(res, err instanceof Error ? err.message : 'Invalid request')
+  }
+})
+
 adminRouter.post('/admin/announcements', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const announcement = await createAnnouncement(req.user!, req.body ?? {})
@@ -420,55 +428,44 @@ adminRouter.patch('/admin/settings/customer-email-notifications', requireAdmin, 
   res.json(settings)
 })
 
-adminRouter.get('/admin/logistics-jobs', requireAdmin, async (req: AuthRequest, res) => {
-  const status = String(req.query.status ?? 'active').trim().toLowerCase()
-  let jobs
-  if (status === 'pending') jobs = await listPendingLogisticsJobs()
-  else if (status === 'active') jobs = await listOpenLogisticsJobs()
-  else if (status === 'all') jobs = await listAllLogisticsJobs()
-  else if (status === 'history') jobs = await listLogisticsJobHistory()
-  else jobs = await listLogisticsJobsByStatus(status)
+adminRouter.get('/admin/invoices', requireAdmin, async (req, res) => {
+  const method = String(req.query.method ?? '')
+    .trim()
+    .toLowerCase() || null
+  if (method && !(PAYMENT_METHODS as readonly string[]).includes(method)) {
+    return sendError(res, 'Invalid payment method')
+  }
 
-  res.json({
-    logistics_jobs: await Promise.all(jobs.map((job) => serializeJob(job))),
+  let dateFrom: Date | null
+  let dateTo: Date | null
+  try {
+    dateFrom = parseInvoiceDay(req.query.from as string | undefined)
+    dateTo = parseInvoiceDay(req.query.to as string | undefined, true)
+  } catch (err) {
+    return sendError(res, err instanceof Error ? err.message : String(err))
+  }
+
+  let limit: number
+  let offset: number
+  try {
+    limit = parseInt(String(req.query.limit ?? 25), 10)
+    offset = parseInt(String(req.query.offset ?? 0), 10)
+  } catch {
+    return sendError(res, 'limit and offset must be integers')
+  }
+  if (!Number.isFinite(limit) || !Number.isFinite(offset)) {
+    return sendError(res, 'limit and offset must be integers')
+  }
+  if (limit < 1 || limit > 100) return sendError(res, 'limit must be between 1 and 100')
+  if (offset < 0) return sendError(res, 'offset must be zero or greater')
+
+  const payload = await listAdminInvoices({
+    dateFrom,
+    dateTo,
+    method,
+    query: req.query.q as string | undefined,
+    limit,
+    offset,
   })
+  return res.json(payload)
 })
-
-adminRouter.post(
-  '/admin/logistics-jobs/:jobId/assign-clerk',
-  requireAdmin,
-  async (req: AuthRequest, res) => {
-    const jobId = String(req.params.jobId)
-    const job = await getLogisticsJob(jobId)
-    if (!job) return sendError(res, 'Local delivery request not found', 404)
-
-    const data = req.body ?? {}
-    const clerkId = data.clerk_id
-    if (!clerkId) return sendError(res, 'clerk_id is required')
-
-    try {
-      const updated = await assignLogisticsClerk(job, req.user!, { clerkId })
-      res.json({ logistics_job: await serializeJob(updated) })
-    } catch (err) {
-      return sendError(res, err instanceof Error ? err.message : String(err))
-    }
-  },
-)
-
-adminRouter.post(
-  '/admin/logistics-jobs/:jobId/reject',
-  requireAdmin,
-  async (req: AuthRequest, res) => {
-    const jobId = String(req.params.jobId)
-    const job = await getLogisticsJob(jobId)
-    if (!job) return sendError(res, 'Local delivery request not found', 404)
-
-    const data = req.body ?? {}
-    try {
-      const updated = await rejectLogisticsJob(job, req.user!, { reason: data.reason })
-      res.json({ logistics_job: await serializeJob(updated) })
-    } catch (err) {
-      return sendError(res, err instanceof Error ? err.message : String(err))
-    }
-  },
-)

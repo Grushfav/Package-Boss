@@ -1,9 +1,12 @@
 import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import {
-  DELIVERY_FEE_JMD,
   DELIVERY_REQUEST_OPEN_STATUSES,
   DELIVERY_REQUEST_STATUS_LABELS,
+  FULFILLMENT_TYPE_LABELS,
+  FULFILLMENT_TYPES,
+  MULTI_PACKAGE_HANDLING_FEE_JMD,
   PAYMENT_ELIGIBLE_STATUS,
+  PICKUP_LOCATION_LABEL,
 } from '../constants.js'
 import { db } from '../db/index.js'
 import {
@@ -16,7 +19,11 @@ import {
 } from '../db/schema/index.js'
 import { utcIsoformat } from '../lib/dates.js'
 import { deliveryRequestToDict } from '../lib/serializers/deliveryRequest.js'
-import { getDeliveryAddress } from './deliveryAddressService.js'
+import {
+  getDeliveryAddress,
+  validateDeliveryParishForService,
+} from './deliveryAddressService.js'
+import { deliveryFeeForParish } from './deliveryFeeService.js'
 import { addPackageEvent, updatePackageStatus } from './packageService.js'
 
 type DeliveryRequestRow = typeof deliveryRequests.$inferSelect
@@ -36,11 +43,14 @@ export async function loadDeliveryRequestDetails(requestId: string) {
     packageLinks.push({ link, pkg: pkg ?? null })
   }
 
-  const [deliveryAddress] = await db
-    .select()
-    .from(deliveryAddresses)
-    .where(eq(deliveryAddresses.id, request.deliveryAddressId))
-    .limit(1)
+  let deliveryAddress = null
+  if (request.deliveryAddressId) {
+    ;[deliveryAddress] = await db
+      .select()
+      .from(deliveryAddresses)
+      .where(eq(deliveryAddresses.id, request.deliveryAddressId))
+      .limit(1)
+  }
 
   const [customer] = await db.select().from(users).where(eq(users.id, request.customerId)).limit(1)
   let completedBy = null
@@ -179,10 +189,20 @@ export async function getActiveRequestForPackage(packageId: string): Promise<Del
 export async function packagePendingDeliverySummary(pkg: { id: string }) {
   const request = await getActiveRequestForPackage(pkg.id)
   if (!request) return null
+  const fulfillmentType = request.fulfillmentType || 'delivery'
+  let statusLabel = DELIVERY_REQUEST_STATUS_LABELS[request.status] ?? request.status
+  if (fulfillmentType === 'pickup' && request.status === 'completed') {
+    statusLabel = 'Picked up'
+  } else if (fulfillmentType === 'pickup' && request.status === 'in_progress') {
+    statusLabel = 'Ready for collection'
+  }
   return {
     id: request.id,
     status: request.status,
-    status_label: DELIVERY_REQUEST_STATUS_LABELS[request.status] ?? request.status,
+    status_label: statusLabel,
+    fulfillment_type: fulfillmentType,
+    fulfillment_type_label: FULFILLMENT_TYPE_LABELS[fulfillmentType] ?? fulfillmentType,
+    pickup_location: fulfillmentType === 'pickup' ? PICKUP_LOCATION_LABEL : null,
     delivery_fee_jmd: parseFloat(request.deliveryFeeJmd),
     requested_at: utcIsoformat(request.requestedAt),
   }
@@ -219,24 +239,73 @@ async function validateRequestPackages(customer: UserRow, packageIds: unknown[])
   return pkgs
 }
 
+/** Drop package links from cancelled requests so unique(package_id) does not block a new request. */
+async function releaseCancelledPackageLinks(packageIds: string[]) {
+  if (!packageIds.length) return
+
+  const staleLinks = await db
+    .select({
+      linkId: deliveryRequestPackages.id,
+      requestStatus: deliveryRequests.status,
+    })
+    .from(deliveryRequestPackages)
+    .innerJoin(deliveryRequests, eq(deliveryRequestPackages.deliveryRequestId, deliveryRequests.id))
+    .where(
+      and(
+        inArray(deliveryRequestPackages.packageId, packageIds),
+        eq(deliveryRequests.status, 'cancelled'),
+      ),
+    )
+
+  if (!staleLinks.length) return
+  await db
+    .delete(deliveryRequestPackages)
+    .where(inArray(deliveryRequestPackages.id, staleLinks.map((row) => row.linkId)))
+}
+
 export async function createDeliveryRequest(
   customer: UserRow,
-  opts: { packageIds: unknown[]; deliveryAddressId: string; notes?: string | null },
+  opts: {
+    packageIds: unknown[]
+    deliveryAddressId?: string | null
+    fulfillmentType?: string
+    notes?: string | null
+  },
 ) {
   const pkgs = await validateRequestPackages(customer, opts.packageIds)
-  const address = await getDeliveryAddress(customer, opts.deliveryAddressId)
-  if (!address) throw new Error('Delivery address not found')
+
+  const fulfillmentType = (opts.fulfillmentType || 'delivery').trim().toLowerCase()
+  if (!(FULFILLMENT_TYPES as readonly string[]).includes(fulfillmentType)) {
+    throw new Error('fulfillment_type must be delivery or pickup')
+  }
 
   const noteText = (opts.notes ?? '').trim() || null
   if (noteText && noteText.length > 500) throw new Error('notes must be 500 characters or fewer')
+
+  let address: Awaited<ReturnType<typeof getDeliveryAddress>> = null
+  let deliveryFee = 0
+  if (fulfillmentType === 'delivery') {
+    if (!opts.deliveryAddressId) {
+      throw new Error('delivery_address_id is required for home delivery')
+    }
+    address = await getDeliveryAddress(customer, opts.deliveryAddressId)
+    if (!address) throw new Error('Delivery address not found')
+    validateDeliveryParishForService(address.parish)
+    deliveryFee = deliveryFeeForParish(address.parish)
+  } else if (opts.deliveryAddressId) {
+    throw new Error('delivery_address_id is not used for pickup requests')
+  }
+
+  await releaseCancelledPackageLinks(pkgs.map((pkg) => pkg.id))
 
   const [request] = await db
     .insert(deliveryRequests)
     .values({
       customerId: customer.id,
-      deliveryAddressId: address.id,
+      deliveryAddressId: address?.id ?? null,
+      fulfillmentType,
       status: 'pending',
-      deliveryFeeJmd: DELIVERY_FEE_JMD,
+      deliveryFeeJmd: deliveryFee.toFixed(2),
       notes: noteText,
       requestedAt: new Date(),
     })
@@ -247,11 +316,19 @@ export async function createDeliveryRequest(
       deliveryRequestId: request!.id,
       packageId: pkg.id,
     })
-    await db
-      .update(packages)
-      .set({ deliveryAddressId: address.id, updatedAt: new Date() })
-      .where(eq(packages.id, pkg.id))
-    await addPackageEvent(pkg, pkg.status, `Delivery requested to ${address.label}`)
+    if (address) {
+      await db
+        .update(packages)
+        .set({ deliveryAddressId: address.id, updatedAt: new Date() })
+        .where(eq(packages.id, pkg.id))
+    } else {
+      await db.update(packages).set({ updatedAt: new Date() }).where(eq(packages.id, pkg.id))
+    }
+    const eventNote =
+      fulfillmentType === 'pickup'
+        ? `Pickup requested — ${PICKUP_LOCATION_LABEL}`
+        : `Delivery requested to ${address!.label}`
+    await addPackageEvent(pkg, pkg.status, eventNote)
   }
 
   const details = await loadDeliveryRequestDetails(request!.id)
@@ -273,20 +350,32 @@ export async function cancelDeliveryRequest(request: DeliveryRequestRow, byCusto
     throw new Error('Only open delivery requests can be cancelled')
   }
 
-  await db
-    .update(deliveryRequests)
-    .set({ status: 'cancelled', cancelledAt: new Date() })
-    .where(eq(deliveryRequests.id, request.id))
-
   const links = await db
     .select()
     .from(deliveryRequestPackages)
     .where(eq(deliveryRequestPackages.deliveryRequestId, request.id))
 
+  const isPickup = (request.fulfillmentType || 'delivery') === 'pickup'
   for (const link of links) {
     const [pkg] = await db.select().from(packages).where(eq(packages.id, link.packageId)).limit(1)
-    if (pkg) await addPackageEvent(pkg, pkg.status, 'Delivery request cancelled')
+    if (pkg) {
+      await addPackageEvent(
+        pkg,
+        pkg.status,
+        isPickup ? 'Pickup request cancelled' : 'Delivery request cancelled',
+      )
+    }
   }
+
+  // Free package_id unique slots so the customer can request again.
+  await db
+    .delete(deliveryRequestPackages)
+    .where(eq(deliveryRequestPackages.deliveryRequestId, request.id))
+
+  await db
+    .update(deliveryRequests)
+    .set({ status: 'cancelled', cancelledAt: new Date() })
+    .where(eq(deliveryRequests.id, request.id))
 
   const details = await loadDeliveryRequestDetails(request.id)
   return deliveryRequestToDict(details!.request, {
@@ -383,9 +472,16 @@ export async function markDeliveryRequestInProgress(request: DeliveryRequestRow,
     .from(deliveryRequestPackages)
     .where(eq(deliveryRequestPackages.deliveryRequestId, request.id))
 
+  const isPickup = (request.fulfillmentType || 'delivery') === 'pickup'
   for (const link of links) {
     const [pkg] = await db.select().from(packages).where(eq(packages.id, link.packageId)).limit(1)
-    if (pkg) await addPackageEvent(pkg, pkg.status, 'Delivery in progress')
+    if (pkg) {
+      await addPackageEvent(
+        pkg,
+        pkg.status,
+        isPickup ? `Pickup in progress — ${PICKUP_LOCATION_LABEL}` : 'Delivery in progress',
+      )
+    }
   }
 
   const [updated] = await db.select().from(deliveryRequests).where(eq(deliveryRequests.id, request.id)).limit(1)
@@ -402,19 +498,25 @@ export async function completeDeliveryRequest(request: DeliveryRequestRow, staff
     .from(deliveryRequestPackages)
     .where(eq(deliveryRequestPackages.deliveryRequestId, request.id))
 
+  const isPickup = (request.fulfillmentType || 'delivery') === 'pickup'
   const unpaid: string[] = []
   for (const link of links) {
     const [pkg] = await db.select().from(packages).where(eq(packages.id, link.packageId)).limit(1)
     if (pkg && pkg.billingStatus !== 'paid') unpaid.push(pkg.trackingNumber)
   }
   if (unpaid.length) {
-    throw new Error(`Payment required before delivery: ${unpaid.join(', ')}`)
+    throw new Error(
+      `Payment required before ${isPickup ? 'pickup' : 'delivery'}: ${unpaid.join(', ')}`,
+    )
   }
 
+  const completionNote = isPickup
+    ? `Pickup completed — ${PICKUP_LOCATION_LABEL}`
+    : 'Delivery completed'
   for (const link of links) {
     const [pkg] = await db.select().from(packages).where(eq(packages.id, link.packageId)).limit(1)
     if (!pkg || pkg.status === 'delivered') continue
-    await updatePackageStatus(pkg, 'delivered', 'Delivery completed')
+    await updatePackageStatus(pkg, 'delivered', completionNote)
   }
 
   await db
@@ -438,11 +540,14 @@ export async function computePaymentTotalWithDelivery(customer: UserRow, package
   }
 
   const [request, deliveryFee] = await resolveDeliveryRequestForPayment(customer, pkgs)
-  const total = Math.round((packagesTotal + deliveryFee) * 100) / 100
+  const processingFee =
+    pkgs.length > 1 ? parseFloat(MULTI_PACKAGE_HANDLING_FEE_JMD) : 0
+  const total = Math.round((packagesTotal + deliveryFee + processingFee) * 100) / 100
 
   return {
     packages_total_jmd: packagesTotal,
     delivery_fee_jmd: deliveryFee,
+    processing_fee_jmd: processingFee,
     delivery_request_id: request?.id ?? null,
     total_jmd: total,
     currency: 'JMD',

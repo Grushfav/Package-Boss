@@ -15,6 +15,7 @@ export async function releasePackageFromCustoms(
     handlingJmd?: number | null
     otherFeesJmd?: number | null
     note?: string | null
+    skipStatusEmail?: boolean
   } = {},
 ): Promise<PackageRow> {
   if (pkg.status !== 'customs') {
@@ -48,6 +49,7 @@ export async function releasePackageFromCustoms(
     mutable,
     'ready_for_pickup',
     opts.note ?? 'Released from customs — bill published',
+    { skipStatusEmail: opts.skipStatusEmail },
   )
 
   const [updated] = await db.select().from(packages).where(eq(packages.id, pkg.id)).limit(1)
@@ -60,6 +62,7 @@ export async function releasePackagesFromCustoms(
 ): Promise<[PackageRow[], Array<Record<string, unknown>>]> {
   const released: PackageRow[] = []
   const failed: Array<Record<string, unknown>> = []
+  const notifyEntries: Array<[PackageRow, string | null]> = []
 
   for (const item of items) {
     const rawId = item.package_id
@@ -72,15 +75,21 @@ export async function releasePackagesFromCustoms(
       failed.push({ id: String(rawId), error: 'Package not found' })
       continue
     }
+    const itemNote = (item.note as string | null | undefined) ?? opts.note
     try {
       const updated = await releasePackageFromCustoms(pkg, {
         estimatedFreightJmd: item.estimated_freight_jmd as number | null | undefined,
         dutiesJmd: item.duties_jmd as number | null | undefined,
         handlingJmd: item.handling_jmd as number | null | undefined,
         otherFeesJmd: item.other_fees_jmd as number | null | undefined,
-        note: (item.note as string | null | undefined) ?? opts.note,
+        note: itemNote,
+        skipStatusEmail: true,
       })
       released.push(updated)
+      notifyEntries.push([
+        updated,
+        itemNote ?? 'Released from customs — bill published',
+      ])
     } catch (err) {
       failed.push({
         id: pkg.id,
@@ -88,6 +97,13 @@ export async function releasePackagesFromCustoms(
         error: err instanceof Error ? err.message : String(err),
       })
     }
+  }
+
+  if (released.length) {
+    const { scheduleNotifyCustomersOfStatusBatch } = await import(
+      './packageStatusNotificationService.js'
+    )
+    scheduleNotifyCustomersOfStatusBatch(notifyEntries, 'ready_for_pickup')
   }
 
   return [released, failed]

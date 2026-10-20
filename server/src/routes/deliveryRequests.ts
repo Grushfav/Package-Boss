@@ -20,12 +20,15 @@ deliveryRequestsRouter.post('/me/delivery-requests', jwtRequired, requireAuth, a
   const data = req.body ?? {}
   const packageIds = data.package_ids ?? []
   if (!Array.isArray(packageIds)) return res.status(400).json({ error: 'package_ids must be an array' })
-  if (!data.delivery_address_id) return res.status(400).json({ error: 'delivery_address_id is required' })
+
+  const fulfillmentType = String(data.fulfillment_type ?? 'delivery').trim().toLowerCase()
+  const deliveryAddressId = data.delivery_address_id
 
   try {
     const deliveryRequest = await createDeliveryRequest(req.user!, {
       packageIds,
-      deliveryAddressId: String(data.delivery_address_id),
+      deliveryAddressId: deliveryAddressId != null ? String(deliveryAddressId) : null,
+      fulfillmentType,
       notes: data.notes as string | undefined,
     })
     return res.status(201).json({ delivery_request: deliveryRequest })

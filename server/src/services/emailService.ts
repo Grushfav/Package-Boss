@@ -1,10 +1,11 @@
-import { PAYMENT_METHOD_LABELS, STATUS_LABELS } from '../constants.js'
+import { PAYMENT_METHOD_LABELS, SHIPPER_LABELS, STATUS_LABELS } from '../constants.js'
 import { config } from '../config.js'
 import type { packages, paymentCheckouts, users } from '../db/schema/index.js'
 import { renderCheckoutInvoiceHtml } from './billInvoiceService.js'
 import { customerEmailNotificationsEnabled } from './notificationSettingsService.js'
 import {
   renderInvoiceRequestHtml,
+  renderPackageStatusBatchHtml,
   renderPackageStatusHtml,
   renderPasswordResetHtml,
   renderWelcomeHtml,
@@ -236,6 +237,82 @@ export async function sendPackageStatusEmail(
   dispatchEmail(toEmail, subject, body, {
     htmlBody,
     metadata: { type: 'package_status', trackingNumber, status },
+    asyncSend: true,
+  })
+}
+
+export async function sendPackageStatusBatchEmail(
+  toEmail: string,
+  firstName: string,
+  pkgs: Array<typeof packages.$inferSelect>,
+  status: string,
+  opts: { statusLabel?: string | null; note?: string | null } = {},
+): Promise<void> {
+  if (!pkgs.length) return
+
+  if (!(await customerEmailNotificationsEnabled())) {
+    console.info(
+      `Customer email notifications disabled — skipping batch status email for ${pkgs.length} packages`,
+    )
+    return
+  }
+
+  const label =
+    opts.statusLabel ??
+    STATUS_LABELS[status] ??
+    status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  const count = pkgs.length
+  const frontend = (config.frontendUrl || 'http://localhost:5173').replace(/\/$/, '')
+  const packagesUrl = `${frontend}/dashboard/packages`
+  const ctaLabel = status === 'ready_for_pickup' ? 'View packages & bills' : 'View packages'
+  const trackingNumbers = pkgs.map((pkg) => pkg.trackingNumber)
+  const subject = `Package update — ${count} packages: ${label}`
+
+  const trackingLines = trackingNumbers.map((tn) => `  • ${tn}`).join('\n')
+  let body =
+    `Hi ${firstName},\n\n` +
+    `Your package status is now: ${label}.\n\n` +
+    `${count} packages:\n${trackingLines}\n\n` +
+    `View your packages: ${packagesUrl}\n\n` +
+    `— Package Boss`
+  if (opts.note) {
+    body =
+      `Hi ${firstName},\n\n` +
+      `Your package status is now: ${label}.\n\n` +
+      `${opts.note}\n\n` +
+      `${count} packages:\n${trackingLines}\n\n` +
+      `View your packages: ${packagesUrl}\n\n` +
+      `— Package Boss`
+  }
+
+  const packageRows: Array<[string, string | null, string | null]> = pkgs.map((pkg) => [
+    pkg.trackingNumber,
+    pkg.carrierTracking,
+    pkg.shipper ? (SHIPPER_LABELS[pkg.shipper] ?? pkg.shipper) : null,
+  ])
+
+  const htmlBody = renderPackageStatusBatchHtml(
+    firstName,
+    packageRows,
+    status,
+    label,
+    packagesUrl,
+    {
+      note: opts.note,
+      logoUrl: resolveLogoUrl(),
+      ctaUrl: packagesUrl,
+      ctaLabel,
+    },
+  )
+
+  dispatchEmail(toEmail, subject, body, {
+    htmlBody,
+    metadata: {
+      type: 'package_status_batch',
+      status,
+      packageCount: count,
+      trackingNumbers,
+    },
     asyncSend: true,
   })
 }

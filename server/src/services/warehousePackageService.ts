@@ -58,7 +58,6 @@ import { publishReadyForPickupBill } from './billingCalculations.js'
 import { countOpenDeliveryRequests } from './deliveryRequestService.js'
 import { EmailServiceError, sendPackageStatusEmail } from './emailService.js'
 import { isValidPhotoReference } from './imageUploadService.js'
-import { countOpenLogisticsJobs } from './logisticsJobService.js'
 import {
   matchPreAlertOnReceive,
   normalizeCarrierTracking,
@@ -176,10 +175,33 @@ async function notifyPackageStatusEmail(
   }
 }
 
+/** Whether a status change should trigger a customer email (Flask `_should_notify_status_change`). */
+export function shouldNotifyStatusChange(
+  status: string,
+  previousStatus: string,
+  hadEvents: boolean,
+  packageEventsList?: Array<{ status: string }> | null,
+  packageStatus?: string | null,
+): boolean {
+  if (status === 'unidentified') return false
+
+  let notifyPrevious = previousStatus
+  if (
+    packageEventsList?.length &&
+    packageStatus === status &&
+    previousStatus === status
+  ) {
+    notifyPrevious = packageEventsList[packageEventsList.length - 1]!.status
+  }
+
+  return notifyPrevious !== status || !hadEvents
+}
+
 export async function addPackageEvent(
   pkg: PackageRow,
   status: string,
   note?: string | null,
+  opts: { skipStatusEmail?: boolean } = {},
 ): Promise<void> {
   const existingEvents = await getPackageEvents(pkg.id)
   const previousStatus = pkg.status
@@ -224,23 +246,25 @@ export async function addPackageEvent(
     note: note ?? null,
   })
 
+  const statusChanged = previousStatus !== status
   pkg.status = status
 
-  let notifyPrevious = previousStatus
-  if (existingEvents.length && pkg.status === status && previousStatus === status) {
-    notifyPrevious = existingEvents[existingEvents.length - 1]!.status
-  }
-
+  // Only rewrite billing columns when status actually changes. Same-status event
+  // notes (e.g. payment recorded) must not clobber a concurrent billing update
+  // from a stale in-memory package row.
   await db
     .update(packages)
     .set({
       status,
-      ...packageBillingFields(pkg),
+      ...(statusChanged ? packageBillingFields(pkg) : {}),
       updatedAt: sql`now()`,
     })
     .where(eq(packages.id, pkg.id))
 
-  if (status !== 'unidentified' && (notifyPrevious !== status || !hadEvents)) {
+  if (
+    !opts.skipStatusEmail &&
+    shouldNotifyStatusChange(status, previousStatus, hadEvents, existingEvents, pkg.status)
+  ) {
     await notifyPackageStatusEmail(pkg, status, note)
   }
 }
@@ -966,6 +990,7 @@ export async function bulkUpdatePackageStatus(
 
   const updated: PackageRow[] = []
   const failed: Array<{ id: string; error: string; tracking_number?: string }> = []
+  const notifyEntries: Array<[PackageRow, string | null]> = []
 
   for (const rawId of packageIds) {
     if (!isValidUuid(String(rawId))) {
@@ -988,10 +1013,22 @@ export async function bulkUpdatePackageStatus(
       continue
     }
 
+    const existingEvents = await getPackageEvents(pkg.id)
+    const shouldNotify = shouldNotifyStatusChange(
+      status,
+      pkg.status,
+      existingEvents.length > 0,
+      existingEvents,
+      pkg.status,
+    )
+
     try {
-      await addPackageEvent(pkg, status, note)
+      await addPackageEvent(pkg, status, note, { skipStatusEmail: true })
       const [fresh] = await db.select().from(packages).where(eq(packages.id, pkg.id)).limit(1)
-      if (fresh) updated.push(fresh)
+      if (fresh) {
+        updated.push(fresh)
+        if (shouldNotify) notifyEntries.push([fresh, note ?? null])
+      }
     } catch (err) {
       failed.push({
         id: pkg.id,
@@ -999,6 +1036,13 @@ export async function bulkUpdatePackageStatus(
         error: err instanceof Error ? err.message : String(err),
       })
     }
+  }
+
+  if (updated.length) {
+    const { scheduleNotifyCustomersOfStatusBatch } = await import(
+      './packageStatusNotificationService.js'
+    )
+    scheduleNotifyCustomersOfStatusBatch(notifyEntries, status)
   }
 
   return [updated, failed]
@@ -1055,7 +1099,6 @@ export async function getWarehouseSummary(): Promise<Record<string, unknown>> {
 
   const openDeliveryRequests = await countOpenDeliveryRequests()
   const openTransferProofs = await countOpenTransferProofs()
-  const openLogisticsJobs = await countOpenLogisticsJobs()
 
   return {
     print_queue_pending: Number(printQueueRow?.value ?? 0),
@@ -1066,8 +1109,7 @@ export async function getWarehouseSummary(): Promise<Record<string, unknown>> {
     open_shipments: await countOpenShipments(),
     pending_delivery_requests: openDeliveryRequests,
     pending_transfer_proofs: openTransferProofs,
-    pending_logistics_jobs: openLogisticsJobs,
-    pending_customer_requests: openDeliveryRequests + openTransferProofs + openLogisticsJobs,
+    pending_customer_requests: openDeliveryRequests + openTransferProofs,
     status_counts: statusCounts,
   }
 }

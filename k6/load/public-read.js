@@ -39,7 +39,12 @@ export default function () {
   } else {
     const res = jsonGet('/rates');
     check(res, {
-      'rates ok': (r) => r.status === 200 && r.json('currency') === 'USD',
+      'rates ok': (r) =>
+        r.status === 200 &&
+        r.json('currency') === 'USD' &&
+        r.json('rates_revision') === 'revised-rates-newest' &&
+        Array.isArray(r.json('tiers')) &&
+        r.json('tiers').length === 50,
     });
   }
 

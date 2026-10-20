@@ -94,6 +94,28 @@ export function renderWelcomeHtml(
   })
 }
 
+const STATUS_CUSTOMER_MESSAGES: Record<string, string> = {
+  awaiting_receipt: "We're waiting for your package to arrive at our Fort Lauderdale warehouse.",
+  received: 'Your package has been received at our warehouse.',
+  in_transit: 'Your package is in transit to Jamaica.',
+  customs: 'Your package is in customs clearance.',
+  ready_for_pickup: 'Your package is ready for pickup or delivery. Your bill is now available.',
+  delivered: 'Your package has been delivered. Thank you for shipping with Package Boss!',
+}
+
+const STATUS_CUSTOMER_MESSAGES_BATCH: Record<string, string> = {
+  awaiting_receipt: "We're waiting for your packages to arrive at our Fort Lauderdale warehouse.",
+  received: 'Your packages have been received at our warehouse.',
+  in_transit: 'Your packages are in transit to Jamaica.',
+  customs: 'Your packages are in customs clearance.',
+  ready_for_pickup: 'Your packages are ready for pickup or delivery. Your bills are now available.',
+  delivered: 'Your packages have been delivered. Thank you for shipping with Package Boss!',
+}
+
+function renderInfoBox(contentHtml: string): string {
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:16px 0;background:#f8fafc;border:1px solid ${BORDER};border-radius:8px;"><tr><td style="padding:14px 16px;font-size:14px;line-height:1.5;color:${TEXT_PRIMARY};">${contentHtml}</td></tr></table>`
+}
+
 export function renderPackageStatusHtml(
   firstName: string,
   trackingNumber: string,
@@ -110,6 +132,62 @@ export function renderPackageStatusHtml(
     logoUrl,
     ctaUrl: opts.ctaUrl ?? trackUrl,
     ctaLabel: opts.ctaLabel ?? 'Track package',
+  })
+}
+
+/** Batch status email HTML — mirrors Flask render_package_status_batch_html. */
+export function renderPackageStatusBatchHtml(
+  firstName: string,
+  packageRows: Array<[string, string | null, string | null]>,
+  status: string,
+  statusLabel: string,
+  packagesUrl: string,
+  opts: {
+    note?: string | null
+    logoUrl?: string | null
+    ctaUrl?: string | null
+    ctaLabel?: string | null
+  } = {},
+): string {
+  const count = packageRows.length
+  const message =
+    STATUS_CUSTOMER_MESSAGES_BATCH[status] ??
+    STATUS_CUSTOMER_MESSAGES[status] ??
+    statusLabel
+  const noteBlock = opts.note
+    ? renderInfoBox(
+        `<strong style="color:${TEXT_PRIMARY};">Update</strong><br />${esc(opts.note)}`,
+      )
+    : ''
+
+  let tableRows = ''
+  for (const [tracking, carrierTracking, shipperLabel] of packageRows) {
+    const extraParts: string[] = []
+    if (carrierTracking?.trim()) extraParts.push(`Carrier: ${esc(carrierTracking.trim())}`)
+    if (shipperLabel?.trim()) extraParts.push(`Shipper: ${esc(shipperLabel.trim())}`)
+    const extraHtml = extraParts.length
+      ? `<br /><span style="font-size:12px;color:${TEXT_MUTED};">${extraParts.join(' · ')}</span>`
+      : ''
+    tableRows += `<tr><td style="padding:10px 12px;border-bottom:1px solid ${BORDER};font-family:ui-monospace,Consolas,monospace;font-size:14px;font-weight:600;color:${BRAND_GREEN_DARK};">${esc(tracking)}${extraHtml}</td></tr>`
+  }
+
+  const packagesTable = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid ${BORDER};border-radius:8px;overflow:hidden;"><tr><td style="padding:10px 12px;background:${BG_PAGE};font-size:12px;font-weight:700;color:${TEXT_MUTED};text-transform:uppercase;letter-spacing:0.04em;">${count} package${count !== 1 ? 's' : ''} · ${esc(statusLabel)}</td></tr>${tableRows}</table>`
+
+  const body = `<p style="margin:0 0 12px;">Hi ${esc(firstName)},</p><p style="margin:0 0 12px;">${esc(message)}</p>${packagesTable}${noteBlock}`
+
+  let trackingPreview = packageRows
+    .slice(0, 3)
+    .map(([tn]) => tn)
+    .join(', ')
+  if (count > 3) trackingPreview += ` +${count - 3} more`
+
+  return renderLayout({
+    preheader: `${count} packages — ${statusLabel} (${trackingPreview})`,
+    title: 'Package status update',
+    bodyHtml: body,
+    logoUrl: opts.logoUrl,
+    ctaUrl: opts.ctaUrl ?? packagesUrl,
+    ctaLabel: opts.ctaLabel ?? 'View packages',
   })
 }
 

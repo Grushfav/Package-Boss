@@ -84,7 +84,7 @@ export function DeliveryAddressesSection() {
   const deliveryParishOptions = parishes.filter((p) => DELIVERY_PARISHES.includes(p))
 
   return (
-    <div>
+    <div id="delivery-addresses" className="scroll-mt-24">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-bold uppercase tracking-wide">Delivery Addresses</h2>
         {addresses.length < maxAddresses && (

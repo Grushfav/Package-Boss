@@ -33,6 +33,28 @@ export function createGoogleSignupToken(profile: {
   )
 }
 
+export function createFacebookSignupToken(profile: {
+  facebook_id: string
+  email: string
+  first_name: string
+  last_name: string
+}): string {
+  return jwt.sign(
+    {
+      type: 'facebook_signup',
+      facebook_id: profile.facebook_id,
+      email: profile.email,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
+    },
+    config.jwtSecretKey,
+    {
+      subject: `facebook:${profile.facebook_id}`,
+      expiresIn: 15 * 60,
+    },
+  )
+}
+
 export async function bumpTokenVersion(user: UserRow, commit = true): Promise<void> {
   const nextVersion = (user.tokenVersion ?? 0) + 1
   if (commit) {

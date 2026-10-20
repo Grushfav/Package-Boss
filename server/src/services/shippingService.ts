@@ -62,7 +62,7 @@ export function calculateShippingCost(actualWeightLbs: number) {
     currency: 'JMD',
     jmd_per_usd: JMD_PER_USD,
     rounding_note: 'Weights are rounded up to the nearest whole pound.',
-    quote_note: `Packages over ${MAX_AUTO_RATE_LBS} lbs require a custom quote.`,
+    quote_note: `Packages over ${MAX_AUTO_RATE_LBS} lbs require a specialized quote.`,
     requires_custom_quote: false,
   }
 }
@@ -103,7 +103,7 @@ export function calculateReceiveQuote(actualWeightLbs: number) {
     cost_usd: cost,
     cost_jmd: costJmd,
     tier_label: tierLabelForBillable(billable),
-    quote_note: `Packages over ${MAX_AUTO_RATE_LBS} lbs require a custom quote.`,
+    quote_note: `Packages over ${MAX_AUTO_RATE_LBS} lbs require a specialized quote.`,
     requires_custom_quote: false,
   }
 }

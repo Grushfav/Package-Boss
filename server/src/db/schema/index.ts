@@ -33,6 +33,7 @@ export const users = pgTable(
     termsAcceptedAt: timestamp('terms_accepted_at'),
     whatsappOptIn: boolean('whatsapp_opt_in').notNull().default(false),
     googleId: varchar('google_id', { length: 255 }).unique(),
+    facebookId: varchar('facebook_id', { length: 255 }).unique(),
     createdAt: timestamp('created_at').notNull().$defaultFn(() => new Date()),
     updatedAt: timestamp('updated_at').notNull().$defaultFn(() => new Date()),
   },
@@ -41,6 +42,7 @@ export const users = pgTable(
     index('users_trn_idx').on(t.trn),
     index('users_shipping_id_idx').on(t.shippingId),
     index('users_google_id_idx').on(t.googleId),
+    index('users_facebook_id_idx').on(t.facebookId),
   ],
 )
 
@@ -198,9 +200,8 @@ export const deliveryRequests = pgTable(
     customerId: uuid('customer_id')
       .notNull()
       .references(() => users.id),
-    deliveryAddressId: uuid('delivery_address_id')
-      .notNull()
-      .references(() => deliveryAddresses.id),
+    deliveryAddressId: uuid('delivery_address_id').references(() => deliveryAddresses.id),
+    fulfillmentType: varchar('fulfillment_type', { length: 20 }).notNull().default('delivery'),
     status: varchar('status', { length: 20 }).notNull().default('pending'),
     deliveryFeeJmd: numeric('delivery_fee_jmd', { precision: 12, scale: 2 }).notNull(),
     notes: varchar('notes', { length: 500 }),
@@ -214,6 +215,7 @@ export const deliveryRequests = pgTable(
   (t) => [
     index('delivery_requests_customer_id_idx').on(t.customerId),
     index('delivery_requests_status_idx').on(t.status),
+    index('delivery_requests_fulfillment_type_idx').on(t.fulfillmentType),
   ],
 )
 
@@ -336,6 +338,8 @@ export const announcements = pgTable('announcements', {
   body: text('body').notNull(),
   severity: varchar('severity', { length: 20 }).notNull().default('info'),
   audience: varchar('audience', { length: 20 }).notNull().default('customers'),
+  targetMode: varchar('target_mode', { length: 20 }).notNull().default('broadcast'),
+  targetCriteria: json('target_criteria').$type<Record<string, unknown> | null>(),
   displayAs: varchar('display_as', { length: 20 }).notNull().default('banner'),
   startsAt: timestamp('starts_at').notNull().$defaultFn(() => new Date()),
   endsAt: timestamp('ends_at'),
@@ -346,6 +350,26 @@ export const announcements = pgTable('announcements', {
   createdAt: timestamp('created_at').notNull().$defaultFn(() => new Date()),
   updatedAt: timestamp('updated_at').notNull().$defaultFn(() => new Date()),
 })
+
+export const announcementRecipients = pgTable(
+  'announcement_recipients',
+  {
+    id: uuid('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    announcementId: uuid('announcement_id')
+      .notNull()
+      .references(() => announcements.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    packageIds: json('package_ids').$type<string[]>().notNull().default([]),
+    trackingNumbers: json('tracking_numbers').$type<string[]>().notNull().default([]),
+    createdAt: timestamp('created_at').notNull().$defaultFn(() => new Date()),
+  },
+  (t) => [
+    unique('uq_announcement_recipient').on(t.announcementId, t.userId),
+    index('announcement_recipients_user_id_idx').on(t.userId),
+  ],
+)
 
 export const announcementDismissals = pgTable(
   'announcement_dismissals',
@@ -503,4 +527,20 @@ export const shippingRateTiers = pgTable('shipping_rate_tiers', {
   isActive: boolean('is_active').notNull().default(true),
 })
 
+/** Meta data-deletion callback receipts (existing Flask table — map only, no DDL). */
+export const dataDeletionRequests = pgTable(
+  'data_deletion_requests',
+  {
+    confirmationCode: varchar('confirmation_code', { length: 64 }).primaryKey(),
+    facebookUserId: varchar('facebook_user_id', { length: 255 }),
+    userId: uuid('user_id').references(() => users.id),
+    status: varchar('status', { length: 32 }).notNull().default('completed'),
+    createdAt: timestamp('created_at').notNull().$defaultFn(() => new Date()),
+    completedAt: timestamp('completed_at'),
+    notes: varchar('notes', { length: 500 }),
+  },
+  (t) => [index('data_deletion_requests_facebook_user_id_idx').on(t.facebookUserId)],
+)
+
 export type UserRow = typeof users.$inferSelect
+export type DataDeletionRequestRow = typeof dataDeletionRequests.$inferSelect

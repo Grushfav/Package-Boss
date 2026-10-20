@@ -12,7 +12,20 @@ import {
   verifyPassword,
 } from '../services/authService.js'
 import { EmailServiceError, sendPasswordResetEmail, sendWelcomeEmail } from '../services/emailService.js'
-import { authenticateGoogleUser, completeGoogleSignup, verifyGoogleCredential } from '../services/googleAuthService.js'
+import {
+  authenticateFacebookUser,
+  completeFacebookSignup,
+  deletionRequestToDict,
+  getDeletionRequestStatus,
+  processFacebookDataDeletion,
+  verifyFacebookAccessToken,
+} from '../services/facebookAuthService.js'
+import {
+  authenticateGoogleUser,
+  completeGoogleSignup,
+  verifyGoogleAccessToken,
+  verifyGoogleCredential,
+} from '../services/googleAuthService.js'
 import { RateLimitExceeded, assertForgotPasswordAllowed, assertLoginAllowed, assertRegisterAllowed, assertResetPasswordAllowed, getClientIp, recordLoginFailure } from '../services/rateLimitService.js'
 import {
   buildResetUrl,
@@ -87,6 +100,11 @@ authRouter.post('/auth/register', async (req, res) => {
       parish,
       trn,
       shippingId,
+      role: 'customer',
+      isActive: true,
+      mustSetPassword: false,
+      tokenVersion: 0,
+      whatsappOptIn: false,
       termsAcceptedAt: new Date(),
     })
     .returning()
@@ -235,9 +253,16 @@ authRouter.post('/auth/reset-password', async (req, res) => {
 })
 
 authRouter.post('/auth/google', async (req, res) => {
-  const credential = String(req.body?.credential ?? '')
+  const credential = String(req.body?.credential ?? '').trim()
+  const googleAccessToken = String(req.body?.access_token ?? '').trim()
   try {
-    const profile = await verifyGoogleCredential(credential)
+    const profile = credential
+      ? await verifyGoogleCredential(credential)
+      : googleAccessToken
+        ? await verifyGoogleAccessToken(googleAccessToken)
+        : (() => {
+            throw new Error('Google credential or access token is required')
+          })()
     const [user, pending] = await authenticateGoogleUser(profile)
     if (pending) return res.json(pending)
     if (!user!.isActive) return res.status(403).json({ error: 'This account has been deactivated' })
@@ -264,4 +289,55 @@ authRouter.post('/auth/google/complete', jwtRequired, async (req: AuthRequest, r
   } catch (exc) {
     return res.status(400).json({ error: exc instanceof Error ? exc.message : String(exc) })
   }
+})
+
+authRouter.post('/auth/facebook', async (req, res) => {
+  const accessToken = String(req.body?.access_token ?? '')
+  try {
+    const profile = await verifyFacebookAccessToken(accessToken)
+    const [user, pending] = await authenticateFacebookUser(profile)
+    if (pending) return res.json(pending)
+    if (!user!.isActive) return res.status(403).json({ error: 'This account has been deactivated' })
+    return res.json({
+      access_token: accessTokenForUser(user!),
+      user: userToDict(user!, {
+        includeTrn: user!.role === 'customer',
+        includeClerkFields: user!.role === 'clerk' || user!.role === 'admin',
+      }),
+    })
+  } catch (exc) {
+    return res.status(400).json({ error: exc instanceof Error ? exc.message : String(exc) })
+  }
+})
+
+authRouter.post('/auth/facebook/complete', jwtRequired, async (req: AuthRequest, res) => {
+  try {
+    const [user, shippingAddress] = await completeFacebookSignup(req.jwtClaims!, req.body ?? {})
+    return res.status(201).json({
+      access_token: accessTokenForUser(user),
+      user: userToDict(user, { includeTrn: true }),
+      shipping_address: shippingAddress,
+    })
+  } catch (exc) {
+    return res.status(400).json({ error: exc instanceof Error ? exc.message : String(exc) })
+  }
+})
+
+authRouter.post('/auth/facebook/data-deletion', async (req, res) => {
+  let signedRequest = String(req.body?.signed_request ?? '')
+  if (!signedRequest && typeof req.body === 'object' && req.body != null) {
+    signedRequest = String((req.body as Record<string, unknown>).signed_request ?? '')
+  }
+  try {
+    const result = await processFacebookDataDeletion(signedRequest)
+    return res.json(result)
+  } catch (exc) {
+    return res.status(400).json({ error: exc instanceof Error ? exc.message : String(exc) })
+  }
+})
+
+authRouter.get('/auth/deletion-status/:confirmation_code', async (req, res) => {
+  const entry = await getDeletionRequestStatus(String(req.params.confirmation_code ?? ''))
+  if (!entry) return res.status(404).json({ error: 'Deletion request not found' })
+  return res.json(deletionRequestToDict(entry))
 })

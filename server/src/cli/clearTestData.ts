@@ -13,7 +13,6 @@ import {
   deliveryAddresses,
   deliveryRequestPackages,
   deliveryRequests,
-  logisticsJobs,
   packageEvents,
   packagePhotos,
   packages,
@@ -58,7 +57,6 @@ async function countRows() {
     bankTransferProofsCount,
     deliveryRequestPackagesCount,
     deliveryRequestsCount,
-    logisticsJobsCount,
     preAlertsCount,
     packageEventsCount,
     packagePhotosCount,
@@ -79,7 +77,6 @@ async function countRows() {
     db.select({ value: count() }).from(bankTransferProofs).then((r) => r[0]?.value ?? 0),
     db.select({ value: count() }).from(deliveryRequestPackages).then((r) => r[0]?.value ?? 0),
     db.select({ value: count() }).from(deliveryRequests).then((r) => r[0]?.value ?? 0),
-    db.select({ value: count() }).from(logisticsJobs).then((r) => r[0]?.value ?? 0),
     db.select({ value: count() }).from(preAlerts).then((r) => r[0]?.value ?? 0),
     db.select({ value: count() }).from(packageEvents).then((r) => r[0]?.value ?? 0),
     db.select({ value: count() }).from(packagePhotos).then((r) => r[0]?.value ?? 0),
@@ -102,7 +99,6 @@ async function countRows() {
     bank_transfer_proofs: bankTransferProofsCount,
     delivery_request_packages: deliveryRequestPackagesCount,
     delivery_requests: deliveryRequestsCount,
-    logistics_jobs: logisticsJobsCount,
     pre_alerts: preAlertsCount,
     package_events: packageEventsCount,
     package_photos: packagePhotosCount,
@@ -146,7 +142,6 @@ export async function clearTestData(includeAnnouncements = true) {
   deleted.delivery_requests = (
     await db.delete(deliveryRequests).returning({ id: deliveryRequests.id })
   ).length
-  deleted.logistics_jobs = (await db.delete(logisticsJobs).returning({ id: logisticsJobs.id })).length
   deleted.pre_alerts = (await db.delete(preAlerts).returning({ id: preAlerts.id })).length
   deleted.package_events = (await db.delete(packageEvents).returning({ id: packageEvents.id })).length
   deleted.package_photos = (await db.delete(packagePhotos).returning({ id: packagePhotos.id })).length

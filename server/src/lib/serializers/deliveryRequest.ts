@@ -1,4 +1,9 @@
-import { DELIVERY_REQUEST_STATUS_LABELS, STATUS_LABELS } from '../../constants.js'
+import {
+  DELIVERY_REQUEST_STATUS_LABELS,
+  FULFILLMENT_TYPE_LABELS,
+  PICKUP_LOCATION_LABEL,
+  STATUS_LABELS,
+} from '../../constants.js'
 import type {
   deliveryAddresses,
   deliveryRequestPackages,
@@ -48,12 +53,23 @@ export function deliveryRequestToDict(
   } = {},
 ): Record<string, unknown> {
   const includeAddress = opts.includeAddress !== false
+  const fulfillmentType = request.fulfillmentType || 'delivery'
+  let statusLabel = DELIVERY_REQUEST_STATUS_LABELS[request.status] ?? request.status
+  if (fulfillmentType === 'pickup' && request.status === 'completed') {
+    statusLabel = 'Picked up'
+  } else if (fulfillmentType === 'pickup' && request.status === 'in_progress') {
+    statusLabel = 'Ready for collection'
+  }
+
   const data: Record<string, unknown> = {
     id: request.id,
     customer_id: request.customerId,
     delivery_address_id: request.deliveryAddressId,
+    fulfillment_type: fulfillmentType,
+    fulfillment_type_label: FULFILLMENT_TYPE_LABELS[fulfillmentType] ?? fulfillmentType,
+    pickup_location: fulfillmentType === 'pickup' ? PICKUP_LOCATION_LABEL : null,
     status: request.status,
-    status_label: DELIVERY_REQUEST_STATUS_LABELS[request.status] ?? request.status,
+    status_label: statusLabel,
     delivery_fee_jmd: parseFloat(request.deliveryFeeJmd),
     notes: request.notes,
     requested_at: utcIsoformat(request.requestedAt),

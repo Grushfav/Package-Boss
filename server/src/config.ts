@@ -68,6 +68,8 @@ export const config = {
   adminEmail: env('ADMIN_EMAIL').toLowerCase(),
   clerkEmail: (env('CLERK_EMAIL') || env('STAFF_EMAIL')).toLowerCase(),
   googleClientId: env('GOOGLE_CLIENT_ID'),
+  facebookAppId: env('FACEBOOK_APP_ID'),
+  facebookAppSecret: env('FACEBOOK_APP_SECRET'),
 }
 
 export function validateProductionConfig(): void {

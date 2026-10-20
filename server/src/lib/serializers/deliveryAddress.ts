@@ -1,4 +1,8 @@
 import type { deliveryAddresses } from '../../db/schema/index.js'
+import {
+  deliveryFeeAreaForParish,
+  deliveryFeeForParish,
+} from '../../services/deliveryFeeService.js'
 
 type DeliveryAddressRow = typeof deliveryAddresses.$inferSelect
 
@@ -12,6 +16,7 @@ function formatted(address: DeliveryAddressRow): string {
 }
 
 export function deliveryAddressToDict(address: DeliveryAddressRow): Record<string, unknown> {
+  const fee = deliveryFeeForParish(address.parish)
   return {
     id: address.id,
     label: address.label,
@@ -25,6 +30,8 @@ export function deliveryAddressToDict(address: DeliveryAddressRow): Record<strin
     is_default: address.isDefault,
     sort_order: address.sortOrder,
     formatted: formatted(address),
+    delivery_fee_jmd: fee,
+    delivery_fee_area: deliveryFeeAreaForParish(address.parish),
     created_at: address.createdAt.toISOString(),
     updated_at: address.updatedAt.toISOString(),
   }

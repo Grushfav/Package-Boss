@@ -13,6 +13,8 @@ export function announcementToDict(
     title: announcement.title,
     severity: announcement.severity,
     audience: announcement.audience,
+    target_mode: announcement.targetMode ?? 'broadcast',
+    target_criteria: announcement.targetCriteria ?? null,
     display_as: announcement.displayAs,
     starts_at: utcIsoformat(announcement.startsAt),
     ends_at: utcIsoformat(announcement.endsAt),

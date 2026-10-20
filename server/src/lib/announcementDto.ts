@@ -14,6 +14,8 @@ export function announcementToDict(
     title: row.title,
     severity: row.severity,
     audience: row.audience,
+    target_mode: row.targetMode ?? 'broadcast',
+    target_criteria: row.targetCriteria ?? null,
     display_as: row.displayAs,
     starts_at: utcIsoformat(row.startsAt),
     ends_at: utcIsoformat(row.endsAt),

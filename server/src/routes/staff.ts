@@ -92,21 +92,6 @@ import {
   loadDeliveryRequestDetails,
   markDeliveryRequestInProgress,
 } from '../services/deliveryRequestService.js'
-import {
-  cancelLogisticsJob,
-  completeLogisticsJob,
-  confirmLogisticsDriver,
-  getLogisticsJob,
-  listAllLogisticsJobs,
-  listClerkLogisticsJobs,
-  listLogisticsJobHistory,
-  listLogisticsJobsByStatus,
-  listOpenLogisticsJobs,
-  listPendingLogisticsJobs,
-  markLogisticsJobInTransit,
-  markLogisticsJobPickedUp,
-  serializeJob,
-} from '../services/logisticsJobService.js'
 import { EmailServiceError, sendCheckoutInvoiceEmail } from '../services/emailService.js'
 import { MIN_PACKAGE_SEARCH_QUERY_LEN, searchPackages } from '../services/packageSearchService.js'
 import { findPendingPreAlertsByTracking } from '../services/preAlertService.js'
@@ -481,6 +466,77 @@ staffRouter.post(
 )
 
 staffRouter.post(
+  '/staff/targeted-announcements/preview',
+  permissionRequired('status_customs'),
+  async (req, res) => {
+    const data = req.body ?? {}
+    const criteria = data.target_criteria ?? data
+    try {
+      const { previewTargetRecipients } = await import('../services/announcementService.js')
+      const preview = await previewTargetRecipients(criteria)
+      return res.json({ preview })
+    } catch (err) {
+      return res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
+    }
+  },
+)
+
+staffRouter.post(
+  '/staff/targeted-announcements',
+  permissionRequired('status_customs'),
+  async (req: AuthRequest, res) => {
+    const data = req.body ?? {}
+    const channels = data.channels ?? ['in_app', 'email']
+    const alsoShowBanner = Boolean(data.also_show_banner ?? true)
+    const packageIds = data.package_ids ?? []
+
+    const targetCriteria: Record<string, unknown> = { package_ids: packageIds }
+    let packageStatuses = data.package_statuses
+    if (packageStatuses == null && data.package_status) {
+      packageStatuses = [data.package_status]
+    }
+    if (packageStatuses) targetCriteria.package_statuses = packageStatuses
+    if (data.shipment_id) targetCriteria.shipment_id = data.shipment_id
+
+    const payload = {
+      title: data.title,
+      body: data.body,
+      severity: data.severity || 'warning',
+      audience: 'customers',
+      target_mode: 'targeted',
+      display_as: data.display_as || 'inbox_only',
+      dismissible: data.dismissible ?? true,
+      is_active: true,
+      target_criteria: targetCriteria,
+    }
+
+    try {
+      const {
+        broadcastAnnouncement,
+        createAnnouncement,
+        previewTargetRecipients,
+      } = await import('../services/announcementService.js')
+      const { announcementToDict } = await import('../lib/announcementDto.js')
+      const { broadcastJobToDict } = await import('../lib/announcementDto.js')
+
+      const preview = await previewTargetRecipients(targetCriteria)
+      const announcement = await createAnnouncement(req.user!, payload)
+      const job = await broadcastAnnouncement(announcement, req.user!, {
+        channels: Array.isArray(channels) ? channels.map(String) : ['in_app', 'email'],
+        alsoShowBanner,
+      })
+      return res.status(201).json({
+        announcement: announcementToDict(announcement, { job }),
+        broadcast_job: broadcastJobToDict(job),
+        preview,
+      })
+    } catch (err) {
+      return res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
+    }
+  },
+)
+
+staffRouter.post(
   '/staff/packages/bulk-request-invoice',
   permissionRequired('invoice_request'),
   async (req: AuthRequest, res) => {
@@ -546,7 +602,7 @@ staffRouter.post(
         return res.status(400).json({ error: 'Invalid processing_fee_jmd' })
       }
       if (processingFee < 0) {
-        return res.status(400).json({ error: 'processing_fee_jmd cannot be negative' })
+        return res.status(400).json({ error: 'Handling fee cannot be negative' })
       }
     }
 
@@ -558,6 +614,7 @@ staffRouter.post(
         reference: data.reference,
         notes: data.notes,
         processingFeeJmd: processingFee,
+        includeDeliveryFee: Boolean(data.include_delivery_fee),
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -1963,148 +2020,6 @@ staffRouter.post(
     try {
       const updated = await rejectTransferProof(proof, actor)
       res.json({ proof: await proofToStaffDict(updated) })
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
-    }
-  },
-)
-
-staffRouter.get(
-  '/staff/me/logistics-jobs',
-  permissionRequired(
-    'receive',
-    'activity',
-    'pre_alerts',
-    'status_transit',
-    'status_customs',
-    'status_pickup',
-    'billing',
-    'invoice_request',
-    'directory',
-  ),
-  async (req: AuthRequest, res) => {
-    const actor = getUserFromJwt(req)
-    if (!actor) return res.status(401).json({ error: 'Unauthorized' })
-
-    const status = String(req.query.status ?? 'active').trim().toLowerCase()
-    const jobs = await listClerkLogisticsJobs(actor, status)
-    res.json({
-      logistics_jobs: await Promise.all(jobs.map((job) => serializeJob(job))),
-    })
-  },
-)
-
-staffRouter.get(
-  '/staff/logistics-jobs',
-  permissionRequired('status_pickup', 'billing'),
-  async (req: AuthRequest, res) => {
-    const status = String(req.query.status ?? 'active').trim().toLowerCase()
-    let jobs
-    if (status === 'pending') jobs = await listPendingLogisticsJobs()
-    else if (status === 'active') jobs = await listOpenLogisticsJobs()
-    else if (status === 'all') jobs = await listAllLogisticsJobs()
-    else if (status === 'history') jobs = await listLogisticsJobHistory()
-    else if (status === 'in_progress') jobs = await listLogisticsJobsByStatus('in_transit')
-    else if (status === 'picked_up') jobs = await listLogisticsJobsByStatus('picked_up')
-    else if (status === 'in_transit') jobs = await listLogisticsJobsByStatus('in_transit')
-    else jobs = await listLogisticsJobsByStatus(status)
-
-    res.json({
-      logistics_jobs: await Promise.all(jobs.map((job) => serializeJob(job))),
-    })
-  },
-)
-
-staffRouter.post(
-  '/staff/logistics-jobs/:jobId/confirm-driver',
-  permissionRequired('status_pickup', 'billing'),
-  async (req: AuthRequest, res) => {
-    const job = await getLogisticsJob(routeParam(req.params.jobId))
-    if (!job) return res.status(404).json({ error: 'Local delivery request not found' })
-
-    const actor = getUserFromJwt(req)
-    if (!actor) return res.status(401).json({ error: 'Unauthorized' })
-
-    const data = req.body ?? {}
-    try {
-      const updated = await confirmLogisticsDriver(job, actor, {
-        driverName: data.driver_name || '',
-        driverContactNumber: data.driver_contact_number || '',
-      })
-      res.json({ logistics_job: await serializeJob(updated) })
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
-    }
-  },
-)
-
-staffRouter.post(
-  '/staff/logistics-jobs/:jobId/picked-up',
-  permissionRequired('status_pickup', 'billing'),
-  async (req: AuthRequest, res) => {
-    const job = await getLogisticsJob(routeParam(req.params.jobId))
-    if (!job) return res.status(404).json({ error: 'Local delivery request not found' })
-
-    const actor = getUserFromJwt(req)
-    if (!actor) return res.status(401).json({ error: 'Unauthorized' })
-
-    try {
-      const updated = await markLogisticsJobPickedUp(job, actor)
-      res.json({ logistics_job: await serializeJob(updated) })
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
-    }
-  },
-)
-
-staffRouter.post(
-  '/staff/logistics-jobs/:jobId/in-transit',
-  permissionRequired('status_pickup', 'billing'),
-  async (req: AuthRequest, res) => {
-    const job = await getLogisticsJob(routeParam(req.params.jobId))
-    if (!job) return res.status(404).json({ error: 'Local delivery request not found' })
-
-    const actor = getUserFromJwt(req)
-    if (!actor) return res.status(401).json({ error: 'Unauthorized' })
-
-    try {
-      const updated = await markLogisticsJobInTransit(job, actor)
-      res.json({ logistics_job: await serializeJob(updated) })
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
-    }
-  },
-)
-
-staffRouter.post(
-  '/staff/logistics-jobs/:jobId/complete',
-  permissionRequired('status_pickup', 'billing'),
-  async (req: AuthRequest, res) => {
-    const job = await getLogisticsJob(routeParam(req.params.jobId))
-    if (!job) return res.status(404).json({ error: 'Local delivery request not found' })
-
-    const actor = getUserFromJwt(req)
-    if (!actor) return res.status(401).json({ error: 'Unauthorized' })
-
-    try {
-      const updated = await completeLogisticsJob(job, actor)
-      res.json({ logistics_job: await serializeJob(updated) })
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
-    }
-  },
-)
-
-staffRouter.post(
-  '/staff/logistics-jobs/:jobId/cancel',
-  permissionRequired('status_pickup', 'billing'),
-  async (req: AuthRequest, res) => {
-    const job = await getLogisticsJob(routeParam(req.params.jobId))
-    if (!job) return res.status(404).json({ error: 'Local delivery request not found' })
-
-    try {
-      const updated = await cancelLogisticsJob(job, { byCustomer: false })
-      res.json({ logistics_job: await serializeJob(updated) })
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
     }

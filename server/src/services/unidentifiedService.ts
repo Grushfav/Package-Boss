@@ -30,6 +30,10 @@ export async function ensureUnidentifiedHolder(): Promise<UserRow> {
       parish: 'Kingston',
       shippingId: UNIDENTIFIED_HOLDER_SHIPPING_ID,
       role: 'customer',
+      isActive: true,
+      mustSetPassword: false,
+      tokenVersion: 0,
+      whatsappOptIn: false,
     })
     .returning()
 

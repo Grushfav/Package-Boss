@@ -1,10 +1,14 @@
-import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, or } from 'drizzle-orm'
+import { validate as validateUuid } from 'uuid'
+import { PACKAGE_STATUSES, UNIDENTIFIED_HOLDER_SHIPPING_ID } from '../constants.js'
 import { db } from '../db/index.js'
 import {
   announcementDismissals,
   announcementReads,
+  announcementRecipients,
   announcements,
   broadcastJobs,
+  packages,
   users,
   type UserRow,
 } from '../db/schema/index.js'
@@ -31,6 +35,25 @@ function activeTimeFilter() {
   )
 }
 
+async function targetedRecipientAnnouncementIds(userId: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ announcementId: announcementRecipients.announcementId })
+    .from(announcementRecipients)
+    .where(eq(announcementRecipients.userId, userId))
+  return new Set(rows.map((r) => r.announcementId))
+}
+
+/** Targeted banners/inbox only visible to listed recipients (Flask `_targeted_visibility_filter`). */
+function passesTargetedVisibility(
+  announcement: { targetMode: string | null; id: string },
+  user: UserRow | null | undefined,
+  recipientAnnouncementIds: Set<string> | null,
+): boolean {
+  if (announcement.targetMode !== 'targeted') return true
+  if (!user || !recipientAnnouncementIds) return false
+  return recipientAnnouncementIds.has(announcement.id)
+}
+
 export async function listActiveBanners(context: string, user?: UserRow | null) {
   const audiences = audiencesForContext(context)
   const rows = await db
@@ -45,15 +68,19 @@ export async function listActiveBanners(context: string, user?: UserRow | null) 
     )
 
   let dismissedIds = new Set<string>()
+  let recipientIds: Set<string> | null = null
   if (user) {
     const dismissals = await db
       .select()
       .from(announcementDismissals)
       .where(eq(announcementDismissals.userId, user.id))
     dismissedIds = new Set(dismissals.map((d) => d.announcementId))
+    recipientIds = await targetedRecipientAnnouncementIds(user.id)
   }
 
-  const visible = rows.filter((a) => !dismissedIds.has(a.id))
+  const visible = rows.filter(
+    (a) => !dismissedIds.has(a.id) && passesTargetedVisibility(a, user, recipientIds),
+  )
   visible.sort((a, b) => {
     const sev = (SEVERITY_ORDER[b.severity] ?? 0) - (SEVERITY_ORDER[a.severity] ?? 0)
     if (sev !== 0) return sev
@@ -88,13 +115,16 @@ export async function listUserInbox(user: UserRow) {
     .orderBy(desc(announcements.broadcastAt))
     .limit(100)
 
+  const recipientIds = await targetedRecipientAnnouncementIds(user.id)
+  const visible = rows.filter((a) => passesTargetedVisibility(a, user, recipientIds))
+
   const reads = await db
     .select()
     .from(announcementReads)
     .where(eq(announcementReads.userId, user.id))
   const readIds = new Set(reads.map((r) => r.announcementId))
 
-  return rows.map((a) => ({
+  return visible.map((a) => ({
     ...announcementToDict(a, { includeBody: true }),
     is_read: readIds.has(a.id),
   }))
@@ -217,9 +247,152 @@ export async function getAnnouncement(announcementId: string) {
   return row ?? null
 }
 
+function parseUuidList(values: unknown): string[] {
+  if (!values) return []
+  if (!Array.isArray(values)) throw new Error('package_ids must be an array')
+  const parsed: string[] = []
+  for (const raw of values) {
+    const id = String(raw)
+    if (!validateUuid(id)) throw new Error(`Invalid package ID: ${raw}`)
+    parsed.push(id)
+  }
+  return parsed
+}
+
+function parseStatusList(criteria: Record<string, unknown>): string[] {
+  let rawStatuses = criteria.package_statuses
+  if (rawStatuses == null && criteria.package_status) {
+    rawStatuses = [criteria.package_status]
+  }
+  if (!rawStatuses) return []
+  if (!Array.isArray(rawStatuses)) throw new Error('package_statuses must be an array')
+  const statuses: string[] = []
+  const seen = new Set<string>()
+  for (const raw of rawStatuses) {
+    const status = String(raw || '')
+      .trim()
+      .toLowerCase()
+    if (!status || seen.has(status)) continue
+    if (!(PACKAGE_STATUSES as readonly string[]).includes(status)) {
+      throw new Error(`Invalid package status filter: ${status}`)
+    }
+    seen.add(status)
+    statuses.push(status)
+  }
+  return statuses
+}
+
+export function validateTargetCriteria(criteria: unknown): Record<string, unknown> {
+  if (!criteria || typeof criteria !== 'object') {
+    throw new Error('Targeting criteria are required for targeted announcements')
+  }
+  const raw = criteria as Record<string, unknown>
+  const packageIds = parseUuidList(raw.package_ids)
+  const packageStatuses = parseStatusList(raw)
+  let shipmentId: string | undefined
+  if (raw.shipment_id) {
+    const sid = String(raw.shipment_id)
+    if (!validateUuid(sid)) throw new Error('Invalid shipment ID')
+    shipmentId = sid
+  }
+  if (!packageIds.length && !shipmentId && !packageStatuses.length) {
+    throw new Error(
+      'Select at least one target: specific packages, a departure, or a package status',
+    )
+  }
+  const cleaned: Record<string, unknown> = {}
+  if (packageIds.length) cleaned.package_ids = packageIds
+  if (shipmentId) cleaned.shipment_id = shipmentId
+  if (packageStatuses.length) cleaned.package_statuses = packageStatuses
+  return cleaned
+}
+
+export async function resolveTargetPackages(criteria: Record<string, unknown>) {
+  const cleaned = validateTargetCriteria(criteria)
+  const conditions = [
+    eq(users.isActive, true),
+    eq(users.role, 'customer'),
+    ne(users.shippingId, UNIDENTIFIED_HOLDER_SHIPPING_ID),
+  ]
+
+  const packageIds = (cleaned.package_ids as string[] | undefined) ?? []
+  if (packageIds.length) conditions.push(inArray(packages.id, packageIds))
+  if (cleaned.shipment_id) conditions.push(eq(packages.shipmentId, String(cleaned.shipment_id)))
+  const statuses = (cleaned.package_statuses as string[] | undefined) ?? []
+  if (statuses.length) conditions.push(inArray(packages.status, statuses))
+
+  return db
+    .select({ pkg: packages, customer: users })
+    .from(packages)
+    .innerJoin(users, eq(packages.customerId, users.id))
+    .where(and(...conditions))
+    .orderBy(packages.trackingNumber)
+}
+
+export async function previewTargetRecipients(criteria: unknown) {
+  const rows = await resolveTargetPackages(criteria as Record<string, unknown>)
+  const byCustomer = new Map<
+    string,
+    { name: string; email: string | null; tracking_numbers: string[] }
+  >()
+  for (const { pkg, customer } of rows) {
+    const existing = byCustomer.get(customer.id)
+    if (existing) {
+      existing.tracking_numbers.push(pkg.trackingNumber)
+    } else {
+      byCustomer.set(customer.id, {
+        name: `${customer.firstName} ${customer.lastName}`.trim(),
+        email: customer.email,
+        tracking_numbers: [pkg.trackingNumber],
+      })
+    }
+  }
+  const customers = [...byCustomer.entries()]
+    .sort((a, b) => a[1].name.localeCompare(b[1].name))
+    .map(([userId, info]) => ({
+      user_id: userId,
+      name: info.name,
+      email: info.email,
+      package_count: info.tracking_numbers.length,
+      tracking_numbers: info.tracking_numbers,
+    }))
+  return {
+    package_count: rows.length,
+    customer_count: customers.length,
+    customers,
+  }
+}
+
+async function storeTargetRecipients(
+  announcementId: string,
+  rows: Array<{ pkg: typeof packages.$inferSelect; customer: UserRow }>,
+) {
+  await db.delete(announcementRecipients).where(eq(announcementRecipients.announcementId, announcementId))
+  const grouped = new Map<string, { customer: UserRow; pkgs: Array<typeof packages.$inferSelect> }>()
+  for (const row of rows) {
+    const existing = grouped.get(row.customer.id)
+    if (existing) existing.pkgs.push(row.pkg)
+    else grouped.set(row.customer.id, { customer: row.customer, pkgs: [row.pkg] })
+  }
+  for (const { customer, pkgs } of grouped.values()) {
+    await db.insert(announcementRecipients).values({
+      announcementId,
+      userId: customer.id,
+      packageIds: pkgs.map((p) => p.id),
+      trackingNumbers: pkgs.map((p) => p.trackingNumber),
+    })
+  }
+}
+
 export async function createAnnouncement(actor: UserRow, data: Record<string, unknown>) {
   const cleaned = validateAnnouncementData(data)
   const dismissible = cleaned.dismissible !== false
+  const targetMode = String(data.target_mode ?? 'broadcast').trim().toLowerCase() || 'broadcast'
+  let targetCriteria: Record<string, unknown> | null = null
+  if (targetMode === 'targeted') {
+    targetCriteria = validateTargetCriteria(data.target_criteria ?? data)
+  }
+
   const [announcement] = await db
     .insert(announcements)
     .values({
@@ -227,6 +400,8 @@ export async function createAnnouncement(actor: UserRow, data: Record<string, un
       body: cleaned.body as string,
       severity: (cleaned.severity as string) ?? 'info',
       audience: (cleaned.audience as string) ?? 'customers',
+      targetMode,
+      targetCriteria,
       displayAs: (cleaned.display_as as string) ?? 'banner',
       startsAt: (cleaned.starts_at as Date) ?? new Date(),
       endsAt: (cleaned.ends_at as Date | null) ?? null,
@@ -235,6 +410,7 @@ export async function createAnnouncement(actor: UserRow, data: Record<string, un
       createdById: actor.id,
     })
     .returning()
+
   return announcement!
 }
 
@@ -297,6 +473,16 @@ export async function broadcastAnnouncement(
     await db.update(announcements).set({ displayAs: 'banner' }).where(eq(announcements.id, announcement.id))
   }
 
+  if (announcement.targetMode === 'targeted') {
+    const rows = await resolveTargetPackages(
+      (announcement.targetCriteria as Record<string, unknown> | null) ?? {},
+    )
+    if (!rows.length) {
+      throw new Error('No packages match the selected targeting criteria')
+    }
+    await storeTargetRecipients(announcement.id, rows)
+  }
+
   await db
     .update(announcements)
     .set({ broadcastAt: new Date() })
@@ -320,6 +506,23 @@ export async function broadcastAnnouncement(
   return job!
 }
 
+async function recipientUsersForAudience(audience: string): Promise<UserRow[]> {
+  const base = and(eq(users.isActive, true))
+  if (audience === 'staff') {
+    return db
+      .select()
+      .from(users)
+      .where(and(base, inArray(users.role, ['clerk', 'admin'])))
+  }
+  if (audience === 'all') {
+    return db
+      .select()
+      .from(users)
+      .where(and(base, inArray(users.role, ['customer', 'clerk', 'admin'])))
+  }
+  return db.select().from(users).where(and(base, eq(users.role, 'customer')))
+}
+
 async function runEmailBroadcast(jobId: string, announcementId: string) {
   const { sendAnnouncementEmail } = await import('./emailService.js')
   const [job] = await db.select().from(broadcastJobs).where(eq(broadcastJobs.id, jobId)).limit(1)
@@ -328,16 +531,43 @@ async function runEmailBroadcast(jobId: string, announcementId: string) {
 
   await db.update(broadcastJobs).set({ status: 'running', startedAt: new Date() }).where(eq(broadcastJobs.id, jobId))
 
-  const recipients = await db
-    .select()
-    .from(users)
-    .where(and(eq(users.isActive, true), eq(users.role, 'customer')))
+  type EmailTarget = { user: UserRow; trackingNumbers: string[] }
+  let emailTargets: EmailTarget[]
+
+  if (announcement.targetMode === 'targeted') {
+    const links = await db
+      .select({
+        user: users,
+        trackingNumbers: announcementRecipients.trackingNumbers,
+      })
+      .from(announcementRecipients)
+      .innerJoin(users, eq(announcementRecipients.userId, users.id))
+      .where(eq(announcementRecipients.announcementId, announcementId))
+    emailTargets = links
+      .filter((r) => r.user.isActive)
+      .map((r) => ({
+        user: r.user,
+        trackingNumbers: Array.isArray(r.trackingNumbers) ? r.trackingNumbers : [],
+      }))
+  } else {
+    const audienceUsers = await recipientUsersForAudience(announcement.audience)
+    emailTargets = audienceUsers.map((user) => ({ user, trackingNumbers: [] as string[] }))
+  }
 
   let sent = 0
   let failed = 0
-  for (const user of recipients) {
+  const seenEmails = new Set<string>()
+  for (const { user, trackingNumbers } of emailTargets) {
+    const email = (user.email || '').trim().toLowerCase()
+    if (!email || seenEmails.has(email)) continue
+    seenEmails.add(email)
+
+    let bodyText = announcement.body
+    if (trackingNumbers.length) {
+      bodyText = `${announcement.body}\n\nYour affected package(s): ${trackingNumbers.join(', ')}`
+    }
     try {
-      await sendAnnouncementEmail(user.email, user.firstName, announcement.title, announcement.body)
+      await sendAnnouncementEmail(user.email, user.firstName, announcement.title, bodyText)
       sent += 1
     } catch (err) {
       failed += 1

@@ -18,6 +18,8 @@ export function createApp() {
   )
 
   app.use(express.json({ limit: '1mb' }))
+  // Meta data-deletion callbacks POST application/x-www-form-urlencoded
+  app.use(express.urlencoded({ extended: false }))
 
   app.use('/api', apiRouter)
 

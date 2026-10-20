@@ -1,4 +1,8 @@
-import { BANK_TRANSFER_PROOF_STATUS_LABELS, DELIVERY_FEE_JMD, SENDER_BANK_LABELS } from '../../constants.js'
+import {
+  BANK_TRANSFER_PROOF_STATUS_LABELS,
+  DELIVERY_FEE_KINGSTON_JMD,
+  SENDER_BANK_LABELS,
+} from '../../constants.js'
 import type {
   bankTransferProofPackages,
   bankTransferProofs,
@@ -26,7 +30,7 @@ export function proofIncludesDelivery(
   }
   if (packagesTotal <= 0) return false
   const amount = parseFloat(proof.amountJmd)
-  const expectedWithDelivery = packagesTotal + parseFloat(DELIVERY_FEE_JMD)
+  const expectedWithDelivery = packagesTotal + parseFloat(DELIVERY_FEE_KINGSTON_JMD)
   return amount >= expectedWithDelivery - 0.01
 }
 

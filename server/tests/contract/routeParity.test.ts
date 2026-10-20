@@ -10,7 +10,10 @@ const REPO_ROOT = resolve(import.meta.dirname, '../../..')
 const FRONTEND_API_DIR = join(REPO_ROOT, 'frontend/src/api')
 const SERVER_ROUTES_DIR = join(REPO_ROOT, 'server/src/routes')
 
-/** Intentionally deferred — keep empty once a feature is mounted on Express. */
+/**
+ * Paths present in frontend/src/api that Flask main does not expose.
+ * Express mirrors Flask — do not mount these until Alembic + product enable them.
+ */
 const DEFERRED_PATH_PREFIXES: string[] = []
 
 function collectFrontendPaths(): string[] {
@@ -39,7 +42,7 @@ function collectServerRoutePatterns(): string[] {
   for (const file of routeFiles) {
     const content = readFileSync(join(SERVER_ROUTES_DIR, file), 'utf8')
     const re =
-      /(?:Router|staffRouter|adminRouter|authRouter|uploadsRouter|packagesRouter|meRouter|preAlertsRouter|deliveryRequestsRouter|logisticsJobsRouter|bankTransferProofsRouter|announcementsRouter|healthRouter|parishesRouter|ratesRouter)\.(?:get|post|patch|put|delete|all)\(\s*['`]([^'`]+)['`]/g
+      /(?:Router|staffRouter|adminRouter|authRouter|uploadsRouter|packagesRouter|meRouter|preAlertsRouter|deliveryRequestsRouter|bankTransferProofsRouter|announcementsRouter|healthRouter|parishesRouter|ratesRouter)\.(?:get|post|patch|put|delete|all)\(\s*['`]([^'`]+)['`]/g
     let m: RegExpExecArray | null
     while ((m = re.exec(content)) !== null) {
       patterns.push(m[1])
@@ -69,7 +72,7 @@ describe('Frontend ↔ Express route parity', () => {
   const frontendPaths = collectFrontendPaths()
   const serverPatterns = collectServerRoutePatterns()
 
-  it('has no deferred path prefixes while logistics is enabled', () => {
+  it('has no deferred path prefixes (Express mirrors Flask main)', () => {
     expect(DEFERRED_PATH_PREFIXES).toEqual([])
   })
 

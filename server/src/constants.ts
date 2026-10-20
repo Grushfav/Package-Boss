@@ -94,7 +94,11 @@ export const SHIPPER_LABELS = Object.fromEntries(SHIPPERS.map((s) => [s.code, s.
 
 export const DELIVERY_PARISHES = ['Kingston', 'St. Andrew', 'St. Catherine'] as const
 export const MAX_DELIVERY_ADDRESSES = 4
-export const DELIVERY_FEE_JMD = '800.00'
+export const DELIVERY_FEE_KINGSTON_JMD = '800.00'
+export const DELIVERY_FEE_PORTMORE_JMD = '1000.00'
+export const MULTI_PACKAGE_HANDLING_FEE_JMD = '300.00'
+/** Default / legacy alias (Kingston & St. Andrew rate) */
+export const DELIVERY_FEE_JMD = DELIVERY_FEE_KINGSTON_JMD
 
 export const DELIVERY_REQUEST_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const
 export const DELIVERY_REQUEST_STATUS_LABELS: Record<string, string> = {
@@ -104,6 +108,13 @@ export const DELIVERY_REQUEST_STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 }
 export const DELIVERY_REQUEST_OPEN_STATUSES = ['pending', 'in_progress'] as const
+
+export const FULFILLMENT_TYPES = ['delivery', 'pickup'] as const
+export const FULFILLMENT_TYPE_LABELS: Record<string, string> = {
+  delivery: 'Home delivery',
+  pickup: 'Pickup',
+}
+export const PICKUP_LOCATION_LABEL = 'Tropical Plaza parking lot, Half Way Tree'
 
 export const MAX_AUTHORIZED_PICKUPS = 5
 export const PICKUP_RELATIONSHIPS = ['spouse', 'family', 'friend', 'colleague', 'other'] as const

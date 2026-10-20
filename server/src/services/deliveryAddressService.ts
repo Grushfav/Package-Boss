@@ -1,6 +1,6 @@
 import { asc, desc, eq, sql } from 'drizzle-orm'
 import { config } from '../config.js'
-import { JAMAICA_PARISHES, MAX_DELIVERY_ADDRESSES } from '../constants.js'
+import { DELIVERY_PARISHES, JAMAICA_PARISHES, MAX_DELIVERY_ADDRESSES } from '../constants.js'
 import { db } from '../db/index.js'
 import { deliveryAddresses, type UserRow } from '../db/schema/index.js'
 import { normalizePhone } from './authService.js'
@@ -168,6 +168,14 @@ export async function setDefaultDeliveryAddress(address: DeliveryAddressRow): Pr
     .where(eq(deliveryAddresses.id, address.id))
     .returning()
   return updated!
+}
+
+export function validateDeliveryParishForService(parish: string): void {
+  if (!(DELIVERY_PARISHES as readonly string[]).includes(parish)) {
+    throw new Error(
+      'Delivery is available in Kingston, St. Andrew, and St. Catherine (Portmore) only',
+    )
+  }
 }
 
 export function buildInvoiceUploadUrl(packageId: string): string {

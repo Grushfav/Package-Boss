@@ -42,5 +42,7 @@ services:
     buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: frontend/dist
     envVars:
+      # Stage 3: set to Express public URL including /api, e.g.
+      # https://package-boss-api.onrender.com/api
       - key: VITE_API_URL
         sync: false

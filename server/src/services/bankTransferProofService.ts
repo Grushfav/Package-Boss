@@ -1,7 +1,6 @@
 import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import {
   BANK_TRANSFER_PROOF_OPEN_STATUSES,
-  DELIVERY_FEE_JMD,
   PAYMENT_ELIGIBLE_STATUS,
   SENDER_BANKS,
 } from '../constants.js'
@@ -15,6 +14,7 @@ import {
 } from '../db/schema/index.js'
 import { bankTransferProofToDict } from '../lib/serializers/bankTransferProof.js'
 import { userFullName } from '../lib/serializers/user.js'
+import { inferOptionalDeliveryFeeJmd } from './deliveryFeeService.js'
 import { computePaymentTotalWithDelivery } from './deliveryRequestService.js'
 import { isValidTransferProofReference } from './imageUploadService.js'
 import { recordPaymentCheckout } from './paymentService.js'
@@ -116,7 +116,7 @@ async function expectedProofTotal(
   )
   let total = expected.total_jmd
   if (includeDeliveryFee && expected.delivery_fee_jmd === 0) {
-    total += parseFloat(DELIVERY_FEE_JMD)
+    total += await inferOptionalDeliveryFeeJmd(customer, pkgs)
   }
   return Math.round(total * 100) / 100
 }
@@ -148,7 +148,7 @@ export async function submitBankTransferProof(
     if (amount == null) amount = expectedTotal
     else if (amount !== expectedTotal) {
       throw new Error(
-        `amount_jmd must match the total due (${expectedTotal.toFixed(2)} JMD including delivery fee if applicable)`,
+        `amount_jmd must match the total due (${expectedTotal.toFixed(2)} JMD including delivery and handling fees if applicable)`,
       )
     }
   }
@@ -295,7 +295,51 @@ export async function markTransferProofInProgress(proof: ProofRow, staffUser: Us
   return updated!
 }
 
+/** Close open transfer proofs whose packages are all paid (e.g. after staff checkout). */
+export async function autoConfirmOpenTransferProofs(
+  customer: UserRow,
+  recordedBy: UserRow,
+): Promise<ProofRow[]> {
+  const openProofs = await listOpenCustomerProofs(customer)
+  const confirmed: ProofRow[] = []
+  const now = new Date()
+
+  for (const proof of openProofs) {
+    const links = await db
+      .select()
+      .from(bankTransferProofPackages)
+      .where(eq(bankTransferProofPackages.proofId, proof.id))
+    if (!links.length) continue
+
+    const pkgs = await db
+      .select()
+      .from(packages)
+      .where(
+        inArray(
+          packages.id,
+          links.map((link) => link.packageId),
+        ),
+      )
+    if (!pkgs.length) continue
+    if (!pkgs.every((pkg) => pkg.billingStatus === 'paid')) continue
+
+    const [updated] = await db
+      .update(bankTransferProofs)
+      .set({
+        status: 'confirmed',
+        reviewedAt: now,
+        reviewedById: recordedBy.id,
+      })
+      .where(eq(bankTransferProofs.id, proof.id))
+      .returning()
+    if (updated) confirmed.push(updated)
+  }
+
+  return confirmed
+}
+
 export async function confirmTransferProof(proof: ProofRow, staffUser: UserRow): Promise<ProofRow> {
+  if (proof.status === 'confirmed') return proof
   if (!(BANK_TRANSFER_PROOF_OPEN_STATUSES as readonly string[]).includes(proof.status)) {
     throw new Error('Only open transfer proofs can be confirmed')
   }
@@ -305,15 +349,31 @@ export async function confirmTransferProof(proof: ProofRow, staffUser: UserRow):
     .from(bankTransferProofPackages)
     .where(eq(bankTransferProofPackages.proofId, proof.id))
 
-  const packageIds = links.map((link) => link.packageId).filter(Boolean)
-  if (packageIds.length) {
+  const linkedPackages = links.length
+    ? await db
+        .select()
+        .from(packages)
+        .where(
+          inArray(
+            packages.id,
+            links.map((link) => link.packageId),
+          ),
+        )
+    : []
+
+  const unpaidIds = linkedPackages
+    .filter((pkg) => pkg.billingStatus !== 'paid')
+    .map((pkg) => pkg.id)
+
+  if (unpaidIds.length) {
     const [customer] = await db.select().from(users).where(eq(users.id, proof.customerId)).limit(1)
     if (!customer) throw new Error('Transfer proof customer not found')
-    await recordPaymentCheckout(customer, packageIds, {
+    await recordPaymentCheckout(customer, unpaidIds, {
       method: 'bank_transfer',
       recordedBy: staffUser,
       reference: proof.transferReference,
       notes: proof.notes,
+      includeDeliveryFee: Boolean(proof.includeDeliveryFee),
     })
   }
 

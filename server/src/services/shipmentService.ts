@@ -273,7 +273,7 @@ export async function departShipment(
       continue
     }
     try {
-      await addPackageEvent(pkg, 'in_transit', eventNote)
+      await addPackageEvent(pkg, 'in_transit', eventNote, { skipStatusEmail: true })
       const [fresh] = await db.select().from(packages).where(eq(packages.id, pkg.id)).limit(1)
       if (fresh) updated.push(fresh)
     } catch (err) {
@@ -329,6 +329,14 @@ export async function departShipment(
       )
     }
   }
+
+  const { scheduleNotifyCustomersOfStatusBatch } = await import(
+    './packageStatusNotificationService.js'
+  )
+  scheduleNotifyCustomersOfStatusBatch(
+    updated.map((pkg) => [pkg, eventNote] as [PackageRow, string | null]),
+    'in_transit',
+  )
 
   return [updated, failed]
 }
@@ -411,7 +419,7 @@ export async function batchDepartPackages(
 
   const updated: PackageRow[] = []
   for (const pkg of assigned) {
-    await addPackageEvent(pkg, 'in_transit', eventNote)
+    await addPackageEvent(pkg, 'in_transit', eventNote, { skipStatusEmail: true })
     const [fresh] = await db.select().from(packages).where(eq(packages.id, pkg.id)).limit(1)
     if (fresh) updated.push(fresh)
   }
@@ -468,6 +476,14 @@ export async function batchDepartPackages(
       )
     }
   }
+
+  const { scheduleNotifyCustomersOfStatusBatch } = await import(
+    './packageStatusNotificationService.js'
+  )
+  scheduleNotifyCustomersOfStatusBatch(
+    updated.map((pkg) => [pkg, eventNote] as [PackageRow, string | null]),
+    'in_transit',
+  )
 
   const [finalShipment] = await db.select().from(shipments).where(eq(shipments.id, shipment.id)).limit(1)
   return [finalShipment!, updated]

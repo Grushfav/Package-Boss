@@ -5,12 +5,13 @@ Fort Lauderdale → Kingston logistics platform. Customers sign up, receive a un
 ## Stack
 
 - **Frontend:** Vite + React + TypeScript + Tailwind CSS + PWA
-- **Backend:** Flask + SQLAlchemy + JWT
-- **Database:** Neon PostgreSQL (SQLite for local dev)
+- **API:** Express + TypeScript + Drizzle + JWT (`server/`)
+- **Schema DDL:** Flask-Migrate / Alembic (`backend/`) — Express does not own migrations
+- **Database:** Neon PostgreSQL
 
 ## Quick start
 
-### 1. Backend
+### 1. Database migrations (Alembic)
 
 ```bash
 cd backend
@@ -20,44 +21,30 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` in the project root and set `DATABASE_URL`.
-
-Apply database migrations (required before first run):
+Copy `.env.example` to `.env` in the project root and set `DATABASE_URL` (PostgreSQL).
 
 ```bash
 set FLASK_APP=wsgi:app
 flask db upgrade
 ```
 
-For a **new** database:
+After model/schema changes, create a migration with `flask db migrate -m "description"` and apply with `flask db upgrade`. Do **not** run Express schema migrations.
+
+### 2. Express API
+
+Requires **Node.js 18+** (20.19+ recommended).
 
 ```bash
-flask db upgrade
+cd server
+npm install
+npm run dev
 ```
 
-For an **existing** database that already has tables (e.g. Neon from before Flask-Migrate):
+API: http://localhost:5001/api/health
 
-```bash
-flask db stamp 8004a576854d
-flask db upgrade
-```
+See `server/README.md` for cutover and rollback notes.
 
-The first command marks the initial revision as applied without re-creating tables. The second applies any newer migrations (such as `label_printed_at`).
-
-After model changes, create a migration with `flask db migrate -m "description"` and apply with `flask db upgrade`.
-
-Run the API:
-
-```bash
-set FLASK_APP=wsgi.py
-python wsgi.py
-```
-
-API: http://localhost:5000/api/health
-
-### 2. Frontend
-
-Requires **Node.js 18+** (20.19+ recommended). Vite is pinned to v6 for compatibility — no Rolldown native bindings needed.
+### 3. Frontend
 
 ```bash
 cd frontend
@@ -65,7 +52,7 @@ npm install
 npm run dev
 ```
 
-App: http://localhost:5173
+App: http://localhost:5173 — Vite proxies `/api` to Express on `:5001`.
 
 ## API endpoints (Phase 1)
 
@@ -101,9 +88,10 @@ App: http://localhost:5173
 
 ```
 Package-Boss/
-├── backend/          Flask API
+├── server/           Express API (primary)
+├── backend/          Flask-Migrate / Alembic DDL + legacy Flask
 ├── frontend/         Vite React PWA
-├── docker-compose.yml
+├── k6/               API smoke + load scripts
 └── .env.example
 ```
 
