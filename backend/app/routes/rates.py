@@ -28,7 +28,8 @@ def list_rates():
         ),
         "billing_disclaimer": (
             "Published rates are freight estimates only. Final bills may include customs duties "
-            "(items over $100 USD), handling fees, and other charges after invoice review."
+            "(items over $100 USD), handling fees, and other charges after invoice review. "
+            "A handling fee of J$300 applies when 2 or more packages are collected in one checkout."
         ),
         "tiers": build_rate_table(),
     }

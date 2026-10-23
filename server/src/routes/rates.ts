@@ -21,7 +21,7 @@ ratesRouter.get('/rates', (_req, res) => {
     rounding_note: 'All weights are rounded up to the nearest whole pound before rating.',
     formula_note: `Published tier rates by billable weight (1–${MAX_AUTO_RATE_LBS} lbs). JMD shown at ${JMD_PER_USD} JMD = 1 USD.`,
     billing_disclaimer:
-      'Published rates are freight estimates only. Final bills may include customs duties (items over $100 USD), handling fees, and other charges after invoice review.',
+      'Published rates are freight estimates only. Final bills may include customs duties (items over $100 USD), handling fees, and other charges after invoice review. A handling fee of J$300 applies when 2 or more packages are collected in one checkout.',
     tiers: buildRateTable(),
   }
   res.set('Cache-Control', 'public, max-age=300')

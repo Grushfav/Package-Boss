@@ -1,6 +1,7 @@
 import { MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { DashboardPackageStatsCard } from '../../components/account/DashboardPackageStatsCard'
+import { ShareAppButton } from '../../components/share/ShareAppButton'
 import { FortLauderdaleShippingAddressCard } from '../../components/account/FortLauderdaleShippingAddressCard'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
@@ -75,6 +76,7 @@ export function DashboardHomePage() {
         >
           Bank transfer details →
         </Link>
+        <ShareAppButton />
       </div>
     </div>
   )

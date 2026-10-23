@@ -2,6 +2,7 @@ import { Scale } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { estimateRate } from '../../api/rates'
+import { MULTI_PACKAGE_HANDLING_NOTE } from '../../lib/checkoutHandling'
 import { loadRates } from '../../lib/ratesCache'
 import { getErrorMessage } from '../../api/client'
 import { Button } from '../ui/Button'
@@ -133,8 +134,8 @@ export function ShippingEstimator() {
 
       <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted">
-          *Freight estimates only — weights rounded up to the nearest pound. Duties, handling, and
-          other charges may apply after invoice review.
+          *Freight estimates only — weights rounded up to the nearest pound. Duties and other
+          charges may apply after invoice review. {MULTI_PACKAGE_HANDLING_NOTE}
         </p>
         <Link to="/rates">
           <Button variant="outline" className="!border-boss-green !text-boss-green hover:!bg-boss-green/10">

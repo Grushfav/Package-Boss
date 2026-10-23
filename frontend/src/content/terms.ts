@@ -1,3 +1,5 @@
+import { MULTI_PACKAGE_HANDLING_NOTE } from '../lib/checkoutHandling'
+
 export const COMPANY_LEGAL_NAME = 'Package Boss Shipping & Logistics'
 export const TERMS_EFFECTIVE_DATE = 'June 21, 2026'
 export const CLAIMS_EMAIL = 'support@packagebossja.com'
@@ -51,7 +53,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
     paragraphs: [
       'Shipping charges are based on the actual or volumetric weight of the shipment, whichever is greater.',
       'Published rates apply up to 50 lbs billable weight using our tier rate table (JMD displayed at 160 JMD = 1 USD). Packages over 50 lbs require a specialized quote.',
-      'Charges may include freight, customs duties and taxes, storage, special handling, insurance, delivery fees, and processing fees.',
+      `Charges may include freight, customs duties and taxes, storage, special handling, insurance, delivery fees, and processing fees. ${MULTI_PACKAGE_HANDLING_NOTE}`,
       'All fees must be paid in full before packages are released or delivered. Package Boss Shipping & Logistics reserves the right to revise rates without prior notice.',
     ],
   },

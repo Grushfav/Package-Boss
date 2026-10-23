@@ -11,6 +11,7 @@ import {
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { PICKUP_HOURS_SHORT, PICKUP_LOCATION_LABEL, pendingFulfillmentBadge } from '../../lib/pickupLocation'
 import { RequestDeliveryModal } from './RequestDeliveryModal'
+import { ShippingHelpButton } from './ShippingHelpButton'
 import { Button } from '../ui/Button'
 import type { Package } from '../../types'
 
@@ -252,9 +253,9 @@ export function PackagesHistoryPanel() {
 
   return (
     <div>
-      <div>
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold uppercase tracking-wide">Packages</h2>
-        
+        {packages.length > 0 && <ShippingHelpButton />}
       </div>
 
       {readyForPickupPackages.length > 0 && (
@@ -295,10 +296,13 @@ export function PackagesHistoryPanel() {
           Loading packages...
         </p>
       ) : packages.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
+        <div className="relative mt-4 rounded-xl border border-border bg-card p-6 pr-16 text-sm text-muted">
+          <div className="absolute right-3 top-3">
+            <ShippingHelpButton />
+          </div>
           No packages yet. Once your shipment is received at the Fort Lauderdale warehouse, it will appear
           here.
-        </p>
+        </div>
       ) : (
         <div className="mt-6 space-y-8">
           <section>

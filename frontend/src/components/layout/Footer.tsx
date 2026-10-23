@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { COMPANY_PHONE_DISPLAY, COMPANY_PHONE_TEL } from '../../content/legal'
 import { SocialLinks } from '../landing/SocialLinks'
+import { ShareAppButton } from '../share/ShareAppButton'
 
 export function Footer({ className = '' }: { className?: string }) {
   return (
@@ -47,6 +48,7 @@ export function Footer({ className = '' }: { className?: string }) {
             <li><Link to="/data-protection" className="hover:text-boss-green">Data Protection</Link></li>
             <li><Link to="/data-deletion" className="hover:text-boss-green">Data deletion</Link></li>
             <li><Link to="/signup" className="hover:text-boss-green">Sign Up</Link></li>
+            <li><ShareAppButton variant="link" /></li>
           </ul>
         </div>
       </div>

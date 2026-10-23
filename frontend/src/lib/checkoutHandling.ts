@@ -1,6 +1,9 @@
 /** JMD handling fee applied when a customer collects 2+ packages in one checkout. */
 export const MULTI_PACKAGE_HANDLING_FEE_JMD = 300
 
+export const MULTI_PACKAGE_HANDLING_NOTE =
+  'A handling fee of J$300 applies when 2 or more packages are collected in one checkout.'
+
 export function checkoutHandlingFeeAmount(
   packageCount: number,
   waived: boolean,

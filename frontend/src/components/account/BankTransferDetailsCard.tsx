@@ -14,6 +14,7 @@ import {
   SENDER_BANKS,
   type SenderBank,
 } from '../../content/bankTransfer'
+import { MULTI_PACKAGE_HANDLING_NOTE } from '../../lib/checkoutHandling'
 import { packageEligibleForPayment } from '../../lib/packageBilling'
 import { formatJmd, sumJmd } from '../../lib/money'
 import { uploadBankTransferProof } from '../../lib/uploadBankTransferProof'
@@ -170,6 +171,7 @@ function BankTransferProofUpload() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted">
             Packages this payment is for
           </p>
+          <p className="text-xs text-muted">{MULTI_PACKAGE_HANDLING_NOTE}</p>
           <div className="max-h-36 space-y-2 overflow-y-auto rounded-lg border border-border bg-background p-3">
             {payablePackages.map((pkg) => (
               <label

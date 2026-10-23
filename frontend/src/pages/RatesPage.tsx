@@ -6,6 +6,7 @@ import { ShippingEstimator } from '../components/landing/ShippingEstimator'
 import { Seo } from '../components/seo/Seo'
 import { useAuth } from '../context/AuthContext'
 import { useOptionalCustomerData } from '../context/CustomerDataContext'
+import { MULTI_PACKAGE_HANDLING_NOTE } from '../lib/checkoutHandling'
 import { loadRates } from '../lib/ratesCache'
 import { getHomeRoute } from '../lib/routing'
 import { PAGE_SEO } from '../lib/seo'
@@ -128,6 +129,7 @@ export function RatesPageContent({ embedded = false }: { embedded?: boolean } = 
               </div>
               <div className="space-y-2 border-t border-border px-6 py-4 text-sm text-muted">
                 <p>{roundingNote}</p>
+                <p>{MULTI_PACKAGE_HANDLING_NOTE}</p>
                 <p className="text-amber-400/90">{quoteNote}</p>
               </div>
             </>
