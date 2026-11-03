@@ -8,6 +8,7 @@ import {
   User,
 } from 'lucide-react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { BusinessAccountBadge } from '../account/BusinessAccountBadge'
 import { CustomerOnboardingTour } from '../onboarding/CustomerOnboardingTour'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { useAuth } from '../../context/AuthContext'
@@ -85,6 +86,7 @@ export function CustomerDashboardLayout() {
         <div className="mb-6 px-3">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Account</p>
           <p className="mt-2 text-sm font-semibold text-foreground">Hi, {user?.first_name}</p>
+          <BusinessAccountBadge user={user} className="mt-2" />
         </div>
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => (

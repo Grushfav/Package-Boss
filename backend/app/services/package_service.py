@@ -526,6 +526,12 @@ def warehouse_package_list_to_dict(package: Package) -> dict:
         "billing_status_label": BILLING_STATUS_LABELS.get(
             package.billing_status, package.billing_status
         ),
+        "estimated_freight_jmd": float(package.estimated_freight_jmd)
+        if package.estimated_freight_jmd is not None
+        else None,
+        "duties_jmd": float(package.duties_jmd) if package.duties_jmd is not None else None,
+        "handling_jmd": float(package.handling_jmd) if package.handling_jmd is not None else None,
+        "other_fees_jmd": float(package.other_fees_jmd) if package.other_fees_jmd is not None else None,
         "total_due_jmd": float(package.total_due_jmd) if package.total_due_jmd is not None else None,
         "actual_weight_lbs": float(package.actual_weight_lbs) if package.actual_weight_lbs else None,
         "billable_weight_lbs": package.billable_weight_lbs,

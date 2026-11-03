@@ -1,4 +1,15 @@
-import { Activity, BarChart3, Landmark, Truck, UserPlus } from 'lucide-react'
+import {
+  Activity,
+  BarChart3,
+  Landmark,
+  Minus,
+  TrendingDown,
+  TrendingUp,
+  Truck,
+  UserPlus,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -17,16 +28,18 @@ import {
   YAxis,
 } from 'recharts'
 import { formatAppDateTime } from '../lib/datetime'
+import { formatJmd } from '../lib/money'
 import {
   fetchActivityLog,
   fetchAdminOverview,
+  fetchMonthlyGrowth,
   fetchPackagesByStatus,
   fetchPackagesTimeline,
   fetchPreAlertsVsReceives,
   fetchWeightDistribution,
 } from '../api/admin'
 import { IconBadge } from '../components/ui/IconBadge'
-import type { AdminOverview, AuditLogEntry } from '../types'
+import type { AdminOverview, AuditLogEntry, MonthlyGrowthPoint } from '../types'
 
 const CHART_COLORS = ['#eab308', '#ca8a04', '#22c55e', '#3b82f6', '#a855f7', '#64748b']
 
@@ -36,6 +49,24 @@ function formatShortDate(dateStr: string) {
 
 function formatPercent(value: number) {
   return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`
+}
+
+function shortMonthLabel(label: string) {
+  return label.split(' ')[0] ?? label
+}
+
+function momDelta(current: number, previous: number) {
+  if (previous === 0) {
+    if (current === 0) return { pct: 0, direction: 'flat' as const, isNew: false }
+    return { pct: null, direction: 'up' as const, isNew: true }
+  }
+  const pct = ((current - previous) / previous) * 100
+  if (Math.abs(pct) < 0.05) return { pct: 0, direction: 'flat' as const, isNew: false }
+  return {
+    pct,
+    direction: pct > 0 ? ('up' as const) : ('down' as const),
+    isNew: false,
+  }
 }
 
 function CompareStat({
@@ -104,6 +135,85 @@ function ReceivedPackagesCard({
   )
 }
 
+function isEarlyMonth() {
+  return new Date().getDate() <= 5
+}
+
+function MomChangeBadge({
+  current,
+  previous,
+  invertGood,
+}: {
+  current: number
+  previous: number
+  invertGood?: boolean
+}) {
+  const delta = momDelta(current, previous)
+  const good =
+    delta.direction === 'flat'
+      ? null
+      : invertGood
+        ? delta.direction === 'down'
+        : delta.direction === 'up'
+  const color =
+    delta.direction === 'flat'
+      ? 'text-muted'
+      : good
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-rose-600 dark:text-rose-400'
+  const Icon =
+    delta.direction === 'up' ? TrendingUp : delta.direction === 'down' ? TrendingDown : Minus
+
+  // Early-month % compares partial MTD to a full prior month — hide the number.
+  if (!delta.isNew && isEarlyMonth()) {
+    return (
+      <p className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-muted">
+        <Minus className="h-3.5 w-3.5" aria-hidden />
+        MTD in progress · vs prior month
+      </p>
+    )
+  }
+
+  return (
+    <p className={`mt-2 inline-flex items-center gap-1 text-xs font-semibold tabular-nums ${color}`}>
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      {delta.isNew
+        ? 'New this month (MTD)'
+        : delta.pct === null
+          ? '—'
+          : `${delta.pct > 0 ? '+' : ''}${delta.pct.toFixed(0)}% MTD vs prior month`}
+    </p>
+  )
+}
+
+function MomMetricCard({
+  icon: Icon,
+  label,
+  value,
+  current,
+  previous,
+  hint,
+}: {
+  icon: typeof Users
+  label: string
+  value: string
+  current: number
+  previous: number
+  hint: string
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-background/50 p-4">
+      <div className="flex items-center gap-2">
+        <IconBadge icon={Icon} size="sm" />
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
+      </div>
+      <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">{value}</p>
+      <MomChangeBadge current={current} previous={previous} />
+      <p className="mt-1 text-[11px] text-muted">{hint}</p>
+    </div>
+  )
+}
+
 function SubmissionStatsSection({
   title,
   description,
@@ -154,6 +264,8 @@ export function AdminOperationsPage() {
   const [statuses, setStatuses] = useState<{ label: string; count: number }[]>([])
   const [weights, setWeights] = useState<{ label: string; count: number }[]>([])
   const [compare, setCompare] = useState<{ date: string; pre_alerts: number; received: number }[]>([])
+  const [monthlyGrowth, setMonthlyGrowth] = useState<MonthlyGrowthPoint[]>([])
+  const [momLoadState, setMomLoadState] = useState<'loading' | 'ready' | 'error' | 'empty'>('loading')
   const [recentActivity, setRecentActivity] = useState<AuditLogEntry[]>([])
 
   useEffect(() => {
@@ -162,6 +274,15 @@ export function AdminOperationsPage() {
     fetchPackagesByStatus().then((s) => setStatuses(s.map((x) => ({ label: x.label, count: x.count })))).catch(() => {})
     fetchWeightDistribution().then(setWeights).catch(() => {})
     fetchPreAlertsVsReceives(30).then(setCompare).catch(() => {})
+    fetchMonthlyGrowth(12)
+      .then((data) => {
+        setMonthlyGrowth(data.series)
+        setMomLoadState(data.series.length === 0 ? 'empty' : 'ready')
+      })
+      .catch(() => {
+        setMonthlyGrowth([])
+        setMomLoadState('error')
+      })
     fetchActivityLog(8, 0).then((d) => setRecentActivity(d.activity)).catch(() => {})
   }, [])
 
@@ -176,6 +297,27 @@ export function AdminOperationsPage() {
       receivedPercent: total > 0 ? (received / total) * 100 : 0,
     }
   }, [compare])
+
+  const momSummary = useMemo(() => {
+    if (monthlyGrowth.length === 0) return null
+    const current = monthlyGrowth[monthlyGrowth.length - 1]
+    const previous = monthlyGrowth[monthlyGrowth.length - 2] ?? {
+      active_customers: 0,
+      revenue_jmd: 0,
+      label: '—',
+      month: '',
+    }
+    return { current, previous }
+  }, [monthlyGrowth])
+
+  const chartSeries = useMemo(
+    () =>
+      monthlyGrowth.map((point) => ({
+        ...point,
+        shortLabel: shortMonthLabel(point.label),
+      })),
+    [monthlyGrowth],
+  )
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -197,53 +339,93 @@ export function AdminOperationsPage() {
       </div>
 
       {overview && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <ReceivedPackagesCard
-              today={overview.packages_today}
-              week={overview.packages_7d}
-              month={overview.packages_30d}
-              total={overview.packages_total}
-            />
-            <KpiCard label="Pending pre-alerts" value={overview.pending_pre_alerts} />
-            <KpiCard
-              label="In transit"
-              value={overview.in_transit}
-              sub={`$${overview.revenue_30d_usd.toFixed(0)} revenue (30d)`}
-            />
-          </div>
-
-        </>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ReceivedPackagesCard
+            today={overview.packages_today}
+            week={overview.packages_7d}
+            month={overview.packages_30d}
+            total={overview.packages_total}
+          />
+          <KpiCard label="Pending pre-alerts" value={overview.pending_pre_alerts} />
+          <KpiCard label="In transit" value={overview.in_transit} />
+          <KpiCard
+            label="Est. package value (30d)"
+            value={formatJmd(overview.revenue_30d_usd)}
+            sub="Estimated from packages received · not checkout collections"
+          />
+        </div>
       )}
 
-      <div className="mt-4 rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center gap-2.5">
-          <IconBadge icon={UserPlus} size="sm" />
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
-              New customers
-            </h2>
-            <p className="text-xs text-muted">Customer signups (excludes staff accounts)</p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="flex items-center gap-2.5">
+            <IconBadge icon={UserPlus} size="sm" />
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+                New customers
+              </h2>
+              <p className="text-xs text-muted">Customer signups (excludes staff accounts)</p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            {[
+              { label: 'Today', value: overview?.customers_today },
+              { label: 'Last 7 days', value: overview?.customers_7d },
+              { label: 'Total', value: overview?.customers_total },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-border bg-background/50 p-4"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                  {stat.label}
+                </p>
+                <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">
+                  {stat.value ?? '—'}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          {[
-            { label: 'Today', value: overview?.customers_today },
-            { label: 'Last 7 days', value: overview?.customers_7d },
-            { label: 'Total', value: overview?.customers_total },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-xl border border-border bg-background/50 p-4"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-                {stat.label}
-              </p>
-              <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">
-                {stat.value ?? '—'}
+
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="flex items-center gap-2.5">
+            <IconBadge icon={TrendingUp} size="sm" />
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+                This month (MTD)
+              </h2>
+              <p className="text-xs text-muted">
+                MTD vs prior full month · active shippers & collected checkout totals
               </p>
             </div>
-          ))}
+          </div>
+          {momLoadState === 'loading' ? (
+            <p className="mt-5 text-sm text-muted">Loading month-over-month figures…</p>
+          ) : momLoadState === 'error' ? (
+            <p className="mt-5 text-sm text-muted">Couldn’t load month-over-month figures.</p>
+          ) : momLoadState === 'empty' || !momSummary ? (
+            <p className="mt-5 text-sm text-muted">No month-over-month data yet.</p>
+          ) : (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <MomMetricCard
+                icon={Users}
+                label="Active customers"
+                value={String(momSummary.current.active_customers)}
+                current={momSummary.current.active_customers}
+                previous={momSummary.previous.active_customers}
+                hint={`${momSummary.current.label} (MTD) · customers with packages received`}
+              />
+              <MomMetricCard
+                icon={Wallet}
+                label="Checkout revenue collected"
+                value={formatJmd(momSummary.current.revenue_jmd)}
+                current={momSummary.current.revenue_jmd}
+                previous={momSummary.previous.revenue_jmd}
+                hint={`${momSummary.current.label} (MTD) · recorded checkout totals`}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -277,6 +459,74 @@ export function AdminOperationsPage() {
             activeLabel="Active proofs"
           />
         </Link>
+      </div>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-2">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+            Active customers by month
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Distinct customers with at least one package received
+          </p>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartSeries}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                <XAxis dataKey="shortLabel" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={36} />
+                <Tooltip
+                  labelFormatter={(_, payload) =>
+                    String(payload?.[0]?.payload?.label ?? '')
+                  }
+                  formatter={(value) => [value ?? 0, 'Active customers']}
+                />
+                <Bar
+                  dataKey="active_customers"
+                  fill="#22c55e"
+                  name="Active customers"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+            Checkout revenue by month
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Collected checkout totals (JMD) · current month is MTD
+          </p>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartSeries}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                <XAxis dataKey="shortLabel" tick={{ fontSize: 11 }} />
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  width={52}
+                  tickFormatter={(v) =>
+                    Number(v) >= 1000 ? `${Math.round(Number(v) / 1000)}k` : String(v)
+                  }
+                />
+                <Tooltip
+                  labelFormatter={(_, payload) =>
+                    String(payload?.[0]?.payload?.label ?? '')
+                  }
+                  formatter={(value) => [formatJmd(Number(value ?? 0)), 'Revenue']}
+                />
+                <Bar
+                  dataKey="revenue_jmd"
+                  fill="#eab308"
+                  name="Revenue"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">

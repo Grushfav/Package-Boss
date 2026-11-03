@@ -118,6 +118,23 @@ def ensure_schema(app) -> None:
 
         _migrate_trn_columns(app, columns)
 
+        if "account_type" not in columns:
+            db.session.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN account_type VARCHAR(20) "
+                    "NOT NULL DEFAULT 'personal'"
+                )
+            )
+            db.session.commit()
+            app.logger.info("Added missing users.account_type column")
+            columns.add("account_type")
+
+        if "company_name" not in columns:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN company_name VARCHAR(160)"))
+            db.session.commit()
+            app.logger.info("Added missing users.company_name column")
+            columns.add("company_name")
+
     if "data_deletion_requests" not in inspector.get_table_names():
         if db.engine.dialect.name == "postgresql":
             db.session.execute(

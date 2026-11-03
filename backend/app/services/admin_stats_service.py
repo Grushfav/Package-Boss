@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import case, func
 
@@ -12,9 +12,10 @@ from app.extensions import db
 from app.models.bank_transfer_proof import BankTransferProof
 from app.models.delivery_request import DeliveryRequest
 from app.models.package import Package
+from app.models.payment import PaymentCheckout
 from app.models.pre_alert import PreAlert
 from app.models.user import User
-from app.utils.datetime_format import jamaica_day_start_utc, jamaica_local_date
+from app.utils.datetime_format import jamaica_date_start_utc, jamaica_day_start_utc, jamaica_local_date
 
 
 def _utc_now() -> datetime:
@@ -133,6 +134,85 @@ def _jamaica_day_series(days: int) -> list[str]:
         series.append(str(current))
         current += timedelta(days=1)
     return series
+
+
+def _add_months(month_start: date, delta: int) -> date:
+    """Shift a first-of-month date by ``delta`` calendar months."""
+    year = month_start.year + (month_start.month - 1 + delta) // 12
+    month = (month_start.month - 1 + delta) % 12 + 1
+    return date(year, month, 1)
+
+
+def _month_key(value: date) -> str:
+    return f"{value.year:04d}-{value.month:02d}"
+
+
+def _month_label(value: date) -> str:
+    return value.strftime("%b %Y")
+
+
+def get_monthly_growth(months: int = 12) -> dict:
+    """Calendar-month active shippers + collected revenue (Jamaica time).
+
+    Active customers = distinct customers with at least one package received
+    that month (excludes unidentified holder and staff). Revenue = sum of
+    payment_checkouts.total_jmd by recorded month.
+    """
+    months = max(3, min(int(months), 24))
+    today = jamaica_local_date(_utc_now())
+    current_month = today.replace(day=1)
+    start_month = _add_months(current_month, -(months - 1))
+    range_start = jamaica_date_start_utc(start_month)
+
+    month_starts: list[date] = []
+    cursor = start_month
+    while cursor <= current_month:
+        month_starts.append(cursor)
+        cursor = _add_months(cursor, 1)
+
+    customers_by_month: dict[str, set] = {_month_key(m): set() for m in month_starts}
+    package_rows = (
+        db.session.query(Package.customer_id, Package.received_at)
+        .join(User, User.id == Package.customer_id)
+        .filter(
+            Package.received_at >= range_start,
+            User.role == "customer",
+            User.shipping_id != UNIDENTIFIED_HOLDER_SHIPPING_ID,
+        )
+        .all()
+    )
+    for customer_id, received_at in package_rows:
+        if customer_id is None or received_at is None:
+            continue
+        key = _month_key(jamaica_local_date(received_at))
+        bucket = customers_by_month.get(key)
+        if bucket is not None:
+            bucket.add(customer_id)
+
+    revenue_by_month: dict[str, float] = {_month_key(m): 0.0 for m in month_starts}
+    checkout_rows = (
+        db.session.query(PaymentCheckout.total_jmd, PaymentCheckout.recorded_at)
+        .filter(PaymentCheckout.recorded_at >= range_start)
+        .all()
+    )
+    for total_jmd, recorded_at in checkout_rows:
+        if recorded_at is None:
+            continue
+        key = _month_key(jamaica_local_date(recorded_at))
+        if key in revenue_by_month:
+            revenue_by_month[key] += float(total_jmd or 0)
+
+    series = [
+        {
+            "month": _month_key(m),
+            "label": _month_label(m),
+            "active_customers": len(customers_by_month[_month_key(m)]),
+            "revenue_jmd": round(revenue_by_month[_month_key(m)], 2),
+        }
+        for m in month_starts
+    ]
+
+    return {"months": months, "series": series}
 
 
 def get_packages_timeline(days: int = 30) -> list[dict]:

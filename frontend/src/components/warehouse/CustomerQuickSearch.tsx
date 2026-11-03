@@ -62,7 +62,7 @@ export function CustomerQuickSearch() {
         <Search className="h-3.5 w-3.5 shrink-0 text-muted" />
         <input
           type="text"
-          placeholder="Find customer…"
+          placeholder="Find customer or company…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
@@ -80,6 +80,9 @@ export function CustomerQuickSearch() {
                 className="w-full px-3 py-2 text-left hover:bg-boss-gold/10"
               >
                 <p className="text-sm font-medium">{c.full_name}</p>
+                {c.account_type === 'business' && c.company_name && (
+                  <p className="text-xs font-semibold text-boss-gold">{c.company_name}</p>
+                )}
                 <p className="text-xs text-muted">{c.shipping_id}</p>
               </button>
             </li>

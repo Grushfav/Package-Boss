@@ -1,9 +1,13 @@
+import { MULTI_PACKAGE_HANDLING_FEE_JMD } from './checkoutHandling'
 import type { Package } from '../types'
 
 export interface DashboardPackageStats {
   readyPickupDelivery: number
   receivedFortLauderdale: number
   inTransit: number
+  customs: number
+  payablePackageCount: number
+  handlingFeeJmd: number
   totalDueJmd: number
 }
 
@@ -15,6 +19,8 @@ export function computeDashboardPackageStats(packages: Package[]): DashboardPack
   let readyPickupDelivery = 0
   let receivedFortLauderdale = 0
   let inTransit = 0
+  let customs = 0
+  let payablePackageCount = 0
 
   for (const pkg of packages) {
     if (
@@ -23,6 +29,7 @@ export function computeDashboardPackageStats(packages: Package[]): DashboardPack
       READY_PICKUP_DELIVERY_STATUSES.has(pkg.status)
     ) {
       totalDueJmd += pkg.total_due_jmd
+      payablePackageCount += 1
     }
     if (READY_PICKUP_DELIVERY_STATUSES.has(pkg.status)) {
       readyPickupDelivery += 1
@@ -33,13 +40,22 @@ export function computeDashboardPackageStats(packages: Package[]): DashboardPack
     if (pkg.status === 'in_transit') {
       inTransit += 1
     }
+    if (pkg.status === 'customs') {
+      customs += 1
+    }
   }
 
+  const handlingFeeJmd =
+    payablePackageCount > 1 ? MULTI_PACKAGE_HANDLING_FEE_JMD : 0
+
   return {
-    totalDueJmd,
+    totalDueJmd: totalDueJmd + handlingFeeJmd,
+    handlingFeeJmd,
+    payablePackageCount,
     readyPickupDelivery,
     receivedFortLauderdale,
     inTransit,
+    customs,
   }
 }
 

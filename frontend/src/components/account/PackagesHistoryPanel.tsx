@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { cancelDeliveryRequest } from '../../api/deliveryRequests'
 import {
@@ -9,18 +9,251 @@ import {
   packageNeedsInvoiceUpload,
 } from '../../lib/packageBilling'
 import { useCustomerData } from '../../context/CustomerDataContext'
+import { formatJmd } from '../../lib/money'
+import { isCustomerBillVisible } from '../../lib/packageStatuses'
 import { PICKUP_HOURS_SHORT, PICKUP_LOCATION_LABEL, pendingFulfillmentBadge } from '../../lib/pickupLocation'
 import { RequestDeliveryModal } from './RequestDeliveryModal'
 import { ShippingHelpButton } from './ShippingHelpButton'
+import { StatusBadge } from '../warehouse/StatusBadge'
 import { Button } from '../ui/Button'
 import type { Package } from '../../types'
+
+const PAGE_SIZE = 15
 
 function isCompletedPackage(pkg: Package) {
   return pkg.status === 'delivered'
 }
 
-type PackageTableProps = {
+function paginate<T>(items: T[], page: number): T[] {
+  const start = (page - 1) * PAGE_SIZE
+  return items.slice(start, start + PAGE_SIZE)
+}
+
+function totalPagesFor(count: number) {
+  return Math.max(1, Math.ceil(count / PAGE_SIZE))
+}
+
+function packageTotalDisplay(pkg: Package): string | null {
+  if (!isCustomerBillVisible(pkg.status)) return null
+  if (pkg.billing_status !== 'ready' && pkg.billing_status !== 'paid') return null
+  return formatPackageCost(pkg, { customer: true }) ?? formatJmd(pkg.total_due_jmd)
+}
+
+function PackageBillingBreakdown({ pkg }: { pkg: Package }) {
+  if (!isCustomerBillVisible(pkg.status)) {
+    return <p className="text-xs text-muted">Bill pending release</p>
+  }
+
+  if (pkg.billing_status !== 'ready' && pkg.billing_status !== 'paid') {
+    return <p className="text-xs text-muted">Bill pending</p>
+  }
+
+  const rows: Array<{ label: string; value: number | null | undefined }> = [
+    { label: 'Freight', value: pkg.estimated_freight_jmd },
+    { label: 'Duties', value: pkg.duties_jmd },
+    { label: 'Handling', value: pkg.handling_jmd },
+    { label: 'Other fees', value: pkg.other_fees_jmd },
+  ]
+
+  const visibleRows = rows.filter((row) => row.value != null && row.value > 0)
+  if (visibleRows.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
+      {visibleRows.map((row) => (
+        <p key={row.label} className="min-w-0">
+          <span className="text-muted">{row.label}</span>{' '}
+          <span className="font-semibold text-foreground">{formatJmd(row.value)}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function PackageCard({
+  pkg,
+  showSelection,
+  selected,
+  canSelect,
+  onToggle,
+  onCancelDelivery,
+  cancellingId,
+}: {
+  pkg: Package
+  showSelection: boolean
+  selected: boolean
+  canSelect: boolean
+  onToggle: (id: string) => void
+  onCancelDelivery: (requestId: string) => void
+  cancellingId: string | null
+}) {
+  const totalDue = packageTotalDisplay(pkg)
+
+  const actions = (
+    <>
+      {packageCanUploadInvoice(pkg) && (
+        <Link
+          to={`/packages/${pkg.id}/upload-invoice`}
+          className={
+            packageNeedsInvoiceUpload(pkg)
+              ? 'rounded-lg bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
+              : 'rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-foreground hover:border-boss-gold/40 hover:text-boss-gold'
+          }
+        >
+          Upload invoice
+        </Link>
+      )}
+      {pkg.pending_delivery_request?.status === 'pending' && (
+        <button
+          type="button"
+          onClick={() => onCancelDelivery(pkg.pending_delivery_request!.id)}
+          disabled={cancellingId === pkg.pending_delivery_request.id}
+          className="rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-foreground hover:border-red-400/40 hover:text-red-600"
+        >
+          {cancellingId === pkg.pending_delivery_request.id ? 'Cancelling…' : 'Cancel request'}
+        </button>
+      )}
+      {pkg.invoice_status === 'received' && pkg.invoice_url && (
+        <a
+          href={pkg.invoice_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-foreground hover:border-boss-gold/40 hover:text-boss-gold"
+        >
+          View invoice
+        </a>
+      )}
+    </>
+  )
+
+  return (
+    <article className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex items-start gap-2">
+        {showSelection && (
+          <div className="pt-1">
+            {canSelect ? (
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => onToggle(pkg.id)}
+                aria-label={`Select ${pkg.tracking_number}`}
+                className="rounded border-border"
+              />
+            ) : (
+              <span className="inline-block w-4" />
+            )}
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <p className="font-mono text-sm font-bold text-boss-gold">{pkg.tracking_number}</p>
+                <p className="truncate font-mono text-[11px] text-muted">
+                  {pkg.carrier_tracking || '—'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
+                <p className="min-w-0 max-w-full sm:max-w-[14rem]">
+                  <span className="text-muted">Item </span>
+                  <span className="font-medium text-foreground">
+                    {pkg.item_description ? (
+                      <span className="line-clamp-1">{pkg.item_description}</span>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
+                </p>
+                <p className="shrink-0">
+                  <span className="text-muted">Shipper </span>
+                  <span className="font-medium text-foreground">
+                    {pkg.shipper_label || pkg.shipper || '—'}
+                  </span>
+                </p>
+                <PackageBillingBreakdown pkg={pkg} />
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+              <StatusBadge status={pkg.status} label={pkg.status_label} />
+              {pkg.pending_delivery_request && (
+                <span
+                  className={`inline-block w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                    pkg.pending_delivery_request.status === 'in_progress'
+                      ? 'bg-violet-500/15 text-violet-700 dark:text-violet-300'
+                      : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                  }`}
+                >
+                  {pendingFulfillmentBadge(pkg.pending_delivery_request)}
+                </span>
+              )}
+              <p className="pt-0.5 text-sm font-bold tabular-nums tracking-tight text-foreground">
+                {formatPackageWeight(pkg)}
+              </p>
+              {totalDue && (
+                <p className="text-sm font-black tabular-nums tracking-tight text-boss-gold">
+                  {totalDue}
+                  {pkg.billing_status === 'paid' && (
+                    <span className="ml-1 text-[10px] font-semibold text-boss-green">Paid</span>
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">{actions}</div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function PackagePagination({
+  page,
+  totalPages,
+  totalItems,
+  onPageChange,
+}: {
+  page: number
+  totalPages: number
+  totalItems: number
+  onPageChange: (page: number) => void
+}) {
+  if (totalItems <= PAGE_SIZE) return null
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+      <p className="text-muted">
+        Page {page} of {totalPages} ({totalItems} packages)
+      </p>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="!text-xs"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          Previous
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="!text-xs"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+type PackageCardsProps = {
   packages: Package[]
+  page: number
+  onPageChange: (page: number) => void
   showSelection: boolean
   selectedIds: string[]
   eligiblePackages: Package[]
@@ -30,8 +263,10 @@ type PackageTableProps = {
   cancellingId: string | null
 }
 
-function PackageTable({
+function PackageCards({
   packages,
+  page,
+  onPageChange,
   showSelection,
   selectedIds,
   eligiblePackages,
@@ -39,157 +274,47 @@ function PackageTable({
   onToggleAllEligible,
   onCancelDelivery,
   cancellingId,
-}: PackageTableProps) {
+}: PackageCardsProps) {
+  const totalPages = totalPagesFor(packages.length)
+  const safePage = Math.min(page, totalPages)
+  const pagePackages = paginate(packages, safePage)
+  const pageEligible = pagePackages.filter(packageEligibleForDeliveryRequest)
+  const allPageEligibleSelected =
+    pageEligible.length > 0 && pageEligible.every((pkg) => selectedIds.includes(pkg.id))
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1080px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-border bg-background/80 text-xs font-semibold uppercase tracking-wider text-muted">
-              {showSelection && (
-                <th className="px-4 py-3">
-                  {eligiblePackages.length > 0 && (
-                    <input
-                      type="checkbox"
-                      checked={
-                        eligiblePackages.length > 0 &&
-                        selectedIds.length === eligiblePackages.length
-                      }
-                      onChange={onToggleAllEligible}
-                      aria-label="Select all eligible packages"
-                    />
-                  )}
-                </th>
-              )}
-              <th className="px-4 py-3">Carrier tracking</th>
-              <th className="px-4 py-3">PB tracking</th>
-              <th className="px-4 py-3">Item</th>
-              <th className="px-4 py-3">Weight</th>
-              <th className="px-4 py-3">Shipper</th>
-              <th className="px-4 py-3">Cost</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {packages.map((pkg, index) => {
-              const cost = formatPackageCost(pkg, { customer: true })
-              const canSelect = showSelection && packageEligibleForDeliveryRequest(pkg)
-              return (
-                <tr
-                  key={pkg.id}
-                  className={index % 2 === 0 ? 'bg-card' : 'bg-background/40'}
-                >
-                  {showSelection && (
-                    <td className="border-t border-border px-4 py-3">
-                      {canSelect ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(pkg.id)}
-                          onChange={() => onTogglePackage(pkg.id)}
-                          aria-label={`Select ${pkg.tracking_number}`}
-                        />
-                      ) : (
-                        <span className="inline-block w-4" />
-                      )}
-                    </td>
-                  )}
-                  <td className="border-t border-border px-4 py-3 font-mono text-foreground">
-                    {pkg.carrier_tracking || '—'}
-                  </td>
-                  <td className="border-t border-border px-4 py-3 font-mono font-bold text-boss-gold">
-                    {pkg.tracking_number}
-                  </td>
-                  <td
-                    className="max-w-[200px] border-t border-border px-4 py-3 text-foreground"
-                    title={pkg.item_description ?? undefined}
-                  >
-                    {pkg.item_description ? (
-                      <span className="line-clamp-2">{pkg.item_description}</span>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="border-t border-border px-4 py-3 text-foreground">
-                    {formatPackageWeight(pkg)}
-                  </td>
-                  <td className="border-t border-border px-4 py-3 text-foreground">
-                    {pkg.shipper_label || pkg.shipper || '—'}
-                  </td>
-                  <td className="border-t border-border px-4 py-3 text-foreground">
-                    {cost ? (
-                      <span>
-                        {cost}
-                        {pkg.billing_status === 'paid' && (
-                          <span className="ml-1.5 text-xs font-semibold text-boss-green">Paid</span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="border-t border-border px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      <span className="inline-block w-fit rounded-full bg-boss-gold/15 px-2.5 py-1 text-[10px] font-semibold uppercase text-boss-gold">
-                        {pkg.status_label}
-                      </span>
-                      {pkg.pending_delivery_request && (
-                        <span
-                          className={`inline-block w-fit rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase ${
-                            pkg.pending_delivery_request.status === 'in_progress'
-                              ? 'bg-violet-500/15 text-violet-700 dark:text-violet-300'
-                              : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
-                          }`}
-                        >
-                          {pendingFulfillmentBadge(pkg.pending_delivery_request)}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="border-t border-border px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {packageCanUploadInvoice(pkg) && (
-                        <Link
-                          to={`/packages/${pkg.id}/upload-invoice`}
-                          className={
-                            packageNeedsInvoiceUpload(pkg)
-                              ? 'rounded-lg bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
-                              : 'rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:border-boss-gold/40 hover:text-boss-gold'
-                          }
-                        >
-                          Upload invoice
-                        </Link>
-                      )}
-                      {pkg.pending_delivery_request?.status === 'pending' && (
-                        <button
-                          type="button"
-                          onClick={() => onCancelDelivery(pkg.pending_delivery_request!.id)}
-                          disabled={cancellingId === pkg.pending_delivery_request.id}
-                          className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:border-red-400/40 hover:text-red-600"
-                        >
-                          {cancellingId === pkg.pending_delivery_request.id
-                            ? 'Cancelling…'
-                            : 'Cancel request'}
-                        </button>
-                      )}
-                      {pkg.invoice_status === 'received' && pkg.invoice_url && (
-                        <a
-                          href={pkg.invoice_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-foreground hover:border-boss-gold/40 hover:text-boss-gold"
-                        >
-                          View invoice
-                        </a>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+    <div>
+      {showSelection && eligiblePackages.length > 0 && (
+        <label className="mb-3 flex cursor-pointer items-center gap-2 text-sm text-muted">
+          <input
+            type="checkbox"
+            checked={allPageEligibleSelected}
+            onChange={onToggleAllEligible}
+            className="rounded border-border"
+          />
+          Select all eligible on this page
+        </label>
+      )}
+      <div className="space-y-2">
+        {pagePackages.map((pkg) => (
+          <PackageCard
+            key={pkg.id}
+            pkg={pkg}
+            showSelection={showSelection}
+            selected={selectedIds.includes(pkg.id)}
+            canSelect={showSelection && packageEligibleForDeliveryRequest(pkg)}
+            onToggle={onTogglePackage}
+            onCancelDelivery={onCancelDelivery}
+            cancellingId={cancellingId}
+          />
+        ))}
       </div>
+      <PackagePagination
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={packages.length}
+        onPageChange={onPageChange}
+      />
     </div>
   )
 }
@@ -199,6 +324,8 @@ export function PackagesHistoryPanel() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [activePage, setActivePage] = useState(1)
+  const [completedPage, setCompletedPage] = useState(1)
 
   const activePackages = useMemo(
     () => packages.filter((pkg) => !isCompletedPackage(pkg)),
@@ -215,6 +342,14 @@ export function PackagesHistoryPanel() {
 
   const eligiblePackages = activePackages.filter(packageEligibleForDeliveryRequest)
   const selectedPackages = activePackages.filter((pkg) => selectedIds.includes(pkg.id))
+
+  useEffect(() => {
+    setActivePage((page) => Math.min(page, totalPagesFor(activePackages.length)))
+  }, [activePackages.length])
+
+  useEffect(() => {
+    setCompletedPage((page) => Math.min(page, totalPagesFor(completedPackages.length)))
+  }, [completedPackages.length])
 
   function togglePackage(id: string) {
     if (!eligiblePackages.some((pkg) => pkg.id === id)) return
@@ -234,19 +369,28 @@ export function PackagesHistoryPanel() {
     }
   }
 
-  function toggleAllEligible() {
-    if (selectedIds.length === eligiblePackages.length) {
-      setSelectedIds([])
+  function toggleAllEligibleOnActivePage() {
+    const pagePackages = paginate(activePackages, activePage)
+    const pageEligible = pagePackages.filter(packageEligibleForDeliveryRequest)
+    const allSelected =
+      pageEligible.length > 0 && pageEligible.every((pkg) => selectedIds.includes(pkg.id))
+    if (allSelected) {
+      const pageIds = new Set(pageEligible.map((pkg) => pkg.id))
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)))
       return
     }
-    setSelectedIds(eligiblePackages.map((pkg) => pkg.id))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const pkg of pageEligible) next.add(pkg.id)
+      return [...next]
+    })
   }
 
-  const tableProps = {
+  const cardProps = {
     selectedIds,
     eligiblePackages,
     onTogglePackage: togglePackage,
-    onToggleAllEligible: toggleAllEligible,
+    onToggleAllEligible: toggleAllEligibleOnActivePage,
     onCancelDelivery: handleCancelDelivery,
     cancellingId,
   }
@@ -316,7 +460,13 @@ export function PackagesHistoryPanel() {
               </p>
             ) : (
               <div className="mt-4">
-                <PackageTable packages={activePackages} showSelection {...tableProps} />
+                <PackageCards
+                  packages={activePackages}
+                  page={activePage}
+                  onPageChange={setActivePage}
+                  showSelection
+                  {...cardProps}
+                />
               </div>
             )}
           </section>
@@ -326,10 +476,12 @@ export function PackagesHistoryPanel() {
               <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">Completed</h3>
               <p className="mt-1 text-xs text-muted">Delivered packages.</p>
               <div className="mt-4">
-                <PackageTable
+                <PackageCards
                   packages={completedPackages}
+                  page={completedPage}
+                  onPageChange={setCompletedPage}
                   showSelection={false}
-                  {...tableProps}
+                  {...cardProps}
                 />
               </div>
             </section>

@@ -78,6 +78,7 @@ export async function listCustomers(options: {
         ilike(users.lastName, pattern),
         ilike(users.email, pattern),
         ilike(users.contactNumber, pattern),
+        ilike(users.companyName, pattern),
       )!,
     )
   }
@@ -114,6 +115,7 @@ export async function searchCustomers(q: string, limit = 15): Promise<UserRow[]>
           ilike(users.lastName, pattern),
           ilike(users.email, pattern),
           ilike(users.contactNumber, pattern),
+          ilike(users.companyName, pattern),
         ),
       ),
     )

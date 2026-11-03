@@ -9,6 +9,8 @@ export type ClerkPermission =
   | 'billing'
   | 'invoice_request'
 
+export type AccountType = 'personal' | 'business'
+
 export interface User {
   id: string
   email: string
@@ -19,6 +21,8 @@ export interface User {
   parish: string
   shipping_id: string
   role?: 'customer' | 'clerk' | 'admin'
+  account_type?: AccountType
+  company_name?: string | null
   permissions?: ClerkPermission[]
   clerk_permissions?: ClerkPermission[]
   must_set_password?: boolean
@@ -88,6 +92,8 @@ export interface RegisterPayload {
   contact_number: string
   trn?: string
   parish: string
+  account_type?: AccountType
+  company_name?: string
   accept_terms: boolean
 }
 
@@ -341,6 +347,8 @@ export interface StaffCustomer {
   contact_number: string
   parish: string
   shipping_id: string
+  account_type?: AccountType
+  company_name?: string | null
   active_package_count?: number
 }
 
@@ -409,6 +417,18 @@ export interface BankTransferProofSubmissionStats {
   bank_transfer_proofs_today: number
   bank_transfer_proofs_7d: number
   bank_transfer_proofs_total: number
+}
+
+export interface MonthlyGrowthPoint {
+  month: string
+  label: string
+  active_customers: number
+  revenue_jmd: number
+}
+
+export interface MonthlyGrowthStats {
+  months: number
+  series: MonthlyGrowthPoint[]
 }
 
 export interface PreAlert {

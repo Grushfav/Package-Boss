@@ -17,6 +17,8 @@ class User(db.Model):
     parish = db.Column(db.String(50), nullable=True)
 
     trn = db.Column(db.String(11), nullable=True, index=True)
+    account_type = db.Column(db.String(20), nullable=False, default="personal")
+    company_name = db.Column(db.String(160), nullable=True)
 
     shipping_id = db.Column(db.String(20), unique=True, nullable=False, index=True)
     role = db.Column(db.String(20), nullable=False, default="customer")
@@ -54,6 +56,8 @@ class User(db.Model):
             "parish": self.parish or "",
             "shipping_id": self.shipping_id,
             "role": self.role,
+            "account_type": self.account_type or "personal",
+            "company_name": self.company_name,
             "whatsapp_opt_in": self.whatsapp_opt_in,
             "created_at": self.created_at.isoformat(),
         }

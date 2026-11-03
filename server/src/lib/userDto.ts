@@ -16,6 +16,8 @@ export function userToDict(
     parish: user.parish ?? '',
     shipping_id: user.shippingId,
     role: user.role,
+    account_type: user.accountType || 'personal',
+    company_name: user.companyName ?? null,
     whatsapp_opt_in: user.whatsappOptIn,
     created_at: utcIsoformat(user.createdAt),
   }

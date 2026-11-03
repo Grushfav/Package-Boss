@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, count, eq, gte, inArray, isNotNull, ne, sql } from 'drizzle-orm'
 import {
   BANK_TRANSFER_PROOF_OPEN_STATUSES,
   DELIVERY_REQUEST_OPEN_STATUSES,
@@ -10,6 +10,7 @@ import {
   bankTransferProofs,
   deliveryRequests,
   packages,
+  paymentCheckouts,
   preAlerts,
   users,
 } from '../db/schema/index.js'
@@ -272,4 +273,107 @@ export async function getPreAlertsVsReceives(days = 30) {
     })
   }
   return series
+}
+
+/** Jamaica is UTC-5 year-round (no DST). */
+const JAMAICA_OFFSET_MS = 5 * 60 * 60 * 1000
+
+function jamaicaLocalDate(value: Date): Date {
+  const shifted = new Date(value.getTime() - JAMAICA_OFFSET_MS)
+  return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()))
+}
+
+function jamaicaMonthStartUtc(year: number, monthIndex: number): Date {
+  // Midnight Jamaica on the 1st = 05:00 UTC that day
+  return new Date(Date.UTC(year, monthIndex, 1, 5, 0, 0, 0))
+}
+
+function addMonthsUtc(year: number, monthIndex: number, delta: number): { year: number; monthIndex: number } {
+  const absolute = year * 12 + monthIndex + delta
+  return { year: Math.floor(absolute / 12), monthIndex: ((absolute % 12) + 12) % 12 }
+}
+
+function monthKey(year: number, monthIndex: number): string {
+  return `${year.toString().padStart(4, '0')}-${(monthIndex + 1).toString().padStart(2, '0')}`
+}
+
+function monthLabel(year: number, monthIndex: number): string {
+  return new Date(Date.UTC(year, monthIndex, 1)).toLocaleString('en-US', {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+export async function getMonthlyGrowth(months = 12) {
+  const clamped = Math.max(3, Math.min(months, 24))
+  const now = utcNow()
+  const jamaicaToday = jamaicaLocalDate(now)
+  const currentYear = jamaicaToday.getUTCFullYear()
+  const currentMonthIndex = jamaicaToday.getUTCMonth()
+  const start = addMonthsUtc(currentYear, currentMonthIndex, -(clamped - 1))
+  const rangeStart = jamaicaMonthStartUtc(start.year, start.monthIndex)
+
+  const monthStarts: { year: number; monthIndex: number }[] = []
+  for (let i = 0; i < clamped; i++) {
+    monthStarts.push(addMonthsUtc(start.year, start.monthIndex, i))
+  }
+
+  const customersByMonth = Object.fromEntries(
+    monthStarts.map((m) => [monthKey(m.year, m.monthIndex), new Set<string>()]),
+  ) as Record<string, Set<string>>
+  const revenueByMonth = Object.fromEntries(
+    monthStarts.map((m) => [monthKey(m.year, m.monthIndex), 0]),
+  ) as Record<string, number>
+
+  const packageRows = await db
+    .select({
+      customerId: packages.customerId,
+      receivedAt: packages.receivedAt,
+    })
+    .from(packages)
+    .innerJoin(users, eq(users.id, packages.customerId))
+    .where(
+      and(
+        gte(packages.receivedAt, rangeStart),
+        eq(users.role, 'customer'),
+        ne(users.shippingId, UNIDENTIFIED_HOLDER_SHIPPING_ID),
+      ),
+    )
+
+  for (const row of packageRows) {
+    if (!row.receivedAt || !row.customerId) continue
+    const local = jamaicaLocalDate(row.receivedAt)
+    const key = monthKey(local.getUTCFullYear(), local.getUTCMonth())
+    customersByMonth[key]?.add(row.customerId)
+  }
+
+  const checkoutRows = await db
+    .select({
+      totalJmd: paymentCheckouts.totalJmd,
+      recordedAt: paymentCheckouts.recordedAt,
+    })
+    .from(paymentCheckouts)
+    .where(gte(paymentCheckouts.recordedAt, rangeStart))
+
+  for (const row of checkoutRows) {
+    if (!row.recordedAt) continue
+    const local = jamaicaLocalDate(row.recordedAt)
+    const key = monthKey(local.getUTCFullYear(), local.getUTCMonth())
+    if (key in revenueByMonth) {
+      revenueByMonth[key] += parseFloat(row.totalJmd ?? '0')
+    }
+  }
+
+  const series = monthStarts.map((m) => {
+    const key = monthKey(m.year, m.monthIndex)
+    return {
+      month: key,
+      label: monthLabel(m.year, m.monthIndex),
+      active_customers: customersByMonth[key]?.size ?? 0,
+      revenue_jmd: Math.round((revenueByMonth[key] ?? 0) * 100) / 100,
+    }
+  })
+
+  return { months: clamped, series }
 }

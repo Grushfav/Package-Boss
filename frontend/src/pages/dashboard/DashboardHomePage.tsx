@@ -1,5 +1,6 @@
 import { MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { BusinessAccountBadge } from '../../components/account/BusinessAccountBadge'
 import { DashboardPackageStatsCard } from '../../components/account/DashboardPackageStatsCard'
 import { ShareAppButton } from '../../components/share/ShareAppButton'
 import { FortLauderdaleShippingAddressCard } from '../../components/account/FortLauderdaleShippingAddressCard'
@@ -23,8 +24,16 @@ export function DashboardHomePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-bold uppercase tracking-wide">Dashboard</h2>
-        <p className="mt-2 text-sm text-muted">Welcome, {user?.first_name}.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-bold uppercase tracking-wide">Dashboard</h2>
+              <BusinessAccountBadge user={user} />
+            </div>
+            <p className="mt-2 text-sm text-muted">Welcome, {user?.first_name}.</p>
+          </div>
+          <ShareAppButton variant="icon" />
+        </div>
         {!isPrefetching && (
           <Link
             to="/dashboard/profile#delivery-addresses"
@@ -76,7 +85,6 @@ export function DashboardHomePage() {
         >
           Bank transfer details →
         </Link>
-        <ShareAppButton />
       </div>
     </div>
   )

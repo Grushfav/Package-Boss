@@ -24,6 +24,8 @@ export const users = pgTable(
     contactNumber: varchar('contact_number', { length: 20 }).notNull(),
     parish: varchar('parish', { length: 50 }),
     trn: varchar('trn', { length: 11 }),
+    accountType: varchar('account_type', { length: 20 }).notNull().default('personal'),
+    companyName: varchar('company_name', { length: 160 }),
     shippingId: varchar('shipping_id', { length: 20 }).notNull().unique(),
     role: varchar('role', { length: 20 }).notNull().default('customer'),
     clerkPermissions: json('clerk_permissions').$type<string[] | null>(),

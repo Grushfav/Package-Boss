@@ -187,7 +187,10 @@ def complete_facebook_signup(data: dict) -> tuple[User, dict]:
         raise FacebookAuthError("You must accept the Terms and Conditions to create an account")
 
     try:
+        from app.services.account_type_service import parse_account_type_fields
+
         contact_number = normalize_phone(data.get("contact_number") or "")
+        account_type, company_name = parse_account_type_fields(data)
         trn = normalize_trn(data.get("trn"))
     except ValueError as exc:
         raise FacebookAuthError(str(exc)) from exc
@@ -204,6 +207,8 @@ def complete_facebook_signup(data: dict) -> tuple[User, dict]:
         contact_number=contact_number,
         parish=parish,
         trn=trn,
+        account_type=account_type,
+        company_name=company_name,
         shipping_id=shipping_id,
         facebook_id=profile["facebook_id"],
         terms_accepted_at=datetime.utcnow(),

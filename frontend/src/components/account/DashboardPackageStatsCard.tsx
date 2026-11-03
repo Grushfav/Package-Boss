@@ -1,4 +1,4 @@
-import { DollarSign, MapPin, PackageCheck, Plane } from 'lucide-react'
+import { DollarSign, MapPin, PackageCheck, Plane, Shield } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   computeDashboardPackageStats,
@@ -13,6 +13,7 @@ function StatCard({
   value,
   sub,
   loading,
+  className = '',
 }: {
   to: string
   icon: typeof DollarSign
@@ -20,11 +21,12 @@ function StatCard({
   value: string
   sub?: string
   loading: boolean
+  className?: string
 }) {
   return (
     <Link
       to={to}
-      className="block rounded-2xl border border-boss-gold/30 bg-card p-6 shadow-md shadow-boss-gold/20 transition-colors hover:border-boss-gold/50 hover:shadow-lg hover:shadow-boss-gold/25"
+      className={`block rounded-2xl border border-boss-gold/30 bg-card p-4 shadow-md shadow-boss-gold/20 transition-colors hover:border-boss-gold/50 hover:shadow-lg hover:shadow-boss-gold/25 sm:p-5 ${className}`}
     >
       <div className="flex gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-boss-gold/15 text-boss-gold">
@@ -62,7 +64,7 @@ export function DashboardPackageStatsCard() {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         <StatCard
           to="/dashboard/packages"
           icon={MapPin}
@@ -81,6 +83,14 @@ export function DashboardPackageStatsCard() {
         />
         <StatCard
           to="/dashboard/packages"
+          icon={Shield}
+          label="Customs"
+          value={String(stats.customs)}
+          sub="Clearing Jamaican customs"
+          loading={packagesLoading}
+        />
+        <StatCard
+          to="/dashboard/packages"
           icon={PackageCheck}
           label="Ready pickup / delivery"
           value={String(stats.readyPickupDelivery)}
@@ -92,8 +102,13 @@ export function DashboardPackageStatsCard() {
           icon={DollarSign}
           label="Total due"
           value={stats.totalDueJmd > 0 ? formatDashboardTotalDue(stats.totalDueJmd) : 'J$0'}
-          sub="Published bills awaiting payment"
+          sub={
+            stats.handlingFeeJmd > 0
+              ? `Includes J$${stats.handlingFeeJmd} multi-package handling fee`
+              : 'Published bills awaiting payment'
+          }
           loading={packagesLoading}
+          className="col-span-2"
         />
       </div>
     </div>

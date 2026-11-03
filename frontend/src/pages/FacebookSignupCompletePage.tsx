@@ -3,9 +3,11 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { completeFacebookSignup, fetchParishes } from '../api/auth'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { AccountTypeFields } from '../components/auth/AccountTypeFields'
 import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import type { AccountType } from '../types'
 import {
   clearFacebookSignupSession,
   isFacebookSignInEnabled,
@@ -28,6 +30,8 @@ export function FacebookSignupCompletePage() {
     contact_number: '',
     trn: '',
     parish: 'Kingston',
+    account_type: 'personal' as AccountType,
+    company_name: '',
   })
 
   useEffect(() => {
@@ -97,10 +101,13 @@ export function FacebookSignupCompletePage() {
             onChange={(e) => setForm((prev) => ({ ...prev, contact_number: e.target.value }))}
             required
           />
-          <Input
-            label="TRN (optional)"
-            value={form.trn}
-            onChange={(e) => setForm((prev) => ({ ...prev, trn: e.target.value }))}
+          <AccountTypeFields
+            accountType={form.account_type}
+            companyName={form.company_name}
+            trn={form.trn}
+            onAccountTypeChange={(value) => setForm((prev) => ({ ...prev, account_type: value }))}
+            onCompanyNameChange={(value) => setForm((prev) => ({ ...prev, company_name: value }))}
+            onTrnChange={(value) => setForm((prev) => ({ ...prev, trn: value }))}
           />
           <div>
             <label className="mb-1 block text-sm font-semibold">Parish</label>

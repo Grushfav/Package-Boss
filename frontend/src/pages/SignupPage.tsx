@@ -5,11 +5,13 @@ import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { cacheShippingAddress } from '../lib/offlineAddress'
 import { Seo } from '../components/seo/Seo'
+import { AccountTypeFields } from '../components/auth/AccountTypeFields'
 import { AuthDivider } from '../components/auth/AuthDivider'
 import { SocialSignInButtons } from '../components/auth/SocialSignInButtons'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { PAGE_SEO } from '../lib/seo'
+import type { AccountType } from '../types'
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -26,6 +28,8 @@ export function SignupPage() {
     contact_number: '',
     trn: '',
     parish: 'Kingston',
+    account_type: 'personal' as AccountType,
+    company_name: '',
   })
 
   useEffect(() => {
@@ -119,12 +123,13 @@ export function SignupPage() {
           />
           <p className="text-xs text-muted">Include country code (e.g. +1 for US/Jamaica).</p>
 
-          <Input
-            label="TRN (optional, 9 digits)"
-            placeholder="123456789"
-            value={form.trn}
-            onChange={(e) => update('trn', e.target.value)}
-            maxLength={11}
+          <AccountTypeFields
+            accountType={form.account_type}
+            companyName={form.company_name}
+            trn={form.trn}
+            onAccountTypeChange={(value) => update('account_type', value)}
+            onCompanyNameChange={(value) => update('company_name', value)}
+            onTrnChange={(value) => update('trn', value)}
           />
 
           <div className="space-y-1.5">
@@ -173,7 +178,11 @@ export function SignupPage() {
           )}
 
           <Button type="submit" fullWidth disabled={loading || !acceptTerms}>
-            {loading ? 'Creating account...' : 'Create Account'}
+            {loading
+              ? 'Creating account...'
+              : form.account_type === 'business'
+                ? 'Create business account'
+                : 'Create Account'}
           </Button>
         </form>
 

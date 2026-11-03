@@ -171,6 +171,11 @@ export function warehousePackageListToDict(
     invoice_url: pkg.invoiceObjectKey ? resolveStoredUrl(pkg.invoiceObjectKey) : null,
     billing_status: pkg.billingStatus,
     billing_status_label: BILLING_STATUS_LABELS[pkg.billingStatus] ?? pkg.billingStatus,
+    estimated_freight_jmd:
+      pkg.estimatedFreightJmd != null ? parseFloat(pkg.estimatedFreightJmd) : null,
+    duties_jmd: pkg.dutiesJmd != null ? parseFloat(pkg.dutiesJmd) : null,
+    handling_jmd: pkg.handlingJmd != null ? parseFloat(pkg.handlingJmd) : null,
+    other_fees_jmd: pkg.otherFeesJmd != null ? parseFloat(pkg.otherFeesJmd) : null,
     total_due_jmd: pkg.totalDueJmd != null ? parseFloat(pkg.totalDueJmd) : null,
     actual_weight_lbs: pkg.actualWeightLbs != null ? parseFloat(pkg.actualWeightLbs) : null,
     billable_weight_lbs: pkg.billableWeightLbs,

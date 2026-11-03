@@ -16,6 +16,8 @@ export function customerStaffDict(
     contact_number: user.contactNumber || '',
     parish: user.parish || '',
     shipping_id: user.shippingId,
+    account_type: user.accountType || 'personal',
+    company_name: user.companyName ?? null,
   }
   if (opts.activePackageCount !== undefined) {
     data.active_package_count = opts.activePackageCount
@@ -38,6 +40,8 @@ export function userToDict(
     parish: user.parish ?? '',
     shipping_id: user.shippingId,
     role: user.role,
+    account_type: user.accountType || 'personal',
+    company_name: user.companyName ?? null,
     whatsapp_opt_in: user.whatsappOptIn,
     created_at: user.createdAt.toISOString(),
   }

@@ -4,6 +4,7 @@ import { getErrorMessage } from '../../api/client'
 import { api } from '../../api/client'
 import { changePassword, updateProfile } from '../../api/profile'
 import { useAuth } from '../../context/AuthContext'
+import { BusinessAccountBadge } from './BusinessAccountBadge'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 
@@ -146,10 +147,16 @@ export function ProfileSection() {
                 {profileInitials(user.first_name, user.last_name)}
               </span>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-boss-gold">
-                  Boss Member
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-boss-gold">
+                    Boss Member
+                  </p>
+                  <BusinessAccountBadge user={user} />
+                </div>
                 <h2 className="mt-1 text-2xl font-black uppercase tracking-tight">{displayName}</h2>
+                {user.account_type === 'business' && user.company_name && (
+                  <p className="mt-1 text-sm font-semibold text-muted">{user.company_name}</p>
+                )}
                 <p className="mt-2 font-mono text-sm font-bold text-boss-gold">{user.shipping_id}</p>
               </div>
             </div>
@@ -239,6 +246,13 @@ export function ProfileSection() {
               <dl className="mt-3 divide-y divide-border">
                 <DetailRow label="Email" value={user.email} icon={Mail} />
                 <DetailRow label="BOSS ID" value={user.shipping_id} icon={User} mono />
+                <DetailRow
+                  label="Account type"
+                  value={user.account_type === 'business' ? 'Business' : 'Personal'}
+                />
+                {user.account_type === 'business' && user.company_name && (
+                  <DetailRow label="Company" value={user.company_name} />
+                )}
                 {user.trn && <DetailRow label="TRN on file" value={user.trn} mono />}
               </dl>
               <p className="mt-4 text-xs text-muted">

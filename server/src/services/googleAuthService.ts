@@ -10,6 +10,7 @@ import { hashPassword, normalizePhone } from './authService.js'
 import { EmailServiceError, sendWelcomeEmail } from './emailService.js'
 import { generateShippingId } from './shippingIdService.js'
 import { createGoogleSignupToken } from './tokenService.js'
+import { parseAccountTypeFields } from './accountTypeService.js'
 import { normalizeTrn } from './trnService.js'
 import { buildShippingAddress } from './warehouseService.js'
 
@@ -196,8 +197,11 @@ export async function completeGoogleSignup(
 
   let contactNumber: string
   let trn: string | null
+  let accountType: 'personal' | 'business'
+  let companyName: string | null
   try {
     contactNumber = normalizePhone(String(data.contact_number ?? ''))
+    ;({ accountType, companyName } = parseAccountTypeFields(data as Record<string, unknown>))
     trn = normalizeTrn(data.trn as string | undefined)
   } catch (err) {
     throw new GoogleAuthError(err instanceof Error ? err.message : String(err))
@@ -219,6 +223,8 @@ export async function completeGoogleSignup(
       contactNumber,
       parish,
       trn,
+      accountType,
+      companyName,
       shippingId,
       googleId: profile.google_id,
       role: 'customer',

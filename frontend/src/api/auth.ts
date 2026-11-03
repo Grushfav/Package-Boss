@@ -56,6 +56,8 @@ export async function completeFacebookSignup(
     contact_number: string
     parish: string
     trn?: string
+    account_type?: 'personal' | 'business'
+    company_name?: string
     accept_terms: boolean
   },
 ): Promise<AuthResponse & { shipping_address?: ShippingAddress }> {
@@ -75,6 +77,8 @@ export async function completeGoogleSignup(
     contact_number: string
     parish: string
     trn?: string
+    account_type?: 'personal' | 'business'
+    company_name?: string
     accept_terms: boolean
   },
 ): Promise<AuthResponse & { shipping_address?: ShippingAddress }> {

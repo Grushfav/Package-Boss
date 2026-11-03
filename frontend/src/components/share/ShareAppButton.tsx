@@ -7,7 +7,10 @@ const cardClass =
 
 const linkClass = 'text-left hover:text-boss-green'
 
-export function ShareAppButton({ variant = 'card' }: { variant?: 'card' | 'link' }) {
+const iconClass =
+  'inline-flex h-9 w-9 items-center justify-center rounded-lg text-boss-gold transition-colors hover:bg-boss-gold/10 hover:text-boss-green'
+
+export function ShareAppButton({ variant = 'card' }: { variant?: 'card' | 'link' | 'icon' }) {
   const [message, setMessage] = useState('')
 
   async function onShare() {
@@ -20,6 +23,20 @@ export function ShareAppButton({ variant = 'card' }: { variant?: 'card' | 'link'
       if (error instanceof DOMException && error.name === 'AbortError') return
       setMessage(`Copy this link: ${appShareUrl()}`)
     }
+  }
+
+  if (variant === 'icon') {
+    return (
+      <button
+        type="button"
+        onClick={onShare}
+        aria-label="Share Package Boss"
+        title={message || 'Share Package Boss'}
+        className={iconClass}
+      >
+        <Share2 className="h-5 w-5" strokeWidth={2} />
+      </button>
+    )
   }
 
   return (

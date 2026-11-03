@@ -151,10 +151,10 @@ export function daysInCurrentStatus(pkg: Package): number | null {
 
 export const STATUS_BADGE_CLASS: Record<string, string> = {
   awaiting_receipt: 'bg-muted/30 text-muted',
-  received: 'bg-sky-500/15 text-sky-300',
-  in_transit: 'bg-violet-500/15 text-violet-300',
-  customs: 'bg-amber-500/15 text-amber-300',
-  ready_for_pickup: 'bg-boss-green/15 text-boss-green',
+  received: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  in_transit: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+  customs: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  ready_for_pickup: 'bg-boss-green/15 text-emerald-700 dark:text-boss-green',
   delivered: 'bg-muted/25 text-muted',
 }
 

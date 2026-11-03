@@ -100,6 +100,8 @@ def _customer_dict(user: User, *, active_package_count: int | None = None) -> di
         "contact_number": user.contact_number or "",
         "parish": user.parish or "",
         "shipping_id": user.shipping_id,
+        "account_type": user.account_type or "personal",
+        "company_name": user.company_name,
     }
     if active_package_count is not None:
         data["active_package_count"] = active_package_count
@@ -171,6 +173,7 @@ def list_customers():
                 User.last_name.ilike(pattern),
                 User.email.ilike(pattern),
                 User.contact_number.ilike(pattern),
+                User.company_name.ilike(pattern),
             )
         )
 
@@ -212,6 +215,7 @@ def search_customers():
                 User.last_name.ilike(pattern),
                 User.email.ilike(pattern),
                 User.contact_number.ilike(pattern),
+                User.company_name.ilike(pattern),
             )
         )
         .order_by(User.last_name, User.first_name)

@@ -25,7 +25,12 @@ import {
   clerkHasPermission,
 } from '../lib/clerkPermissions'
 import { formatJmd, sumJmd } from '../lib/money'
-import { formatPackageCost, formatPackageWeight, packageEligibleForPayment } from '../lib/packageBilling'
+import {
+  formatPackageCost,
+  formatPackageFeeCell,
+  formatPackageWeight,
+  packageEligibleForPayment,
+} from '../lib/packageBilling'
 import type {
   CustomerAccount,
   Package as Pkg,
@@ -355,7 +360,7 @@ export function CustomerAccountPage() {
             <p className="p-8 text-center text-sm text-muted">No packages yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[840px] text-left text-sm">
+              <table className="w-full min-w-[1200px] text-left text-sm">
                 <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wider text-muted">
                   <tr>
                     <th className="px-4 py-3 w-10" />
@@ -363,7 +368,11 @@ export function CustomerAccountPage() {
                     <th className="px-4 py-3">Weight</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Billing</th>
-                    <th className="px-4 py-3">Amount</th>
+                    <th className="px-4 py-3 text-right">Freight</th>
+                    <th className="px-4 py-3 text-right">Duties</th>
+                    <th className="px-4 py-3 text-right">Handling</th>
+                    <th className="px-4 py-3 text-right">Other</th>
+                    <th className="px-4 py-3 text-right">Total</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -384,7 +393,21 @@ export function CustomerAccountPage() {
                       <td className="px-4 py-3">{formatPackageWeight(pkg)}</td>
                       <td className="px-4 py-3">{pkg.status_label}</td>
                       <td className="px-4 py-3">{pkg.billing_status_label}</td>
-                      <td className="px-4 py-3 font-semibold">{formatPackageCost(pkg) ?? '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatPackageFeeCell(pkg.estimated_freight_jmd)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatPackageFeeCell(pkg.duties_jmd)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatPackageFeeCell(pkg.handling_jmd)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatPackageFeeCell(pkg.other_fees_jmd)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                        {formatPackageCost(pkg) ?? '—'}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           <button

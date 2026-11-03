@@ -19,6 +19,7 @@ import {
   getBankTransferProofSubmissionStats,
   getCustomerSignupStats,
   getDeliveryRequestSubmissionStats,
+  getMonthlyGrowth,
   getOverview,
   getPackagesByStatus,
   getPackagesTimeline,
@@ -95,6 +96,13 @@ adminRouter.get('/admin/stats/pre-alerts-vs-receives', requireAdmin, async (req,
   if (Number.isNaN(days)) days = 30
   days = Math.max(7, Math.min(days, 90))
   res.json({ series: await getPreAlertsVsReceives(days) })
+})
+
+adminRouter.get('/admin/stats/monthly-growth', requireAdmin, async (req, res) => {
+  let months = parseInt(String(req.query.months ?? '12'), 10)
+  if (Number.isNaN(months)) months = 12
+  months = Math.max(3, Math.min(months, 24))
+  res.json(await getMonthlyGrowth(months))
 })
 
 adminRouter.get('/admin/activity', permissionRequired('activity'), async (req, res) => {

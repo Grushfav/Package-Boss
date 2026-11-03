@@ -12,6 +12,7 @@ from app.services.admin_stats_service import (
     get_bank_transfer_proof_submission_stats,
     get_customer_signup_stats,
     get_delivery_request_submission_stats,
+    get_monthly_growth,
     get_overview,
     get_packages_by_status,
     get_packages_timeline,
@@ -101,6 +102,14 @@ def stats_pre_alerts_vs_receives():
     days = request.args.get("days", 30, type=int)
     days = max(7, min(days, 90))
     return jsonify({"series": get_pre_alerts_vs_receives(days)})
+
+
+@admin_bp.route("/admin/stats/monthly-growth", methods=["GET"])
+@admin_required()
+def stats_monthly_growth():
+    months = request.args.get("months", 12, type=int)
+    months = max(3, min(months, 24))
+    return jsonify(get_monthly_growth(months))
 
 
 @admin_bp.route("/admin/activity", methods=["GET"])

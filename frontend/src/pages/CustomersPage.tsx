@@ -61,8 +61,8 @@ export function CustomersPage() {
 
       <div className="mb-6">
         <Input
-          label="Search by name, BOSS ID, email, or phone"
-          placeholder="Jane Doe or BOSS-01009"
+          label="Search by name, company, BOSS ID, email, or phone"
+          placeholder="Jane Doe, Acme Ltd, or BOSS-01009"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -130,6 +130,11 @@ function CustomerRow({ customer }: { customer: StaffCustomer }) {
     <tr>
       <td className="px-4 py-3">
         <p className="font-semibold">{customer.full_name}</p>
+        {customer.account_type === 'business' && (
+          <p className="mt-0.5 text-xs font-semibold text-boss-gold">
+            Business{customer.company_name ? ` · ${customer.company_name}` : ''}
+          </p>
+        )}
         <p className="text-xs text-muted sm:hidden">{customer.shipping_id}</p>
       </td>
       <td className="px-4 py-3 font-mono text-boss-gold hidden sm:table-cell">

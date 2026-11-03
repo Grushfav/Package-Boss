@@ -6,6 +6,7 @@ import type {
   ClerkPermission,
   CustomerSignupStats,
   DeliveryRequestSubmissionStats,
+  MonthlyGrowthStats,
   PaymentCheckout,
   User,
 } from '../types'
@@ -161,6 +162,21 @@ export async function fetchPreAlertsVsReceives(
     series: { date: string; pre_alerts: number; received: number }[]
   }>('/admin/stats/pre-alerts-vs-receives', { params: { days } })
   return data.series
+}
+
+export async function fetchMonthlyGrowth(months = 12): Promise<MonthlyGrowthStats> {
+  const { data } = await api.get<MonthlyGrowthStats>('/admin/stats/monthly-growth', {
+    params: { months },
+  })
+  return {
+    months: data.months ?? months,
+    series: (data.series ?? []).map((point) => ({
+      month: point.month,
+      label: point.label,
+      active_customers: point.active_customers ?? 0,
+      revenue_jmd: point.revenue_jmd ?? 0,
+    })),
+  }
 }
 
 export async function fetchActivityLog(

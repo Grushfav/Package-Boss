@@ -33,6 +33,12 @@ export function formatPackageCost(pkg: Package, options?: { customer?: boolean }
   return null
 }
 
+/** Staff table cell for an optional JMD fee line (freight, duties, handling, other). */
+export function formatPackageFeeCell(value: number | null | undefined): string {
+  if (value == null) return '—'
+  return formatJmd(value)
+}
+
 /** Billable weight shown to customers; falls back to actual weight when billable is not set yet. */
 export function formatPackageWeight(pkg: Package): string {
   const lbs = pkg.billable_weight_lbs ?? pkg.actual_weight_lbs

@@ -36,6 +36,7 @@ import {
 } from '../services/resetTokenService.js'
 import { generateShippingId } from '../services/shippingIdService.js'
 import { accessTokenForUser, bumpTokenVersion } from '../services/tokenService.js'
+import { parseAccountTypeFields } from '../services/accountTypeService.js'
 import { normalizeTrn } from '../services/trnService.js'
 import { buildShippingAddress } from '../services/warehouseService.js'
 
@@ -71,9 +72,12 @@ authRouter.post('/auth/register', async (req, res) => {
 
   let contactNumber: string
   let trn: string | null
+  let accountType: 'personal' | 'business'
+  let companyName: string | null
   try {
     validatePassword(String(data.password))
     contactNumber = normalizePhone(String(data.contact_number))
+    ;({ accountType, companyName } = parseAccountTypeFields(data as Record<string, unknown>))
     trn = normalizeTrn(data.trn as string | undefined)
   } catch (exc) {
     return res.status(400).json({ error: exc instanceof Error ? exc.message : String(exc) })
@@ -99,6 +103,8 @@ authRouter.post('/auth/register', async (req, res) => {
       contactNumber,
       parish,
       trn,
+      accountType,
+      companyName,
       shippingId,
       role: 'customer',
       isActive: true,

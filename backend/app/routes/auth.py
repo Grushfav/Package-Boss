@@ -32,6 +32,7 @@ from app.services.reset_token_service import (
 )
 from app.services.shipping_id_service import generate_shipping_id
 from app.services.token_service import access_token_for_user, bump_token_version
+from app.services.account_type_service import parse_account_type_fields
 from app.services.trn_service import normalize_trn
 from app.services.warehouse_service import build_shipping_address
 from app.utils.auth_decorators import resolve_jwt_user
@@ -73,6 +74,7 @@ def register():
     try:
         validate_password(data["password"])
         contact_number = normalize_phone(data["contact_number"])
+        account_type, company_name = parse_account_type_fields(data)
         trn = normalize_trn(data.get("trn"))
     except ValueError as exc:
         return _error(str(exc))
@@ -93,6 +95,8 @@ def register():
         contact_number=contact_number,
         parish=parish,
         trn=trn,
+        account_type=account_type,
+        company_name=company_name,
         shipping_id=shipping_id,
         terms_accepted_at=datetime.utcnow(),
     )
