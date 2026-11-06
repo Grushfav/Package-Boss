@@ -1,4 +1,4 @@
-import { ChevronLeft, Plane, Plus, ScanLine, Trash2 } from 'lucide-react'
+import { ChevronLeft, Download, Plane, Plus, ScanLine, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
@@ -26,6 +26,59 @@ function formatDateInput(date: Date): string {
 function formatDisplayDate(iso: string): string {
   const [year, month, day] = iso.split('-')
   return `${month}/${day}/${year}`
+}
+
+function csvCell(value: string | number | null | undefined): string {
+  const text = value == null ? '' : String(value)
+  if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`
+  return text
+}
+
+function downloadDepartureManifest(shipment: ShipmentSummary, packages: Package[]) {
+  const headers = [
+    'Departure reference',
+    'Departure date',
+    'Boss tracking',
+    'Carrier tracking',
+    'Consignee',
+    'Boss ID',
+    'Description',
+    'Shipper',
+    'Weight (lbs)',
+    'Declared value (USD)',
+    'Status',
+  ]
+  const totalPackages = packages.length
+  const rows = packages.map((pkg) =>
+    [
+      shipment.reference,
+      shipment.departure_date,
+      pkg.tracking_number,
+      pkg.carrier_tracking,
+      pkg.customer?.full_name,
+      pkg.customer?.shipping_id,
+      pkg.item_description,
+      pkg.shipper_label ?? pkg.shipper,
+      pkg.actual_weight_lbs,
+      pkg.declared_value_usd,
+      pkg.status_label,
+    ]
+      .map(csvCell)
+      .join(','),
+  )
+  const summary = [
+    ['Departure date', shipment.departure_date].map(csvCell).join(','),
+    ['Total packages', totalPackages].map(csvCell).join(','),
+  ]
+  const csv = [...summary, '', headers.join(','), ...rows].join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  const safeReference = shipment.reference.replace(/[^\w.-]+/g, '-').replace(/-+/g, '-')
+  link.href = url
+  link.download = `manifest-${safeReference}-${shipment.departure_date}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 function CreateDepartureForm({
@@ -397,10 +450,22 @@ function DepartureDetail({ shipmentId, onBack }: { shipmentId: string; onBack: (
             </p>
             {shipment.note && <p className="mt-2 text-sm">{shipment.note}</p>}
           </div>
-          <StatusBadge
-            status={isOpen ? 'received' : 'in_transit'}
-            label={shipment.status_label}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="inline-flex items-center gap-2"
+              disabled={packages.length === 0}
+              onClick={() => downloadDepartureManifest(shipment, packages)}
+            >
+              <Download className="h-4 w-4" />
+              Download manifest
+            </Button>
+            <StatusBadge
+              status={isOpen ? 'received' : 'in_transit'}
+              label={shipment.status_label}
+            />
+          </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-4 text-sm">
           <span>
