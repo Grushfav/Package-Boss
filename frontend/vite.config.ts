@@ -62,6 +62,14 @@ export default defineConfig({
             handler: 'NetworkOnly',
           },
           {
+            urlPattern: /^\/api\/me\/dashboard(?:\/|$)/i,
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: /^\/api\/me\/packages(?:\/|$)/i,
+            handler: 'NetworkOnly',
+          },
+          {
             urlPattern: /^\/api\/.*/i,
             handler: 'NetworkFirst',
             options: {

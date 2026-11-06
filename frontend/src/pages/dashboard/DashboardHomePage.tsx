@@ -17,8 +17,8 @@ function deliveryAddressLine(address: DeliveryAddress) {
 
 export function DashboardHomePage() {
   const { user } = useAuth()
-  const { deliveryAddresses, isPrefetching } = useCustomerData()
-  const defaultAddress = deliveryAddresses.find((address) => address.is_default)
+  const { defaultDeliveryAddress, isPrefetching } = useCustomerData()
+  const defaultAddress = defaultDeliveryAddress
   const addressLine = defaultAddress ? deliveryAddressLine(defaultAddress) : ''
 
   return (

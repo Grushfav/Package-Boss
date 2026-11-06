@@ -39,7 +39,8 @@ bankTransferProofsRouter.post('/me/bank-transfer-proofs/presign', jwtRequired, r
   } catch (exc) {
     if (exc instanceof ImageUploadError) return res.status(exc.statusCode ?? 503).json({ error: exc.message })
     if (exc instanceof Error) return res.status(400).json({ error: exc.message })
-    return res.status(500).json({ error: `Failed to generate upload URL: ${exc}` })
+    console.error('Failed to generate bank transfer proof upload URL', exc)
+    return res.status(500).json({ error: 'Something went wrong. Please try again.' })
   }
 })
 

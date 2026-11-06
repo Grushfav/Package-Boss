@@ -175,6 +175,7 @@ preAlertsRouter.post('/me/uploads/invoice/presign', jwtRequired, requireAuth, as
   } catch (exc) {
     if (exc instanceof ImageUploadError) return res.status(exc.statusCode ?? 503).json({ error: exc.message })
     if (exc instanceof Error) return res.status(400).json({ error: exc.message })
-    return res.status(500).json({ error: `Failed to generate upload URL: ${exc}` })
+    console.error('Failed to generate pre-alert invoice upload URL', exc)
+    return res.status(500).json({ error: 'Something went wrong. Please try again.' })
   }
 })

@@ -41,7 +41,8 @@ function isAllowedUploadUrl(url: string): boolean {
 
 function presignError(res: import('express').Response, exc: unknown, status = 500) {
   if (exc instanceof ImageUploadError) return res.status(exc.statusCode ?? status).json({ error: exc.message })
-  return res.status(status).json({ error: `Failed to generate upload URL: ${exc}` })
+  console.error('Failed to generate upload URL', exc)
+  return res.status(status).json({ error: 'Something went wrong. Please try again.' })
 }
 
 uploadsRouter.post('/upload-url', jwtRequired, requireAuth, async (req: AuthRequest, res) => {

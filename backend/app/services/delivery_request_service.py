@@ -143,21 +143,55 @@ def get_pending_request_for_package(package_id) -> DeliveryRequest | None:
     return get_active_request_for_package(package_id)
 
 
+def delivery_request_summary(request: DeliveryRequest) -> dict:
+    from app.constants import (
+        DELIVERY_REQUEST_STATUS_LABELS,
+        FULFILLMENT_TYPE_LABELS,
+        PICKUP_LOCATION_LABEL,
+    )
+
+    fulfillment_type = request.fulfillment_type or "delivery"
+    status_label = DELIVERY_REQUEST_STATUS_LABELS.get(request.status, request.status)
+    if fulfillment_type == "pickup" and request.status == "completed":
+        status_label = "Picked up"
+    elif fulfillment_type == "pickup" and request.status == "in_progress":
+        status_label = "Ready for collection"
+    return {
+        "id": str(request.id),
+        "status": request.status,
+        "status_label": status_label,
+        "fulfillment_type": fulfillment_type,
+        "fulfillment_type_label": FULFILLMENT_TYPE_LABELS.get(fulfillment_type, fulfillment_type),
+        "pickup_location": PICKUP_LOCATION_LABEL if fulfillment_type == "pickup" else None,
+        "delivery_fee_jmd": float(request.delivery_fee_jmd),
+        "requested_at": utc_isoformat(request.requested_at),
+    }
+
+
 def package_pending_delivery_summary(package: Package) -> dict | None:
     request = get_pending_request_for_package(package.id)
     if not request:
         return None
-    summary = request.to_dict()
-    return {
-        "id": str(request.id),
-        "status": request.status,
-        "status_label": summary["status_label"],
-        "fulfillment_type": summary["fulfillment_type"],
-        "fulfillment_type_label": summary["fulfillment_type_label"],
-        "pickup_location": summary.get("pickup_location"),
-        "delivery_fee_jmd": float(request.delivery_fee_jmd),
-        "requested_at": utc_isoformat(request.requested_at),
-    }
+    return delivery_request_summary(request)
+
+
+def pending_delivery_summaries_for_packages(package_ids: list) -> dict[str, dict]:
+    """One query for open delivery requests on a package list."""
+    if not package_ids:
+        return {}
+    rows = (
+        db.session.query(DeliveryRequestPackage.package_id, DeliveryRequest)
+        .join(DeliveryRequest, DeliveryRequest.id == DeliveryRequestPackage.delivery_request_id)
+        .filter(
+            DeliveryRequestPackage.package_id.in_(package_ids),
+            DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES),
+        )
+        .all()
+    )
+    summaries: dict[str, dict] = {}
+    for package_id, request in rows:
+        summaries[str(package_id)] = delivery_request_summary(request)
+    return summaries
 
 
 def _validate_request_packages(customer: User, package_ids: list) -> list[Package]:

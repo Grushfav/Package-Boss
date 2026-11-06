@@ -1,14 +1,16 @@
 import { FileUp, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getErrorMessage } from '../../api/client'
 import {
   fetchMyBankTransferProofs,
   submitBankTransferProof,
 } from '../../api/bankTransferProofs'
 import { fetchPaymentTotal, DELIVERY_FEE_SUMMARY } from '../../api/deliveryRequests'
+import { fetchMyPackagePage } from '../../api/packages'
 import { DELIVERY_FEE_JMD } from '../../lib/deliveryFees'
 import { useAuth } from '../../context/AuthContext'
 import { useCustomerData } from '../../context/CustomerDataContext'
+import type { Package } from '../../types'
 import {
   BANK_TRANSFER_DETAILS,
   SENDER_BANKS,
@@ -32,11 +34,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 function BankTransferProofUpload() {
-  const { packages } = useCustomerData()
-  const payablePackages = useMemo(
-    () => packages.filter(packageEligibleForPayment),
-    [packages],
-  )
+  const { packagesRevision } = useCustomerData()
+  const [payablePackages, setPayablePackages] = useState<Package[]>([])
+  const [payableTotal, setPayableTotal] = useState(0)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [senderBank, setSenderBank] = useState<SenderBank | ''>('')
   const [transferReference, setTransferReference] = useState('')
@@ -49,6 +49,28 @@ function BankTransferProofUpload() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchMyPackagePage('payable', 50, 0)
+      .then((page) => {
+        if (cancelled) return
+        const next = page.packages.filter(packageEligibleForPayment)
+        const nextIds = new Set(next.map((pkg) => pkg.id))
+        setPayablePackages(next)
+        setPayableTotal(page.total)
+        setSelectedIds((prev) => prev.filter((id) => nextIds.has(id)))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setPayablePackages([])
+        setPayableTotal(0)
+        setSelectedIds([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [packagesRevision])
 
   useEffect(() => {
     if (selectedIds.length === 0) {
@@ -172,6 +194,11 @@ function BankTransferProofUpload() {
             Packages this payment is for
           </p>
           <p className="text-xs text-muted">{MULTI_PACKAGE_HANDLING_NOTE}</p>
+          {payableTotal > payablePackages.length && (
+            <p className="text-xs text-muted">
+              Showing {payablePackages.length} of {payableTotal} packages ready for payment.
+            </p>
+          )}
           <div className="max-h-36 space-y-2 overflow-y-auto rounded-lg border border-border bg-background p-3">
             {payablePackages.map((pkg) => (
               <label

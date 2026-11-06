@@ -67,8 +67,11 @@ def presign_bank_transfer_proof():
         )
     except ImageUploadError as exc:
         return jsonify({"error": str(exc)}), exc.status_code or 503
-    except Exception as exc:
-        return jsonify({"error": f"Failed to generate upload URL: {exc}"}), 500
+    except Exception:
+        from flask import current_app
+
+        current_app.logger.exception("Failed to generate bank transfer proof upload URL")
+        return jsonify({"error": "Something went wrong. Please try again."}), 500
 
 
 @bank_transfer_proofs_bp.route("/me/bank-transfer-proofs", methods=["POST"])

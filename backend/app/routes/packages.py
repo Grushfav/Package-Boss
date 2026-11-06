@@ -16,7 +16,7 @@ from app.services.image_upload_service import (
     parse_presign_fields,
 )
 from app.services.rate_limit_service import RateLimitExceeded, assert_upload_presign_allowed
-from app.services.delivery_request_service import package_pending_delivery_summary
+from app.services.customer_package_list_service import list_customer_package_page
 from app.utils.auth_decorators import resolve_jwt_user
 
 packages_bp = Blueprint("packages", __name__)
@@ -37,19 +37,19 @@ def list_my_packages():
     if auth_err:
         return auth_err
 
-    packages = (
-        Package.query.filter_by(customer_id=user.id)
-        .order_by(Package.created_at.desc())
-        .all()
-    )
-    return jsonify(
-        {
-            "packages": [
-                {**p.to_dict(), "pending_delivery_request": package_pending_delivery_summary(p)}
-                for p in packages
-            ]
-        }
-    )
+    scope = (request.args.get("scope") or "").strip().lower()
+    if not scope:
+        return jsonify({"error": "scope, limit, and offset are required"}), 400
+    if request.args.get("limit") is None or request.args.get("offset") is None:
+        return jsonify({"error": "scope, limit, and offset are required"}), 400
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", type=int)
+    if limit is None or offset is None:
+        return jsonify({"error": "Invalid pagination"}), 400
+    try:
+        return jsonify(list_customer_package_page(user, scope, limit, offset))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @packages_bp.route("/me/packages/<package_id>", methods=["GET"])
@@ -148,8 +148,11 @@ def presign_package_invoice(package_id: str):
         )
     except ImageUploadError as exc:
         return jsonify({"error": str(exc)}), exc.status_code or 503
-    except Exception as exc:
-        return jsonify({"error": f"Failed to generate upload URL: {exc}"}), 500
+    except Exception:
+        from flask import current_app
+
+        current_app.logger.exception("Failed to generate package invoice upload URL")
+        return jsonify({"error": "Something went wrong. Please try again."}), 500
 
 
 @packages_bp.route("/me/packages/<package_id>/invoice", methods=["POST"])

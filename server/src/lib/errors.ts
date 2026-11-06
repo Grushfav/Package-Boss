@@ -21,5 +21,5 @@ export function handleRouteError(res: Response, err: unknown) {
   if (err instanceof Error) {
     return sendError(res, err.message, 400)
   }
-  return sendError(res, 'Something went wrong', 500)
+  return sendError(res, 'Something went wrong. Please try again.', 500)
 }

@@ -8,27 +8,33 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { getErrorMessage } from '../api/client'
+import { fetchCustomerDashboard } from '../api/dashboard'
 import { fetchParishes } from '../api/auth'
 import { fetchAuthorizedPickups, type AuthorizedPickupsResponse } from '../api/authorizedPickups'
 import { fetchDeliveryAddresses } from '../api/deliveryAddresses'
-import { fetchMyPackages } from '../api/packages'
 import { fetchMyPreAlerts } from '../api/preAlerts'
 import { fetchShippingAddress } from '../api/shippingAddress'
 import { type RatesResponse } from '../api/rates'
 import { useAuth } from './AuthContext'
 import { cacheShippingAddress, clearCachedShippingAddress } from '../lib/offlineAddress'
-import { loadRates, setCachedRates } from '../lib/ratesCache'
-import type { DeliveryAddress, Package, PreAlert, ShippingAddress } from '../types'
+import type { DashboardPackageStats } from '../lib/dashboardStats'
+import { getActiveCachedRates, loadRates, setCachedRates } from '../lib/ratesCache'
+import type { DeliveryAddress, PreAlert, ShippingAddress } from '../types'
 
 interface CustomerDataContextValue {
   isCustomer: boolean
   isPrefetching: boolean
-  packages: Package[]
-  packagesLoading: boolean
+  dashboardStats: DashboardPackageStats | null
+  dashboardLoading: boolean
+  dashboardError: string | null
+  invoiceActionCount: number
+  packagesRevision: number
   preAlerts: PreAlert[]
   preAlertsLoading: boolean
   shippingAddress: ShippingAddress | null
   deliveryAddresses: DeliveryAddress[]
+  defaultDeliveryAddress: DeliveryAddress | null
   maxDeliveryAddresses: number
   authorizedPickups: AuthorizedPickupsResponse | null
   rates: RatesResponse | null
@@ -51,14 +57,20 @@ function isCustomerUser(role: string | undefined) {
 export function CustomerDataProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth()
   const isCustomer = isAuthenticated && isCustomerUser(user?.role)
+  const isCustomerRef = useRef(isCustomer)
+  isCustomerRef.current = isCustomer
 
   const [isPrefetching, setIsPrefetching] = useState(false)
-  const [packages, setPackages] = useState<Package[]>([])
-  const [packagesLoading, setPackagesLoading] = useState(false)
+  const [dashboardStats, setDashboardStats] = useState<DashboardPackageStats | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState<string | null>(null)
+  const [invoiceActionCount, setInvoiceActionCount] = useState(0)
+  const [packagesRevision, setPackagesRevision] = useState(0)
   const [preAlerts, setPreAlerts] = useState<PreAlert[]>([])
   const [preAlertsLoading, setPreAlertsLoading] = useState(false)
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null)
   const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([])
+  const [defaultDeliveryAddress, setDefaultDeliveryAddress] = useState<DeliveryAddress | null>(null)
   const [maxDeliveryAddresses, setMaxDeliveryAddresses] = useState(4)
   const [authorizedPickups, setAuthorizedPickups] = useState<AuthorizedPickupsResponse | null>(
     null,
@@ -66,53 +78,49 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
   const [rates, setRates] = useState<RatesResponse | null>(null)
   const [parishes, setParishes] = useState<string[]>([])
 
-  const prefetchGeneration = useRef(0)
+  const loadGeneration = useRef(0)
 
   const clearCustomerData = useCallback(() => {
-    setPackages([])
+    setDashboardStats(null)
+    setDashboardLoading(false)
+    setDashboardError(null)
+    setInvoiceActionCount(0)
+    setPackagesRevision(0)
     setPreAlerts([])
     setShippingAddress(null)
     setDeliveryAddresses([])
+    setDefaultDeliveryAddress(null)
     setMaxDeliveryAddresses(4)
     setAuthorizedPickups(null)
     setRates(null)
     setParishes([])
-    setPackagesLoading(false)
     setPreAlertsLoading(false)
     setIsPrefetching(false)
     clearCachedShippingAddress()
-  }, [])
-
-  const refreshPackages = useCallback(async () => {
-    setPackagesLoading(true)
-    try {
-      const data = await fetchMyPackages()
-      setPackages(data)
-    } catch {
-      setPackages([])
-    } finally {
-      setPackagesLoading(false)
-    }
   }, [])
 
   const refreshPreAlerts = useCallback(async () => {
     setPreAlertsLoading(true)
     try {
       const data = await fetchMyPreAlerts()
+      if (!isCustomerRef.current) return
       setPreAlerts(data)
     } catch {
+      if (!isCustomerRef.current) return
       setPreAlerts([])
     } finally {
-      setPreAlertsLoading(false)
+      if (isCustomerRef.current) setPreAlertsLoading(false)
     }
   }, [])
 
   const refreshShippingAddress = useCallback(async () => {
     try {
       const data = await fetchShippingAddress()
+      if (!isCustomerRef.current) return
       setShippingAddress(data)
       cacheShippingAddress(data)
     } catch {
+      if (!isCustomerRef.current) return
       setShippingAddress(null)
     }
   }, [])
@@ -120,108 +128,150 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
   const refreshDeliveryAddresses = useCallback(async () => {
     try {
       const { addresses, max_addresses } = await fetchDeliveryAddresses()
+      if (!isCustomerRef.current) return
       setDeliveryAddresses(addresses)
       setMaxDeliveryAddresses(max_addresses)
+      setDefaultDeliveryAddress(addresses.find((address) => address.is_default) ?? null)
     } catch {
+      if (!isCustomerRef.current) return
       setDeliveryAddresses([])
+      setDefaultDeliveryAddress(null)
+      setMaxDeliveryAddresses(4)
     }
   }, [])
 
   const refreshAuthorizedPickups = useCallback(async () => {
     try {
       const data = await fetchAuthorizedPickups()
+      if (!isCustomerRef.current) return
       setAuthorizedPickups(data)
     } catch {
+      if (!isCustomerRef.current) return
       setAuthorizedPickups(null)
     }
   }, [])
 
   const refreshRates = useCallback(async () => {
+    const cached = getActiveCachedRates()
+    if (cached) setRates(cached)
     try {
       const data = await loadRates()
+      if (!isCustomerRef.current) return
       setRates(data)
+      setCachedRates(data)
     } catch {
-      setRates(null)
+      if (!isCustomerRef.current) return
+      if (!cached) setRates(null)
     }
   }, [])
 
-  const refreshAll = useCallback(async () => {
-    if (!isCustomer) return
+  const refreshParishes = useCallback(async () => {
+    try {
+      const data = await fetchParishes()
+      if (!isCustomerRef.current) return
+      setParishes(data)
+    } catch {
+      if (!isCustomerRef.current) return
+      setParishes([])
+    }
+  }, [])
 
-    setIsPrefetching(true)
-    setPackagesLoading(true)
-    setPreAlertsLoading(true)
+  const loadDashboard = useCallback(
+    async (generation: number, options?: { clearOnError?: boolean }) => {
+      setDashboardLoading(true)
+      setIsPrefetching(true)
+      setDashboardError(null)
+      try {
+        const data = await fetchCustomerDashboard()
+        if (loadGeneration.current !== generation) return
+        setDashboardStats(data.stats)
+        setInvoiceActionCount(data.invoiceActionCount)
+        setDefaultDeliveryAddress(data.defaultDeliveryAddress)
+        if (data.shippingAddress) {
+          setShippingAddress(data.shippingAddress)
+          cacheShippingAddress(data.shippingAddress)
+        }
+        setDashboardError(null)
+      } catch (err) {
+        if (loadGeneration.current !== generation) return
+        setDashboardError(getErrorMessage(err))
+        if (options?.clearOnError) {
+          setDashboardStats(null)
+          setInvoiceActionCount(0)
+        }
+      } finally {
+        if (loadGeneration.current === generation) {
+          setDashboardLoading(false)
+          setIsPrefetching(false)
+        }
+      }
+    },
+    [],
+  )
 
-    const results = await Promise.allSettled([
-      fetchMyPackages(),
-      fetchMyPreAlerts(),
-      fetchShippingAddress(),
-      fetchDeliveryAddresses(),
-      fetchAuthorizedPickups(),
-      loadRates(),
-      fetchParishes(),
+  const refreshPackages = useCallback(async () => {
+    setPackagesRevision((current) => current + 1)
+    const generation = ++loadGeneration.current
+    await loadDashboard(generation)
+  }, [loadDashboard])
+
+  const refreshBackground = useCallback(async () => {
+    await Promise.allSettled([
+      refreshPreAlerts(),
+      refreshShippingAddress(),
+      refreshDeliveryAddresses(),
+      refreshAuthorizedPickups(),
+      refreshRates(),
+      refreshParishes(),
     ])
+  }, [
+    refreshAuthorizedPickups,
+    refreshDeliveryAddresses,
+    refreshParishes,
+    refreshPreAlerts,
+    refreshRates,
+    refreshShippingAddress,
+  ])
 
-    if (results[0].status === 'fulfilled') setPackages(results[0].value)
-    else setPackages([])
-
-    if (results[1].status === 'fulfilled') setPreAlerts(results[1].value)
-    else setPreAlerts([])
-
-    if (results[2].status === 'fulfilled') {
-      setShippingAddress(results[2].value)
-      cacheShippingAddress(results[2].value)
-    } else {
-      setShippingAddress(null)
-    }
-
-    if (results[3].status === 'fulfilled') {
-      setDeliveryAddresses(results[3].value.addresses)
-      setMaxDeliveryAddresses(results[3].value.max_addresses)
-    } else {
-      setDeliveryAddresses([])
-    }
-
-    if (results[4].status === 'fulfilled') setAuthorizedPickups(results[4].value)
-    else setAuthorizedPickups(null)
-
-    if (results[5].status === 'fulfilled') {
-      setRates(results[5].value)
-      setCachedRates(results[5].value)
-    } else {
-      setRates(null)
-    }
-
-    if (results[6].status === 'fulfilled') setParishes(results[6].value)
-    else setParishes([])
-
-    setPackagesLoading(false)
-    setPreAlertsLoading(false)
-    setIsPrefetching(false)
-  }, [isCustomer])
+  const refreshAll = useCallback(async () => {
+    if (!isCustomerRef.current) return
+    const generation = ++loadGeneration.current
+    setPackagesRevision((current) => current + 1)
+    await loadDashboard(generation, { clearOnError: true })
+    if (loadGeneration.current !== generation) return
+    await refreshBackground()
+  }, [loadDashboard, refreshBackground])
 
   useEffect(() => {
     if (!isCustomer) {
+      loadGeneration.current += 1
       clearCustomerData()
       return
     }
 
-    const generation = ++prefetchGeneration.current
-    void refreshAll().then(() => {
-      if (prefetchGeneration.current !== generation) return
-    })
+    const before = loadGeneration.current
+    void refreshAll()
+    return () => {
+      if (loadGeneration.current === before + 1) {
+        loadGeneration.current += 1
+      }
+    }
   }, [isCustomer, user?.id, clearCustomerData, refreshAll])
 
   const value = useMemo(
     () => ({
       isCustomer,
       isPrefetching,
-      packages,
-      packagesLoading,
+      dashboardStats,
+      dashboardLoading,
+      dashboardError,
+      invoiceActionCount,
+      packagesRevision,
       preAlerts,
       preAlertsLoading,
       shippingAddress,
       deliveryAddresses,
+      defaultDeliveryAddress,
       maxDeliveryAddresses,
       authorizedPickups,
       rates,
@@ -237,12 +287,16 @@ export function CustomerDataProvider({ children }: { children: ReactNode }) {
     [
       isCustomer,
       isPrefetching,
-      packages,
-      packagesLoading,
+      dashboardStats,
+      dashboardLoading,
+      dashboardError,
+      invoiceActionCount,
+      packagesRevision,
       preAlerts,
       preAlertsLoading,
       shippingAddress,
       deliveryAddresses,
+      defaultDeliveryAddress,
       maxDeliveryAddresses,
       authorizedPickups,
       rates,

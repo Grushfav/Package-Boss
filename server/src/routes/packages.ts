@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { Router } from 'express'
 import {
   ALLOWED_INVOICE_TYPES,
@@ -6,7 +6,7 @@ import {
   INVOICE_UPLOAD_EXCLUDED_STATUSES,
 } from '../constants.js'
 import { db } from '../db/index.js'
-import { deliveryAddresses, packages } from '../db/schema/index.js'
+import { deliveryAddresses } from '../db/schema/index.js'
 import { packageToDict } from '../lib/serializers/package.js'
 import { jwtRequired, requireAuth, type AuthRequest } from '../middleware/auth.js'
 import { attachPackageInvoice } from '../services/billingService.js'
@@ -19,25 +19,37 @@ import {
 } from '../services/imageUploadService.js'
 import { getCheckoutItems, getPackageCheckoutItem } from '../services/paymentService.js'
 import { getCustomerPackage, getPackageEvents, getPackagePhotos, getTrackingTimeline } from '../services/packageService.js'
-import { packagePendingDeliverySummary } from '../services/deliveryRequestService.js'
+import {
+  listCustomerPackagePage,
+  PACKAGE_LIST_SCOPES,
+  type PackageListScope,
+} from '../services/customerPackageListService.js'
 import { routeParam } from '../lib/routeParams.js'
 import { RateLimitExceeded, assertUploadPresignAllowed } from '../services/rateLimitService.js'
 
 export const packagesRouter = Router()
 
-packagesRouter.get('/me/packages', jwtRequired, requireAuth, async (req: AuthRequest, res) => {
-  const rows = await db
-    .select()
-    .from(packages)
-    .where(eq(packages.customerId, req.user!.id))
-    .orderBy(desc(packages.createdAt))
+function pageArg(value: unknown): number | null {
+  if (value == null || value === '') return null
+  const raw = String(value)
+  if (!/^\d+$/.test(raw)) return null
+  return parseInt(raw, 10)
+}
 
-  const result = []
-  for (const pkg of rows) {
-    const summary = await packagePendingDeliverySummary(pkg)
-    result.push({ ...packageToDict(pkg), pending_delivery_request: summary })
+packagesRouter.get('/me/packages', jwtRequired, requireAuth, async (req: AuthRequest, res) => {
+  const scope = String(req.query.scope ?? '').trim().toLowerCase()
+  if (!scope || req.query.limit == null || req.query.limit === '' || req.query.offset == null || req.query.offset === '') {
+    return res.status(400).json({ error: 'scope, limit, and offset are required' })
   }
-  return res.json({ packages: result })
+  if (!PACKAGE_LIST_SCOPES.includes(scope as PackageListScope)) {
+    return res.status(400).json({ error: 'Invalid scope' })
+  }
+  const limit = pageArg(req.query.limit)
+  const offset = pageArg(req.query.offset)
+  if (limit === null || offset === null) {
+    return res.status(400).json({ error: 'Invalid pagination' })
+  }
+  return res.json(await listCustomerPackagePage(req.user!.id, scope as PackageListScope, limit, offset))
 })
 
 packagesRouter.get('/me/packages/:packageId', jwtRequired, requireAuth, async (req: AuthRequest, res) => {
@@ -125,7 +137,8 @@ packagesRouter.post('/me/packages/:packageId/invoice/presign', jwtRequired, requ
   } catch (exc) {
     if (exc instanceof ImageUploadError) return res.status(exc.statusCode ?? 503).json({ error: exc.message })
     if (exc instanceof Error && exc.message) return res.status(400).json({ error: exc.message })
-    return res.status(500).json({ error: `Failed to generate upload URL: ${exc}` })
+    console.error('Failed to generate package invoice upload URL', exc)
+    return res.status(500).json({ error: 'Something went wrong. Please try again.' })
   }
 })
 

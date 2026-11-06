@@ -233,5 +233,8 @@ def presign_invoice_upload():
         )
     except ImageUploadError as exc:
         return _error(str(exc), exc.status_code or 503)
-    except Exception as exc:
-        return _error(f"Failed to generate upload URL: {exc}", 500)
+    except Exception:
+        from flask import current_app
+
+        current_app.logger.exception("Failed to generate pre-alert invoice upload URL")
+        return _error("Something went wrong. Please try again.", 500)

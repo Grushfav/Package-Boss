@@ -1,5 +1,5 @@
 import { MapPin, Store } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../../api/client'
 import { createDeliveryRequest, DELIVERY_FEE_SUMMARY } from '../../api/deliveryRequests'
@@ -27,7 +27,7 @@ export function RequestDeliveryModal({
   onClose,
   onSubmitted,
 }: RequestDeliveryModalProps) {
-  const { deliveryAddresses, refreshPackages } = useCustomerData()
+  const { deliveryAddresses } = useCustomerData()
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>('delivery')
   const [addressId, setAddressId] = useState(
     () => deliveryAddresses.find((addr) => addr.is_default)?.id ?? deliveryAddresses[0]?.id ?? '',
@@ -35,6 +35,13 @@ export function RequestDeliveryModal({
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (addressId || deliveryAddresses.length === 0) return
+    setAddressId(
+      deliveryAddresses.find((addr) => addr.is_default)?.id ?? deliveryAddresses[0]?.id ?? '',
+    )
+  }, [addressId, deliveryAddresses])
 
   const packagesTotal = sumJmd(packages.map((pkg) => pkg.total_due_jmd))
   const selectedAddress = deliveryAddresses.find((addr) => addr.id === addressId)
@@ -64,7 +71,6 @@ export function RequestDeliveryModal({
         delivery_address_id: fulfillmentType === 'delivery' ? addressId : undefined,
         notes: notes.trim() || undefined,
       })
-      await refreshPackages()
       onSubmitted()
       onClose()
     } catch (err) {

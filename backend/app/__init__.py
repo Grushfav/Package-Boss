@@ -1,8 +1,9 @@
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 
 from app.config import ProductionConfig, get_config_class
 from app.extensions import db, jwt, migrate, register_jwt_handlers
@@ -113,8 +114,56 @@ def create_app(config_class=None):
     from app.cli import register_cli
 
     register_cli(app)
+    _register_error_handlers(app)
 
     return app
+
+
+def _register_error_handlers(app: Flask) -> None:
+    """Return safe JSON errors to clients; keep details in server logs."""
+
+    @app.errorhandler(404)
+    def not_found(exc):
+        return jsonify({"error": "We couldn’t find that."}), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(exc):
+        return jsonify({"error": "That action isn’t available."}), 405
+
+    @app.errorhandler(429)
+    def too_many_requests(exc):
+        description = getattr(exc, "description", None)
+        message = (
+            description
+            if isinstance(description, str) and description and "Too many" in description
+            else "Too many attempts. Please wait a moment and try again."
+        )
+        return jsonify({"error": message}), 429
+
+    @app.errorhandler(HTTPException)
+    def http_exception(exc: HTTPException):
+        status = exc.code or 500
+        if status == 404:
+            return jsonify({"error": "We couldn’t find that."}), 404
+        if status == 405:
+            return jsonify({"error": "That action isn’t available."}), 405
+        if status == 429:
+            return too_many_requests(exc)
+        if status >= 500:
+            app.logger.exception("HTTP %s: %s", status, exc)
+            return (
+                jsonify({"error": "Something went wrong. Please try again."}),
+                status,
+            )
+        message = exc.description if isinstance(exc.description, str) and exc.description else None
+        if not message or len(message) > 280:
+            message = "Please check your details and try again."
+        return jsonify({"error": message}), status
+
+    @app.errorhandler(Exception)
+    def unhandled_exception(exc: Exception):
+        app.logger.exception("Unhandled API error: %s", exc)
+        return jsonify({"error": "Something went wrong. Please try again."}), 500
 
 
 def _promote_role_emails(app):

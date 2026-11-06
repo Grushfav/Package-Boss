@@ -25,6 +25,7 @@ from app.services.delivery_address_service import (
     update_delivery_address,
 )
 from app.services.profile_service import change_password, update_profile
+from app.services.customer_dashboard_service import get_customer_dashboard
 from app.services.warehouse_service import build_shipping_address
 from app.utils.auth_decorators import resolve_jwt_user
 
@@ -82,6 +83,16 @@ def change_my_password():
         return jsonify({"error": str(exc)}), 400
 
     return jsonify({"message": "Password updated"})
+
+
+@me_bp.route("/me/dashboard", methods=["GET"])
+@jwt_required()
+def get_my_dashboard():
+    user, auth_err = resolve_jwt_user()
+    if auth_err:
+        return auth_err
+
+    return jsonify(get_customer_dashboard(user))
 
 
 @me_bp.route("/me/shipping-address", methods=["GET"])

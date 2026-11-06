@@ -225,10 +225,11 @@ export default function ({ token, adminToken, clerkToken }) {
       'shipping address has boss id': (r) => typeof r.json('shipping_id') === 'string',
     });
 
-    const packages = authGet('/me/packages', token);
+    const packages = authGet('/me/packages?scope=active&limit=10&offset=0', token);
     check(packages, {
       'packages status 200': (r) => r.status === 200,
       'packages is array': (r) => Array.isArray(r.json('packages')),
+      'packages has total': (r) => typeof r.json('total') === 'number',
     });
 
     const preAlerts = authGet('/me/pre-alerts', token);

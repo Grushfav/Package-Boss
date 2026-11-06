@@ -41,7 +41,10 @@ def _is_allowed_upload_url(url: str) -> bool:
 def _presign_error(exc: Exception, status: int = 500):
     if isinstance(exc, ImageUploadError):
         return jsonify({"error": str(exc)}), exc.status_code or status
-    return jsonify({"error": f"Failed to generate upload URL: {exc}"}), status
+    from flask import current_app
+
+    current_app.logger.exception("Failed to generate upload URL")
+    return jsonify({"error": "Something went wrong. Please try again."}), status
 
 
 def _check_upload_presign_limit():

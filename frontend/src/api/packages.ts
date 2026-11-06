@@ -2,9 +2,35 @@ import { api } from './client'
 import { presignFilePayload } from '../lib/normalizeUploadFile'
 import type { InvoicePresignResponse, Package } from '../types'
 
-export async function fetchMyPackages(): Promise<Package[]> {
-  const { data } = await api.get<{ packages: Package[] }>('/me/packages')
-  return data.packages
+export type PackageListScope = 'active' | 'completed' | 'payable'
+
+export interface PackagePage {
+  packages: Package[]
+  total: number
+  limit: number
+  offset: number
+  readyForPickupCount: number
+}
+
+export async function fetchMyPackagePage(
+  scope: PackageListScope,
+  limit: number,
+  offset: number,
+): Promise<PackagePage> {
+  const { data } = await api.get<{
+    packages?: Package[]
+    total?: number
+    limit?: number
+    offset?: number
+    ready_for_pickup_count?: number
+  }>('/me/packages', { params: { scope, limit, offset } })
+  return {
+    packages: data.packages ?? [],
+    total: data.total ?? 0,
+    limit: data.limit ?? limit,
+    offset: data.offset ?? offset,
+    readyForPickupCount: data.ready_for_pickup_count ?? 0,
+  }
 }
 
 export async function fetchMyPackage(id: string): Promise<Package> {

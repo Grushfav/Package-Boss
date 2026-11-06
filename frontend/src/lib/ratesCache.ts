@@ -37,6 +37,10 @@ export function getCachedRates(revision: string | null | undefined): RatesRespon
   }
 }
 
+export function getActiveCachedRates(): RatesResponse | null {
+  return getCachedRates(localStorage.getItem(ACTIVE_REVISION_KEY))
+}
+
 export function setCachedRates(data: RatesResponse) {
   const revision = data.rates_revision ?? null
   const payload: CachedRates = {

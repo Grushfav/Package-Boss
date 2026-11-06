@@ -1,8 +1,10 @@
 import { BarChart3, FileText, Megaphone, Truck, UserCog, Warehouse } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchAdminOverview, fetchClerks } from '../api/admin'
+import { getErrorMessage } from '../api/client'
 import { fetchWarehouseSummary } from '../api/staff'
 import { HubCard } from '../components/ui/HubCard'
+import { LoadErrorBanner } from '../components/ui/LoadErrorBanner'
 import { useAuth } from '../context/AuthContext'
 import type { AdminOverview } from '../types'
 
@@ -12,21 +14,38 @@ export function AdminHubPage() {
   const [activeClerks, setActiveClerks] = useState(0)
   const [warehouseAttention, setWarehouseAttention] = useState(0)
   const [warehouseUrgent, setWarehouseUrgent] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
-    fetchAdminOverview().then(setOverview).catch(() => {})
+    let cancelled = false
+    setLoadError('')
+    fetchAdminOverview()
+      .then((data) => {
+        if (!cancelled) setOverview(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(getErrorMessage(err))
+      })
     fetchClerks()
-      .then((clerks) => setActiveClerks(clerks.filter((c) => c.is_active !== false).length))
+      .then((clerks) => {
+        if (!cancelled) setActiveClerks(clerks.filter((c) => c.is_active !== false).length)
+      })
       .catch(() => {})
     fetchWarehouseSummary()
       .then((summary) => {
-        setWarehouseAttention(
-          summary.print_queue_pending + summary.unidentified_count + summary.pending_pre_alerts,
-        )
-        setWarehouseUrgent(summary.unidentified_count > 0)
+        if (!cancelled) {
+          setWarehouseAttention(
+            summary.print_queue_pending + summary.unidentified_count + summary.pending_pre_alerts,
+          )
+          setWarehouseUrgent(summary.unidentified_count > 0)
+        }
       })
       .catch(() => {})
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey])
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -34,6 +53,14 @@ export function AdminHubPage() {
         <h1 className="text-2xl font-black uppercase">Hi, {user?.first_name}</h1>
         <p className="mt-1 text-sm text-muted">Where would you like to go?</p>
       </header>
+
+      {loadError && (
+        <LoadErrorBanner
+          className="mb-6"
+          message={loadError}
+          onRetry={() => setReloadKey((key) => key + 1)}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <HubCard

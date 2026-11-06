@@ -13,7 +13,6 @@ import { CustomerOnboardingTour } from '../onboarding/CustomerOnboardingTour'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { useAuth } from '../../context/AuthContext'
 import { getHomeRoute } from '../../lib/routing'
-import { packageNeedsInvoiceUpload } from '../../lib/packageBilling'
 
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null
@@ -34,14 +33,14 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export function CustomerDashboardLayout() {
   const { user } = useAuth()
   const location = useLocation()
-  const { packages, preAlerts } = useCustomerData()
+  const { preAlerts, invoiceActionCount } = useCustomerData()
   const isCustomer = !user?.role || user.role === 'customer'
   const justSignedUp = Boolean(
     location.state && typeof location.state === 'object' && 'shipping_address' in location.state,
   )
 
   const preAlertCount = preAlerts.filter((a) => a.status === 'pending').length
-  const actionCount = packages.filter(packageNeedsInvoiceUpload).length
+  const actionCount = invoiceActionCount
 
   if (!isCustomer) {
     return <Navigate to={getHomeRoute(user?.role)} replace />

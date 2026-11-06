@@ -16,6 +16,21 @@ const PUBLIC_AUTH_PATHS = new Set([
   '/data-deletion',
 ])
 
+/** Safe copy shown to customers and clerks. Never include status codes or stack text. */
+export const USER_ERROR = {
+  network: 'We’re having trouble connecting. Check your connection and try again.',
+  notFound: 'We couldn’t find that.',
+  forbidden: 'You don’t have access to do that.',
+  unauthorized: 'Please sign in again.',
+  rateLimit: 'Too many attempts. Please wait a moment and try again.',
+  server: 'Something went wrong on our side. Please try again in a moment.',
+  validation: 'Please check your details and try again.',
+  generic: 'Something went wrong. Please try again.',
+} as const
+
+const TECHNICAL_MESSAGE =
+  /status code|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|Network Error|Internal Server|Traceback|sqlalchemy|drizzle|postgres|SQLITE|at Object\.|Exception:|<!DOCTYPE|<html|Failed to generate upload URL:/i
+
 export const api = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -58,19 +73,36 @@ function redirectToLogin() {
   window.location.assign(`/login?next=${next}`)
 }
 
+function readServerError(data: unknown): string | undefined {
+  if (typeof data === 'string') {
+    const trimmed = data.trim()
+    if (!trimmed || TECHNICAL_MESSAGE.test(trimmed) || trimmed.length > 280) return undefined
+    return trimmed
+  }
+  if (typeof data === 'object' && data !== null && 'error' in data) {
+    const value = (data as { error?: unknown }).error
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (!trimmed || TECHNICAL_MESSAGE.test(trimmed) || trimmed.length > 280) return undefined
+      return trimmed
+    }
+  }
+  return undefined
+}
+
+function isUserFacingMessage(message: string): boolean {
+  const trimmed = message.trim()
+  if (!trimmed || trimmed.length > 280) return false
+  return !TECHNICAL_MESSAGE.test(trimmed)
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (axios.isAxiosError(error) && error.response) {
       const status = error.response.status
       const requestUrl = error.config?.url ?? ''
-      const errorMessage =
-        typeof error.response.data === 'object' &&
-        error.response.data !== null &&
-        'error' in error.response.data &&
-        typeof (error.response.data as { error?: unknown }).error === 'string'
-          ? (error.response.data as { error: string }).error
-          : undefined
+      const errorMessage = readServerError(error.response.data)
 
       if (shouldForceLogout(status, errorMessage, requestUrl)) {
         localStorage.removeItem('access_token')
@@ -83,8 +115,47 @@ api.interceptors.response.use(
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    return error.response?.data?.error || error.message || 'Something went wrong'
+    if (!error.response) {
+      return USER_ERROR.network
+    }
+
+    const status = error.response.status
+    const serverMessage = readServerError(error.response.data)
+
+    if (status === 401) {
+      return serverMessage && isUserFacingMessage(serverMessage)
+        ? serverMessage
+        : USER_ERROR.unauthorized
+    }
+    if (status === 403) {
+      return serverMessage && isUserFacingMessage(serverMessage)
+        ? serverMessage
+        : USER_ERROR.forbidden
+    }
+    if (status === 404) {
+      return serverMessage && isUserFacingMessage(serverMessage)
+        ? serverMessage
+        : USER_ERROR.notFound
+    }
+    if (status === 429) {
+      return serverMessage && isUserFacingMessage(serverMessage)
+        ? serverMessage
+        : USER_ERROR.rateLimit
+    }
+    if (status >= 500) {
+      return USER_ERROR.server
+    }
+    if (status >= 400) {
+      return serverMessage && isUserFacingMessage(serverMessage)
+        ? serverMessage
+        : USER_ERROR.validation
+    }
+    return USER_ERROR.generic
   }
-  if (error instanceof Error) return error.message
-  return 'Something went wrong'
+
+  if (error instanceof Error) {
+    return isUserFacingMessage(error.message) ? error.message : USER_ERROR.generic
+  }
+
+  return USER_ERROR.generic
 }

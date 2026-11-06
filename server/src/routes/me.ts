@@ -26,6 +26,7 @@ import {
 } from '../services/deliveryAddressService.js'
 import { changePassword, updateProfile } from '../services/profileService.js'
 import { routeParam } from '../lib/routeParams.js'
+import { getCustomerDashboard } from '../services/customerDashboardService.js'
 import { buildShippingAddress } from '../services/warehouseService.js'
 
 export const meRouter = Router()
@@ -57,6 +58,10 @@ meRouter.post('/me/change-password', jwtRequired, requireAuth, async (req: AuthR
   } catch (exc) {
     return res.status(400).json({ error: exc instanceof Error ? exc.message : String(exc) })
   }
+})
+
+meRouter.get('/me/dashboard', jwtRequired, requireAuth, async (req: AuthRequest, res) => {
+  return res.json(await getCustomerDashboard(req.user!))
 })
 
 meRouter.get('/me/shipping-address', jwtRequired, requireAuth, (req: AuthRequest, res) => {

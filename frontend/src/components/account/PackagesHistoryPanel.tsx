@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { cancelDeliveryRequest } from '../../api/deliveryRequests'
+import { getErrorMessage } from '../../api/client'
+import { fetchMyPackagePage } from '../../api/packages'
 import {
   formatPackageCost,
   formatPackageWeight,
@@ -16,21 +18,14 @@ import { RequestDeliveryModal } from './RequestDeliveryModal'
 import { ShippingHelpButton } from './ShippingHelpButton'
 import { StatusBadge } from '../warehouse/StatusBadge'
 import { Button } from '../ui/Button'
+import { LoadErrorBanner } from '../ui/LoadErrorBanner'
 import type { Package } from '../../types'
 
-const PAGE_SIZE = 15
+const ACTIVE_PAGE_SIZE = 10
+const COMPLETED_PAGE_SIZE = 5
 
-function isCompletedPackage(pkg: Package) {
-  return pkg.status === 'delivered'
-}
-
-function paginate<T>(items: T[], page: number): T[] {
-  const start = (page - 1) * PAGE_SIZE
-  return items.slice(start, start + PAGE_SIZE)
-}
-
-function totalPagesFor(count: number) {
-  return Math.max(1, Math.ceil(count / PAGE_SIZE))
+function totalPagesFor(count: number, pageSize: number) {
+  return Math.max(1, Math.ceil(count / pageSize))
 }
 
 function packageTotalDisplay(pkg: Package): string | null {
@@ -210,28 +205,34 @@ function PackageCard({
 
 function PackagePagination({
   page,
+  pageSize,
   totalPages,
   totalItems,
+  loading,
   onPageChange,
 }: {
   page: number
+  pageSize: number
   totalPages: number
   totalItems: number
+  loading?: boolean
   onPageChange: (page: number) => void
 }) {
-  if (totalItems <= PAGE_SIZE) return null
+  if (totalItems <= pageSize) return null
+  const from = (page - 1) * pageSize + 1
+  const to = Math.min(page * pageSize, totalItems)
 
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
       <p className="text-muted">
-        Page {page} of {totalPages} ({totalItems} packages)
+        {from}–{to} of {totalItems}
       </p>
       <div className="flex gap-2">
         <Button
           type="button"
           variant="outline"
           className="!text-xs"
-          disabled={page <= 1}
+          disabled={loading || page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
           Previous
@@ -240,7 +241,7 @@ function PackagePagination({
           type="button"
           variant="outline"
           className="!text-xs"
-          disabled={page >= totalPages}
+          disabled={loading || page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >
           Next
@@ -253,11 +254,13 @@ function PackagePagination({
 type PackageCardsProps = {
   packages: Package[]
   page: number
+  pageSize: number
+  totalItems: number
+  loading?: boolean
   onPageChange: (page: number) => void
   showSelection: boolean
   selectedIds: string[]
-  eligiblePackages: Package[]
-  onTogglePackage: (id: string) => void
+  onTogglePackage: (pkg: Package) => void
   onToggleAllEligible: () => void
   onCancelDelivery: (requestId: string) => void
   cancellingId: string | null
@@ -266,25 +269,25 @@ type PackageCardsProps = {
 function PackageCards({
   packages,
   page,
+  pageSize,
+  totalItems,
+  loading,
   onPageChange,
   showSelection,
   selectedIds,
-  eligiblePackages,
   onTogglePackage,
   onToggleAllEligible,
   onCancelDelivery,
   cancellingId,
 }: PackageCardsProps) {
-  const totalPages = totalPagesFor(packages.length)
-  const safePage = Math.min(page, totalPages)
-  const pagePackages = paginate(packages, safePage)
-  const pageEligible = pagePackages.filter(packageEligibleForDeliveryRequest)
+  const totalPages = totalPagesFor(totalItems, pageSize)
+  const pageEligible = packages.filter(packageEligibleForDeliveryRequest)
   const allPageEligibleSelected =
     pageEligible.length > 0 && pageEligible.every((pkg) => selectedIds.includes(pkg.id))
 
   return (
     <div>
-      {showSelection && eligiblePackages.length > 0 && (
+      {showSelection && pageEligible.length > 0 && (
         <label className="mb-3 flex cursor-pointer items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
@@ -296,23 +299,25 @@ function PackageCards({
         </label>
       )}
       <div className="space-y-2">
-        {pagePackages.map((pkg) => (
+        {packages.map((pkg) => (
           <PackageCard
             key={pkg.id}
             pkg={pkg}
             showSelection={showSelection}
             selected={selectedIds.includes(pkg.id)}
             canSelect={showSelection && packageEligibleForDeliveryRequest(pkg)}
-            onToggle={onTogglePackage}
+            onToggle={() => onTogglePackage(pkg)}
             onCancelDelivery={onCancelDelivery}
             cancellingId={cancellingId}
           />
         ))}
       </div>
       <PackagePagination
-        page={safePage}
+        page={page}
+        pageSize={pageSize}
         totalPages={totalPages}
-        totalItems={packages.length}
+        totalItems={totalItems}
+        loading={loading}
         onPageChange={onPageChange}
       />
     </div>
@@ -320,42 +325,127 @@ function PackageCards({
 }
 
 export function PackagesHistoryPanel() {
-  const { packages, packagesLoading, refreshPackages } = useCustomerData()
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const { dashboardStats, packagesRevision, refreshPackages } = useCustomerData()
+  const [selectedPackages, setSelectedPackages] = useState<Map<string, Package>>(new Map())
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [activePage, setActivePage] = useState(1)
+  const [activePendingPage, setActivePendingPage] = useState<number | null>(null)
   const [completedPage, setCompletedPage] = useState(1)
+  const [completedPendingPage, setCompletedPendingPage] = useState<number | null>(null)
+  const [activePackages, setActivePackages] = useState<Package[]>([])
+  const [activeTotal, setActiveTotal] = useState(0)
+  const [completedPackages, setCompletedPackages] = useState<Package[]>([])
+  const [completedTotal, setCompletedTotal] = useState(0)
+  const [readyCount, setReadyCount] = useState<number | null>(null)
+  const [activeLoading, setActiveLoading] = useState(true)
+  const [completedLoading, setCompletedLoading] = useState(true)
+  const [activeError, setActiveError] = useState('')
+  const [completedError, setCompletedError] = useState('')
 
-  const activePackages = useMemo(
-    () => packages.filter((pkg) => !isCompletedPackage(pkg)),
-    [packages],
-  )
-  const completedPackages = useMemo(
-    () => packages.filter(isCompletedPackage),
-    [packages],
-  )
-  const readyForPickupPackages = useMemo(
-    () => activePackages.filter((pkg) => pkg.status === 'ready_for_pickup'),
-    [activePackages],
-  )
-
-  const eligiblePackages = activePackages.filter(packageEligibleForDeliveryRequest)
-  const selectedPackages = activePackages.filter((pkg) => selectedIds.includes(pkg.id))
-
-  useEffect(() => {
-    setActivePage((page) => Math.min(page, totalPagesFor(activePackages.length)))
-  }, [activePackages.length])
+  const selectedIds = [...selectedPackages.keys()]
+  const selectedList = [...selectedPackages.values()]
+  const readyForPickupCount = readyCount ?? dashboardStats?.readyPickupDelivery ?? 0
+  const hasPackages = activeTotal > 0 || completedTotal > 0
+  const activePageToLoad = activePendingPage ?? activePage
+  const completedPageToLoad = completedPendingPage ?? completedPage
 
   useEffect(() => {
-    setCompletedPage((page) => Math.min(page, totalPagesFor(completedPackages.length)))
-  }, [completedPackages.length])
+    setSelectedPackages(new Map())
+    setActivePage(1)
+    setActivePendingPage(null)
+    setCompletedPage(1)
+    setCompletedPendingPage(null)
+  }, [packagesRevision])
 
-  function togglePackage(id: string) {
-    if (!eligiblePackages.some((pkg) => pkg.id === id)) return
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
-    )
+  useEffect(() => {
+    let cancelled = false
+    let keepLoading = false
+    setActiveLoading(true)
+    setActiveError('')
+    fetchMyPackagePage('active', ACTIVE_PAGE_SIZE, (activePageToLoad - 1) * ACTIVE_PAGE_SIZE)
+      .then((page) => {
+        if (cancelled) return
+        const pages = totalPagesFor(page.total, ACTIVE_PAGE_SIZE)
+        const committedPage = Math.min(activePageToLoad, pages)
+        setActiveTotal(page.total)
+        setReadyCount(page.readyForPickupCount)
+        if (committedPage !== activePageToLoad) {
+          // Keep prior packages visible while re-fetching the clamped page.
+          keepLoading = true
+          setActivePage(committedPage)
+          setActivePendingPage(committedPage)
+          return
+        }
+        setActivePackages(page.packages)
+        setActivePage(committedPage)
+        setActivePendingPage(null)
+        setSelectedPackages((current) => {
+          if (current.size === 0) return current
+          const next = new Map(current)
+          for (const pkg of page.packages) {
+            if (!next.has(pkg.id)) continue
+            if (packageEligibleForDeliveryRequest(pkg)) next.set(pkg.id, pkg)
+            else next.delete(pkg.id)
+          }
+          return next
+        })
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setActiveError(getErrorMessage(err))
+        setActivePendingPage(null)
+      })
+      .finally(() => {
+        if (!cancelled && !keepLoading) setActiveLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activePageToLoad, packagesRevision])
+
+  useEffect(() => {
+    let cancelled = false
+    let keepLoading = false
+    setCompletedLoading(true)
+    setCompletedError('')
+    fetchMyPackagePage('completed', COMPLETED_PAGE_SIZE, (completedPageToLoad - 1) * COMPLETED_PAGE_SIZE)
+      .then((page) => {
+        if (cancelled) return
+        const pages = totalPagesFor(page.total, COMPLETED_PAGE_SIZE)
+        const committedPage = Math.min(completedPageToLoad, pages)
+        setCompletedTotal(page.total)
+        if (committedPage !== completedPageToLoad) {
+          keepLoading = true
+          setCompletedPage(committedPage)
+          setCompletedPendingPage(committedPage)
+          return
+        }
+        setCompletedPackages(page.packages)
+        setCompletedPage(committedPage)
+        setCompletedPendingPage(null)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setCompletedError(getErrorMessage(err))
+        setCompletedPendingPage(null)
+      })
+      .finally(() => {
+        if (!cancelled && !keepLoading) setCompletedLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [completedPageToLoad, packagesRevision])
+
+  function togglePackage(pkg: Package) {
+    if (!packageEligibleForDeliveryRequest(pkg)) return
+    setSelectedPackages((prev) => {
+      const next = new Map(prev)
+      if (next.has(pkg.id)) next.delete(pkg.id)
+      else next.set(pkg.id, pkg)
+      return next
+    })
   }
 
   async function handleCancelDelivery(requestId: string) {
@@ -363,6 +453,7 @@ export function PackagesHistoryPanel() {
     setCancellingId(requestId)
     try {
       await cancelDeliveryRequest(requestId)
+      setSelectedPackages(new Map())
       await refreshPackages()
     } finally {
       setCancellingId(null)
@@ -370,25 +461,22 @@ export function PackagesHistoryPanel() {
   }
 
   function toggleAllEligibleOnActivePage() {
-    const pagePackages = paginate(activePackages, activePage)
-    const pageEligible = pagePackages.filter(packageEligibleForDeliveryRequest)
+    const pageEligible = activePackages.filter(packageEligibleForDeliveryRequest)
     const allSelected =
-      pageEligible.length > 0 && pageEligible.every((pkg) => selectedIds.includes(pkg.id))
-    if (allSelected) {
-      const pageIds = new Set(pageEligible.map((pkg) => pkg.id))
-      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)))
-      return
-    }
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      for (const pkg of pageEligible) next.add(pkg.id)
-      return [...next]
+      pageEligible.length > 0 && pageEligible.every((pkg) => selectedPackages.has(pkg.id))
+    setSelectedPackages((prev) => {
+      const next = new Map(prev)
+      if (allSelected) {
+        for (const pkg of pageEligible) next.delete(pkg.id)
+      } else {
+        for (const pkg of pageEligible) next.set(pkg.id, pkg)
+      }
+      return next
     })
   }
 
   const cardProps = {
     selectedIds,
-    eligiblePackages,
     onTogglePackage: togglePackage,
     onToggleAllEligible: toggleAllEligibleOnActivePage,
     onCancelDelivery: handleCancelDelivery,
@@ -399,10 +487,10 @@ export function PackagesHistoryPanel() {
     <div>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold uppercase tracking-wide">Packages</h2>
-        {packages.length > 0 && <ShippingHelpButton />}
+        {hasPackages && <ShippingHelpButton />}
       </div>
 
-      {readyForPickupPackages.length > 0 && (
+      {readyForPickupCount > 0 && (
         <div className="mt-4 rounded-xl border border-boss-gold/35 bg-boss-gold/10 px-4 py-3 text-sm">
           <p className="font-semibold text-foreground">Pickup or home delivery available</p>
           <p className="mt-1 text-muted">
@@ -417,17 +505,17 @@ export function PackagesHistoryPanel() {
         </div>
       )}
 
-      {eligiblePackages.length > 0 && selectedIds.length > 0 && (
+      {selectedList.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-boss-gold/15 px-3 py-1 text-xs font-semibold text-boss-gold">
-            {selectedIds.length} selected
+            {selectedList.length} selected
           </span>
           <Button type="button" className="!text-xs" onClick={() => setShowRequestModal(true)}>
             Request pickup or delivery
           </Button>
           <button
             type="button"
-            onClick={() => setSelectedIds([])}
+            onClick={() => setSelectedPackages(new Map())}
             className="text-xs font-semibold text-muted hover:text-foreground"
           >
             Clear selection
@@ -435,11 +523,22 @@ export function PackagesHistoryPanel() {
         </div>
       )}
 
-      {packagesLoading && packages.length === 0 ? (
+      {(activeError || completedError) && (
+        <div className="mt-4 space-y-2">
+          {activeError && (
+            <LoadErrorBanner message={activeError} onRetry={() => void refreshPackages()} />
+          )}
+          {completedError && (
+            <LoadErrorBanner message={completedError} onRetry={() => void refreshPackages()} />
+          )}
+        </div>
+      )}
+
+      {activeLoading && completedLoading && !hasPackages ? (
         <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
           Loading packages...
         </p>
-      ) : packages.length === 0 ? (
+      ) : !activeLoading && !completedLoading && !hasPackages && !activeError && !completedError ? (
         <div className="relative mt-4 rounded-xl border border-border bg-card p-6 pr-16 text-sm text-muted">
           <div className="absolute right-3 top-3">
             <ShippingHelpButton />
@@ -454,47 +553,61 @@ export function PackagesHistoryPanel() {
             <p className="mt-1 text-xs text-muted">
               Packages still moving through our warehouse and delivery process.
             </p>
-            {activePackages.length === 0 ? (
+            {activeLoading && activePackages.length === 0 ? (
+              <p className="mt-4 text-sm text-muted">Loading active packages...</p>
+            ) : activeTotal === 0 && !activeError ? (
               <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
                 No active packages right now.
               </p>
-            ) : (
+            ) : activePackages.length > 0 ? (
               <div className="mt-4">
                 <PackageCards
                   packages={activePackages}
                   page={activePage}
-                  onPageChange={setActivePage}
+                  pageSize={ACTIVE_PAGE_SIZE}
+                  totalItems={activeTotal}
+                  loading={activeLoading || activePendingPage != null}
+                  onPageChange={setActivePendingPage}
                   showSelection
                   {...cardProps}
                 />
               </div>
-            )}
+            ) : null}
           </section>
 
-          {completedPackages.length > 0 && (
+          {(completedLoading || completedTotal > 0 || completedError) && (
             <section>
               <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">Completed</h3>
               <p className="mt-1 text-xs text-muted">Delivered packages.</p>
-              <div className="mt-4">
-                <PackageCards
-                  packages={completedPackages}
-                  page={completedPage}
-                  onPageChange={setCompletedPage}
-                  showSelection={false}
-                  {...cardProps}
-                />
-              </div>
+              {completedLoading && completedPackages.length === 0 ? (
+                <p className="mt-4 text-sm text-muted">Loading completed packages...</p>
+              ) : completedPackages.length > 0 ? (
+                <div className="mt-4">
+                  <PackageCards
+                    packages={completedPackages}
+                    page={completedPage}
+                    pageSize={COMPLETED_PAGE_SIZE}
+                    totalItems={completedTotal}
+                    loading={completedLoading || completedPendingPage != null}
+                    onPageChange={setCompletedPendingPage}
+                    showSelection={false}
+                    {...cardProps}
+                  />
+                </div>
+              ) : completedError ? null : (
+                <p className="mt-4 text-sm text-muted">No completed packages yet.</p>
+              )}
             </section>
           )}
         </div>
       )}
 
-      {showRequestModal && selectedPackages.length > 0 && (
+      {showRequestModal && selectedList.length > 0 && (
         <RequestDeliveryModal
-          packages={selectedPackages}
+          packages={selectedList}
           onClose={() => setShowRequestModal(false)}
           onSubmitted={async () => {
-            setSelectedIds([])
+            setSelectedPackages(new Map())
             await refreshPackages()
           }}
         />

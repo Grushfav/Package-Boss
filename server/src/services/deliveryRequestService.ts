@@ -186,9 +186,7 @@ export async function getActiveRequestForPackage(packageId: string): Promise<Del
   return links[0]?.request ?? null
 }
 
-export async function packagePendingDeliverySummary(pkg: { id: string }) {
-  const request = await getActiveRequestForPackage(pkg.id)
-  if (!request) return null
+export function summarizeDeliveryRequest(request: DeliveryRequestRow) {
   const fulfillmentType = request.fulfillmentType || 'delivery'
   let statusLabel = DELIVERY_REQUEST_STATUS_LABELS[request.status] ?? request.status
   if (fulfillmentType === 'pickup' && request.status === 'completed') {
@@ -206,6 +204,37 @@ export async function packagePendingDeliverySummary(pkg: { id: string }) {
     delivery_fee_jmd: parseFloat(request.deliveryFeeJmd),
     requested_at: utcIsoformat(request.requestedAt),
   }
+}
+
+export async function packagePendingDeliverySummary(pkg: { id: string }) {
+  const request = await getActiveRequestForPackage(pkg.id)
+  if (!request) return null
+  return summarizeDeliveryRequest(request)
+}
+
+export async function pendingDeliverySummariesByPackage(packageIds: string[]) {
+  const summaries = new Map<string, ReturnType<typeof summarizeDeliveryRequest>>()
+  if (!packageIds.length) return summaries
+
+  const openStatuses = [...DELIVERY_REQUEST_OPEN_STATUSES]
+  const links = await db
+    .select({
+      packageId: deliveryRequestPackages.packageId,
+      request: deliveryRequests,
+    })
+    .from(deliveryRequestPackages)
+    .innerJoin(deliveryRequests, eq(deliveryRequestPackages.deliveryRequestId, deliveryRequests.id))
+    .where(
+      and(
+        inArray(deliveryRequestPackages.packageId, packageIds),
+        inArray(deliveryRequests.status, openStatuses),
+      ),
+    )
+
+  for (const row of links) {
+    summaries.set(row.packageId, summarizeDeliveryRequest(row.request))
+  }
+  return summaries
 }
 
 async function validateRequestPackages(customer: UserRow, packageIds: unknown[]): Promise<Array<typeof packages.$inferSelect>> {

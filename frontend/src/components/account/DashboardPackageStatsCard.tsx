@@ -5,6 +5,7 @@ import {
   formatDashboardTotalDue,
 } from '../../lib/dashboardStats'
 import { useCustomerData } from '../../context/CustomerDataContext'
+import { LoadErrorBanner } from '../ui/LoadErrorBanner'
 
 function StatCard({
   to,
@@ -49,8 +50,9 @@ function StatCard({
 }
 
 export function DashboardPackageStatsCard() {
-  const { packages, packagesLoading } = useCustomerData()
-  const stats = computeDashboardPackageStats(packages)
+  const { dashboardStats, dashboardLoading, dashboardError, refreshAll } = useCustomerData()
+  const stats = dashboardStats ?? computeDashboardPackageStats([])
+  const loading = !dashboardStats && dashboardLoading
 
   return (
     <div className="space-y-4">
@@ -64,6 +66,10 @@ export function DashboardPackageStatsCard() {
         </Link>
       </div>
 
+      {dashboardError && (
+        <LoadErrorBanner message={dashboardError} onRetry={() => void refreshAll()} />
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           to="/dashboard/packages"
@@ -71,7 +77,7 @@ export function DashboardPackageStatsCard() {
           label="Received"
           value={String(stats.receivedFortLauderdale)}
           sub="At our Fort Lauderdale warehouse"
-          loading={packagesLoading}
+          loading={loading}
         />
         <StatCard
           to="/dashboard/packages"
@@ -79,7 +85,7 @@ export function DashboardPackageStatsCard() {
           label="In transit"
           value={String(stats.inTransit)}
           sub="En route to Jamaica"
-          loading={packagesLoading}
+          loading={loading}
         />
         <StatCard
           to="/dashboard/packages"
@@ -87,7 +93,7 @@ export function DashboardPackageStatsCard() {
           label="Customs"
           value={String(stats.customs)}
           sub="Clearing Jamaican customs"
-          loading={packagesLoading}
+          loading={loading}
         />
         <StatCard
           to="/dashboard/packages"
@@ -95,7 +101,7 @@ export function DashboardPackageStatsCard() {
           label="Ready pickup / delivery"
           value={String(stats.readyPickupDelivery)}
           sub="Ready for pickup or delivery"
-          loading={packagesLoading}
+          loading={loading}
         />
         <StatCard
           to="/dashboard/packages"
@@ -107,7 +113,7 @@ export function DashboardPackageStatsCard() {
               ? `Includes J$${stats.handlingFeeJmd} multi-package handling fee`
               : 'Published bills awaiting payment'
           }
-          loading={packagesLoading}
+          loading={loading}
           className="col-span-2"
         />
       </div>
