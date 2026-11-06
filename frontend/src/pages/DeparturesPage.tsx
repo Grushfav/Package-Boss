@@ -49,6 +49,8 @@ function downloadDepartureManifest(shipment: ShipmentSummary, packages: Package[
     'Status',
   ]
   const totalPackages = packages.length
+  const totalWeightLbs =
+    Math.round(packages.reduce((sum, pkg) => sum + (pkg.actual_weight_lbs ?? 0), 0) * 100) / 100
   const rows = packages.map((pkg) =>
     [
       shipment.reference,
@@ -69,6 +71,7 @@ function downloadDepartureManifest(shipment: ShipmentSummary, packages: Package[
   const summary = [
     ['Departure date', shipment.departure_date].map(csvCell).join(','),
     ['Total packages', totalPackages].map(csvCell).join(','),
+    ['Total weight (lbs)', totalWeightLbs].map(csvCell).join(','),
   ]
   const csv = [...summary, '', headers.join(','), ...rows].join('\r\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
