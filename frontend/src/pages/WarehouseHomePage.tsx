@@ -36,6 +36,27 @@ export function WarehouseHomePage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <HubCard
+          to="/warehouse/status?preset=received"
+          icon={RefreshCw}
+          title="Received"
+          description="Packages received and waiting to go in transit."
+          count={counts?.received_count}
+        />
+        <HubCard
+          to="/warehouse/status?preset=today"
+          icon={RefreshCw}
+          title="Received today"
+          description="All packages received today — review or update statuses."
+          count={counts?.packages_today}
+        />
+        <HubCard
+          to="/warehouse/departures"
+          icon={Plane}
+          title="Departures"
+          description="Group received packages by shipment before marking in transit."
+          count={counts?.open_shipments}
+        />
+        <HubCard
           to="/warehouse/print-queue"
           icon={Printer}
           title="Print queue"
@@ -49,27 +70,6 @@ export function WarehouseHomePage() {
           description="Packages with no matching customer — assign owners when identified."
           count={counts?.unidentified_count}
           urgent
-        />
-        <HubCard
-          to="/warehouse/departures"
-          icon={Plane}
-          title="Departures"
-          description="Group received packages by shipment before marking in transit."
-          count={counts?.open_shipments}
-        />
-        <HubCard
-          to="/warehouse/status?preset=received"
-          icon={RefreshCw}
-          title="Received"
-          description="Packages received and waiting to go in transit."
-          count={counts?.received_count}
-        />
-        <HubCard
-          to="/warehouse/status?preset=today"
-          icon={RefreshCw}
-          title="Received today"
-          description="All packages received today — review or update statuses."
-          count={counts?.packages_today}
         />
         <HubCard
           to="/warehouse/pre-alerts"

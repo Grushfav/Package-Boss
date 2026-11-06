@@ -1,4 +1,4 @@
-import { BarChart3, FileText, Megaphone, UserCog, Warehouse } from 'lucide-react'
+import { BarChart3, FileText, Megaphone, Truck, UserCog, Warehouse } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchAdminOverview, fetchClerks } from '../api/admin'
 import { fetchWarehouseSummary } from '../api/staff'
@@ -48,10 +48,31 @@ export function AdminHubPage() {
           }
         />
         <HubCard
+          to="/warehouse"
+          icon={Warehouse}
+          title="Warehouse floor"
+          description="Receive, print labels, and update statuses."
+          count={warehouseAttention > 0 ? warehouseAttention : undefined}
+          urgent={warehouseUrgent}
+          stat={warehouseAttention > 0 ? undefined : 'All clear'}
+          statTone="success"
+        />
+        <HubCard
           to="/admin/invoices"
           icon={FileText}
           title="Invoices"
           description="Recorded payments by date for accounting."
+        />
+        <HubCard
+          to="/warehouse/requests"
+          icon={Truck}
+          title="Local delivery"
+          description="Home delivery requests and runs."
+          stat={
+            overview
+              ? `${overview.delivery_requests_active} active request${overview.delivery_requests_active === 1 ? '' : 's'}`
+              : undefined
+          }
         />
         <HubCard
           to="/admin/announcements"
@@ -65,16 +86,6 @@ export function AdminHubPage() {
           title="Clerks"
           description="Staff accounts, permissions, and invites."
           stat={`${activeClerks} active clerk${activeClerks === 1 ? '' : 's'}`}
-        />
-        <HubCard
-          to="/warehouse"
-          icon={Warehouse}
-          title="Warehouse floor"
-          description="Receive, print labels, and update statuses."
-          count={warehouseAttention > 0 ? warehouseAttention : undefined}
-          urgent={warehouseUrgent}
-          stat={warehouseAttention > 0 ? undefined : 'All clear'}
-          statTone="success"
         />
       </div>
     </div>

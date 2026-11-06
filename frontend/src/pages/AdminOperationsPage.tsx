@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  ChevronDown,
   Landmark,
   Minus,
   TrendingDown,
@@ -33,15 +34,17 @@ import {
   fetchActivityLog,
   fetchAdminOverview,
   fetchMonthlyGrowth,
+  fetchRecentCustomerSignups,
   fetchPackagesByStatus,
   fetchPackagesTimeline,
   fetchPreAlertsVsReceives,
   fetchWeightDistribution,
 } from '../api/admin'
 import { IconBadge } from '../components/ui/IconBadge'
-import type { AdminOverview, AuditLogEntry, MonthlyGrowthPoint } from '../types'
+import type { AdminOverview, AuditLogEntry, MonthlyGrowthPoint, RecentCustomerSignup } from '../types'
 
 const CHART_COLORS = ['#eab308', '#ca8a04', '#22c55e', '#3b82f6', '#a855f7', '#64748b']
+const SIGNUP_PAGE_SIZE = 5
 
 function formatShortDate(dateStr: string) {
   return dateStr.slice(5)
@@ -86,8 +89,8 @@ function CompareStat({
         <span className={`h-2.5 w-2.5 rounded-full ${colorClass}`} />
         <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
       </div>
-      <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">{count}</p>
-      <p className="mt-1 text-sm font-semibold tabular-nums text-boss-green">{formatPercent(percent)}</p>
+      <p className="mt-2 text-3xl font-black tabular-nums text-boss-gold">{count}</p>
+      <p className="mt-1 text-sm font-semibold tabular-nums text-boss-gold">{formatPercent(percent)}</p>
     </div>
   )
 }
@@ -96,8 +99,8 @@ function KpiCard({ label, value, sub }: { label: string; value: string | number;
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
-      <p className="mt-2 text-3xl font-black text-boss-green">{value}</p>
-      {sub && <p className="mt-1 text-xs text-boss-green">{sub}</p>}
+      <p className="mt-2 text-3xl font-black text-boss-gold">{value}</p>
+      {sub && <p className="mt-1 text-xs text-boss-gold">{sub}</p>}
     </div>
   )
 }
@@ -116,19 +119,19 @@ function ReceivedPackagesCard({
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs font-semibold uppercase tracking-wider text-muted">Packages received</p>
-      <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">{today}</p>
+      <p className="mt-2 text-3xl font-black tabular-nums text-boss-gold">{today}</p>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted">
         <p>
           7d{' '}
-          <span className="font-semibold tabular-nums text-boss-green">{week}</span>
+          <span className="font-semibold tabular-nums text-boss-gold">{week}</span>
         </p>
         <p>
           30d{' '}
-          <span className="font-semibold tabular-nums text-boss-green">{month}</span>
+          <span className="font-semibold tabular-nums text-boss-gold">{month}</span>
         </p>
         <p>
           Total{' '}
-          <span className="font-semibold tabular-nums text-boss-green">{total.toLocaleString()}</span>
+          <span className="font-semibold tabular-nums text-boss-gold">{total.toLocaleString()}</span>
         </p>
       </div>
     </div>
@@ -204,10 +207,10 @@ function MomMetricCard({
   return (
     <div className="rounded-xl border border-border bg-background/50 p-4">
       <div className="flex items-center gap-2">
-        <IconBadge icon={Icon} size="sm" />
+        <IconBadge tone="gold" icon={Icon} size="sm" />
         <p className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</p>
       </div>
-      <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">{value}</p>
+      <p className="mt-2 text-3xl font-black tabular-nums text-boss-gold">{value}</p>
       <MomChangeBadge current={current} previous={previous} />
       <p className="mt-1 text-[11px] text-muted">{hint}</p>
     </div>
@@ -234,23 +237,23 @@ function SubmissionStatsSection({
   return (
     <div>
       <div className="mt-3 flex items-center gap-2">
-        <IconBadge icon={Icon} size="sm" />
+        <IconBadge tone="gold" icon={Icon} size="sm" />
         <div className="min-w-0">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-boss-green">{title}</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-boss-gold">{title}</h3>
           <p className="truncate text-[11px] text-muted">{description}</p>
         </div>
       </div>
       <div className="mt-3 rounded-xl border border-border bg-background/50 p-4 text-center">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted">{activeLabel}</p>
-        <p className="mt-1 text-3xl font-black tabular-nums text-boss-green">{active ?? '—'}</p>
+        <p className="mt-1 text-3xl font-black tabular-nums text-boss-gold">{active ?? '—'}</p>
         <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-0.5 text-xs text-muted">
           <p>
             Today{' '}
-            <span className="font-semibold tabular-nums text-boss-green">{today ?? '—'}</span>
+            <span className="font-semibold tabular-nums text-boss-gold">{today ?? '—'}</span>
           </p>
           <p>
             Total{' '}
-            <span className="font-semibold tabular-nums text-boss-green">{total ?? '—'}</span>
+            <span className="font-semibold tabular-nums text-boss-gold">{total ?? '—'}</span>
           </p>
         </div>
       </div>
@@ -267,6 +270,11 @@ export function AdminOperationsPage() {
   const [monthlyGrowth, setMonthlyGrowth] = useState<MonthlyGrowthPoint[]>([])
   const [momLoadState, setMomLoadState] = useState<'loading' | 'ready' | 'error' | 'empty'>('loading')
   const [recentActivity, setRecentActivity] = useState<AuditLogEntry[]>([])
+  const [recentSignups, setRecentSignups] = useState<RecentCustomerSignup[]>([])
+  const [signupTotal, setSignupTotal] = useState(0)
+  const [signupOffset, setSignupOffset] = useState(0)
+  const [signupsOpen, setSignupsOpen] = useState(false)
+  const [signupsLoading, setSignupsLoading] = useState(false)
 
   useEffect(() => {
     fetchAdminOverview().then(setOverview).catch(() => {})
@@ -285,6 +293,29 @@ export function AdminOperationsPage() {
       })
     fetchActivityLog(8, 0).then((d) => setRecentActivity(d.activity)).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!signupsOpen) return
+    let cancelled = false
+    setSignupsLoading(true)
+    fetchRecentCustomerSignups(7, SIGNUP_PAGE_SIZE, signupOffset)
+      .then((data) => {
+        if (cancelled) return
+        setRecentSignups(data.customers)
+        setSignupTotal(data.total)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setRecentSignups([])
+        setSignupTotal(0)
+      })
+      .finally(() => {
+        if (!cancelled) setSignupsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [signupsOpen, signupOffset])
 
   const preAlertsVsReceived = useMemo(() => {
     const preAlerts = compare.reduce((sum, day) => sum + day.pre_alerts, 0)
@@ -323,7 +354,7 @@ export function AdminOperationsPage() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <IconBadge icon={BarChart3} size="sm" />
+          <IconBadge tone="gold" icon={BarChart3} size="sm" />
           <div>
             <h1 className="text-2xl font-black uppercase">Metrics</h1>
             <p className="text-sm text-muted">Package volume, trends, and clerk activity</p>
@@ -353,21 +384,27 @@ export function AdminOperationsPage() {
             value={formatJmd(overview.revenue_30d_usd)}
             sub="Estimated from packages received · not checkout collections"
           />
+          <KpiCard
+            label="Ready for pickup"
+            value={overview.ready_for_pickup_count}
+            sub={`${formatJmd(overview.ready_for_pickup_due_jmd)} still to collect`}
+          />
+          <KpiCard label="Delivered" value={overview.delivered_count} />
         </div>
       )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-2.5">
-            <IconBadge icon={UserPlus} size="sm" />
+            <IconBadge tone="gold" icon={UserPlus} size="sm" />
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
                 New customers
               </h2>
               <p className="text-xs text-muted">Customer signups (excludes staff accounts)</p>
             </div>
           </div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-4">
             {[
               { label: 'Today', value: overview?.customers_today },
               { label: 'Last 7 days', value: overview?.customers_7d },
@@ -375,24 +412,89 @@ export function AdminOperationsPage() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-xl border border-border bg-background/50 p-4"
+                className="rounded-xl border border-border bg-background/50 p-3 sm:p-4"
               >
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:text-xs sm:tracking-wider">
                   {stat.label}
                 </p>
-                <p className="mt-2 text-3xl font-black tabular-nums text-boss-green">
+                <p className="mt-2 text-2xl font-black tabular-nums text-boss-gold sm:text-3xl">
                   {stat.value ?? '—'}
                 </p>
               </div>
             ))}
           </div>
+          <div className="mt-5">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-3 text-left"
+              aria-expanded={signupsOpen}
+              onClick={() => setSignupsOpen((open) => !open)}
+            >
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                Signed up in the last 7 days
+                {overview ? ` (${overview.customers_7d})` : ''}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-muted transition-transform ${signupsOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {signupsOpen && signupsLoading && (
+              <p className="mt-3 text-sm text-muted">Loading signups…</p>
+            )}
+            {signupsOpen && !signupsLoading && recentSignups.length === 0 && (
+              <p className="mt-3 text-sm text-muted">No signups in the last 7 days.</p>
+            )}
+            {signupsOpen && !signupsLoading && recentSignups.length > 0 && (
+              <>
+                <ul className="mt-3 divide-y divide-border">
+                  {recentSignups.map((customer) => (
+                    <li key={customer.id} className="py-3">
+                      <p className="text-sm font-semibold">{customer.full_name}</p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {customer.contact_number || 'No phone'} · {customer.email}
+                      </p>
+                      {customer.created_at && (
+                        <p className="mt-0.5 text-xs text-muted">
+                          {formatAppDateTime(customer.created_at)}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {signupTotal > SIGNUP_PAGE_SIZE && (
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+                    <button
+                      type="button"
+                      className="font-semibold text-boss-gold disabled:opacity-40"
+                      disabled={signupOffset === 0 || signupsLoading}
+                      onClick={() => setSignupOffset((current) => Math.max(0, current - SIGNUP_PAGE_SIZE))}
+                    >
+                      Previous
+                    </button>
+                    <p className="tabular-nums text-muted">
+                      {signupOffset + 1}–{Math.min(signupOffset + SIGNUP_PAGE_SIZE, signupTotal)} of{' '}
+                      {signupTotal}
+                    </p>
+                    <button
+                      type="button"
+                      className="font-semibold text-boss-gold disabled:opacity-40"
+                      disabled={signupOffset + SIGNUP_PAGE_SIZE >= signupTotal || signupsLoading}
+                      onClick={() => setSignupOffset((current) => current + SIGNUP_PAGE_SIZE)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-2.5">
-            <IconBadge icon={TrendingUp} size="sm" />
+            <IconBadge tone="gold" icon={TrendingUp} size="sm" />
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
                 This month (MTD)
               </h2>
               <p className="text-xs text-muted">
@@ -430,7 +532,7 @@ export function AdminOperationsPage() {
       </div>
 
       <div className="mt-4 rounded-2xl border border-border bg-card p-6">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
           Customer requests
         </h2>
         <p className="mt-1 text-xs text-muted">
@@ -463,7 +565,7 @@ export function AdminOperationsPage() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
             Active customers by month
           </h2>
           <p className="mt-1 text-xs text-muted">
@@ -483,7 +585,7 @@ export function AdminOperationsPage() {
                 />
                 <Bar
                   dataKey="active_customers"
-                  fill="#22c55e"
+                  fill="#eab308"
                   name="Active customers"
                   radius={[4, 4, 0, 0]}
                 />
@@ -493,7 +595,7 @@ export function AdminOperationsPage() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
             Checkout revenue by month
           </h2>
           <p className="mt-1 text-xs text-muted">
@@ -531,7 +633,7 @@ export function AdminOperationsPage() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
             Packages received over time (30d)
           </h2>
           <div className="mt-4 h-64">
@@ -548,7 +650,7 @@ export function AdminOperationsPage() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
             Pre-alerts vs packages received (30d)
           </h2>
           <p className="mt-1 text-xs text-muted">Share of activity in the last 30 days</p>
@@ -563,7 +665,7 @@ export function AdminOperationsPage() {
               label="Received"
               count={preAlertsVsReceived.received}
               percent={preAlertsVsReceived.receivedPercent}
-              colorClass="bg-boss-green"
+              colorClass="bg-boss-gold"
             />
           </div>
         </div>
@@ -571,7 +673,7 @@ export function AdminOperationsPage() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">Packages by status</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">Packages by status</h2>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -602,16 +704,34 @@ export function AdminOperationsPage() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">Weight distribution</h2>
-          <div className="mt-4 h-64">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">Weight distribution</h2>
+          <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weights}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <PieChart>
+                <Pie
+                  data={weights}
+                  dataKey="count"
+                  nameKey="label"
+                  cx="50%"
+                  cy="42%"
+                  innerRadius={48}
+                  outerRadius={72}
+                  paddingAngle={2}
+                  label={({ value }) =>
+                    typeof value === 'number' && value > 0 ? String(value) : ''
+                  }
+                >
+                  {weights.map((_, i) => (
+                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
                 <Tooltip />
-                <Bar dataKey="count" fill="#eab308" name="Packages" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Legend
+                  verticalAlign="bottom"
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                />
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -619,8 +739,8 @@ export function AdminOperationsPage() {
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-green">Recent clerk activity</h2>
-          <Link to="/warehouse/activity" className="text-sm text-boss-green hover:underline">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">Recent clerk activity</h2>
+          <Link to="/warehouse/activity" className="text-sm text-boss-gold hover:underline">
             View all →
           </Link>
         </div>

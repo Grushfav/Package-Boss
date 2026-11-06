@@ -387,6 +387,9 @@ export interface AdminOverview {
   packages_total: number
   pending_pre_alerts: number
   in_transit: number
+  ready_for_pickup_count: number
+  ready_for_pickup_due_jmd: number
+  delivered_count: number
   customers_today: number
   customers_7d: number
   customers_total: number
@@ -403,6 +406,14 @@ export interface CustomerSignupStats {
   customers_today: number
   customers_7d: number
   customers_total: number
+}
+
+export interface RecentCustomerSignup {
+  id: string
+  full_name: string
+  contact_number: string
+  email: string
+  created_at: string | null
 }
 
 export interface DeliveryRequestSubmissionStats {

@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, isNotNull, ne, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, isNotNull, ne, sql } from 'drizzle-orm'
 import {
   BANK_TRANSFER_PROOF_OPEN_STATUSES,
   DELIVERY_REQUEST_OPEN_STATUSES,
@@ -6,6 +6,7 @@ import {
   UNIDENTIFIED_HOLDER_SHIPPING_ID,
 } from '../constants.js'
 import { db } from '../db/index.js'
+import { utcIsoformat } from '../lib/dates.js'
 import {
   bankTransferProofs,
   deliveryRequests,
@@ -30,7 +31,6 @@ function customerSignupsFilter() {
 export async function getCustomerSignupStats() {
   const now = utcNow()
   const todayStart = startOfDay(now)
-  const weekStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000)
   const base = customerSignupsFilter()
 
   const [customersToday] = await db
@@ -38,6 +38,7 @@ export async function getCustomerSignupStats() {
     .from(users)
     .where(and(base, gte(users.createdAt, todayStart)))
 
+  const weekStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000)
   const [customers7d] = await db
     .select({ value: count() })
     .from(users)
@@ -49,6 +50,43 @@ export async function getCustomerSignupStats() {
     customers_today: customersToday?.value ?? 0,
     customers_7d: customers7d?.value ?? 0,
     customers_total: customersTotal?.value ?? 0,
+  }
+}
+
+export async function getRecentCustomerSignups(days = 7, limit = 5, offset = 0) {
+  const clampedDays = Math.max(1, Math.min(days, 31))
+  const clampedLimit = Math.max(1, Math.min(limit, 50))
+  const clampedOffset = Math.max(0, offset)
+  const start = new Date(startOfDay(utcNow()).getTime() - clampedDays * 24 * 60 * 60 * 1000)
+  const whereClause = and(customerSignupsFilter(), gte(users.createdAt, start))
+
+  const [totalRow] = await db.select({ value: count() }).from(users).where(whereClause)
+  const rows = await db
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      contactNumber: users.contactNumber,
+      email: users.email,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(whereClause)
+    .orderBy(desc(users.createdAt))
+    .limit(clampedLimit)
+    .offset(clampedOffset)
+
+  return {
+    customers: rows.map((user) => ({
+      id: user.id,
+      full_name: `${user.firstName} ${user.lastName}`.trim(),
+      contact_number: user.contactNumber,
+      email: user.email,
+      created_at: utcIsoformat(user.createdAt),
+    })),
+    total: totalRow?.value ?? 0,
+    limit: clampedLimit,
+    offset: clampedOffset,
   }
 }
 
@@ -145,6 +183,23 @@ export async function getOverview() {
     .from(packages)
     .where(eq(packages.status, 'in_transit'))
 
+  const [readyForPickup] = await db
+    .select({ value: count() })
+    .from(packages)
+    .where(eq(packages.status, 'ready_for_pickup'))
+
+  const [delivered] = await db
+    .select({ value: count() })
+    .from(packages)
+    .where(eq(packages.status, 'delivered'))
+
+  const [readyDue] = await db
+    .select({
+      total: sql<string>`coalesce(sum(${packages.totalDueJmd}), 0)`,
+    })
+    .from(packages)
+    .where(and(eq(packages.status, 'ready_for_pickup'), eq(packages.billingStatus, 'ready')))
+
   const customerStats = await getCustomerSignupStats()
   const deliveryRequestStats = await getDeliveryRequestSubmissionStats()
   const bankTransferProofStats = await getBankTransferProofSubmissionStats()
@@ -165,6 +220,9 @@ export async function getOverview() {
     packages_total: packagesTotal?.value ?? 0,
     pending_pre_alerts: pendingPreAlerts?.value ?? 0,
     in_transit: inTransit?.value ?? 0,
+    ready_for_pickup_count: readyForPickup?.value ?? 0,
+    ready_for_pickup_due_jmd: parseFloat(readyDue?.total ?? '0'),
+    delivered_count: delivered?.value ?? 0,
     ...customerStats,
     ...deliveryRequestStats,
     ...bankTransferProofStats,

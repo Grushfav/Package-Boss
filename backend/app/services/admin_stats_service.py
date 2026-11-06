@@ -33,15 +33,52 @@ def _customer_signups_query():
     )
 
 
+def _signup_row(user: User) -> dict:
+    from app.utils.datetime_format import utc_isoformat
+
+    return {
+        "id": str(user.id),
+        "full_name": user.full_name,
+        "contact_number": user.contact_number,
+        "email": user.email,
+        "created_at": utc_isoformat(user.created_at),
+    }
+
+
+def _recent_signups_query(start: datetime):
+    return (
+        _customer_signups_query()
+        .filter(User.created_at >= start)
+        .order_by(User.created_at.desc())
+    )
+
+
 def get_customer_signup_stats() -> dict:
     today_start = _today_start()
     week_start = today_start - timedelta(days=7)
-
-    base = _customer_signups_query()
     return {
-        "customers_today": base.filter(User.created_at >= today_start).count(),
-        "customers_7d": base.filter(User.created_at >= week_start).count(),
-        "customers_total": base.count(),
+        "customers_today": _customer_signups_query()
+        .filter(User.created_at >= today_start)
+        .count(),
+        "customers_7d": _recent_signups_query(week_start).count(),
+        "customers_total": _customer_signups_query().count(),
+    }
+
+
+def get_recent_customer_signups(days: int = 7, limit: int = 5, offset: int = 0) -> dict:
+    """One page of customers who signed up in the last ``days`` Jamaica calendar days."""
+    days = max(1, min(int(days), 31))
+    limit = max(1, min(int(limit), 50))
+    offset = max(0, int(offset))
+    start = _today_start() - timedelta(days=days)
+    query = _recent_signups_query(start)
+    total = query.count()
+    rows = query.offset(offset).limit(limit).all()
+    return {
+        "customers": [_signup_row(user) for user in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
     }
 
 
@@ -86,6 +123,16 @@ def get_overview() -> dict:
     packages_total = Package.query.count()
     pending_pre_alerts = PreAlert.query.filter_by(status="pending").count()
     in_transit = Package.query.filter_by(status="in_transit").count()
+    ready_for_pickup = Package.query.filter_by(status="ready_for_pickup").count()
+    delivered = Package.query.filter_by(status="delivered").count()
+    ready_for_pickup_due = (
+        db.session.query(func.coalesce(func.sum(Package.total_due_jmd), 0))
+        .filter(
+            Package.status == "ready_for_pickup",
+            Package.billing_status == "ready",
+        )
+        .scalar()
+    )
 
     customer_stats = get_customer_signup_stats()
     delivery_request_stats = get_delivery_request_submission_stats()
@@ -117,6 +164,9 @@ def get_overview() -> dict:
         "packages_total": packages_total,
         "pending_pre_alerts": pending_pre_alerts,
         "in_transit": in_transit,
+        "ready_for_pickup_count": ready_for_pickup,
+        "ready_for_pickup_due_jmd": float(ready_for_pickup_due or 0),
+        "delivered_count": delivered,
         **customer_stats,
         **delivery_request_stats,
         **bank_transfer_proof_stats,

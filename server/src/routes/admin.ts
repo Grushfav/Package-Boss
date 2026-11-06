@@ -18,6 +18,7 @@ import { permissionRequired, requireAdmin, type AuthRequest } from '../middlewar
 import {
   getBankTransferProofSubmissionStats,
   getCustomerSignupStats,
+  getRecentCustomerSignups,
   getDeliveryRequestSubmissionStats,
   getMonthlyGrowth,
   getOverview,
@@ -66,6 +67,16 @@ adminRouter.get('/admin/stats/overview', requireAdmin, async (_req, res) => {
 
 adminRouter.get('/admin/stats/customer-signups', requireAdmin, async (_req, res) => {
   res.json(await getCustomerSignupStats())
+})
+
+adminRouter.get('/admin/stats/recent-signups', requireAdmin, async (req, res) => {
+  let days = parseInt(String(req.query.days ?? '7'), 10)
+  let limit = parseInt(String(req.query.limit ?? '5'), 10)
+  let offset = parseInt(String(req.query.offset ?? '0'), 10)
+  if (Number.isNaN(days) || Number.isNaN(limit) || Number.isNaN(offset)) {
+    return res.status(400).json({ error: 'Invalid pagination' })
+  }
+  res.json(await getRecentCustomerSignups(days, limit, offset))
 })
 
 adminRouter.get('/admin/stats/delivery-requests', requireAdmin, async (_req, res) => {

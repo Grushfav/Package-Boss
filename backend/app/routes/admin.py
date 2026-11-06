@@ -11,6 +11,7 @@ from app.models.user import User
 from app.services.admin_stats_service import (
     get_bank_transfer_proof_submission_stats,
     get_customer_signup_stats,
+    get_recent_customer_signups,
     get_delivery_request_submission_stats,
     get_monthly_growth,
     get_overview,
@@ -62,6 +63,17 @@ def stats_overview():
 @admin_required()
 def stats_customer_signups():
     return jsonify(get_customer_signup_stats())
+
+
+@admin_bp.route("/admin/stats/recent-signups", methods=["GET"])
+@admin_required()
+def stats_recent_signups():
+    days = request.args.get("days", 7, type=int)
+    limit = request.args.get("limit", 5, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    if days is None or limit is None or offset is None:
+        return jsonify({"error": "Invalid pagination"}), 400
+    return jsonify(get_recent_customer_signups(days, limit, offset))
 
 
 @admin_bp.route("/admin/stats/delivery-requests", methods=["GET"])

@@ -5,6 +5,7 @@ import type {
   BankTransferProofSubmissionStats,
   ClerkPermission,
   CustomerSignupStats,
+  RecentCustomerSignup,
   DeliveryRequestSubmissionStats,
   MonthlyGrowthStats,
   PaymentCheckout,
@@ -93,12 +94,34 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
     customers_today: data.customers_today ?? 0,
     customers_7d: data.customers_7d ?? 0,
     customers_total: data.customers_total ?? 0,
+    ready_for_pickup_count: data.ready_for_pickup_count ?? 0,
+    ready_for_pickup_due_jmd: data.ready_for_pickup_due_jmd ?? 0,
+    delivered_count: data.delivered_count ?? 0,
     delivery_requests_active: data.delivery_requests_active ?? 0,
     delivery_requests_today: data.delivery_requests_today ?? 0,
     delivery_requests_total: data.delivery_requests_total ?? 0,
     bank_transfer_proofs_active: data.bank_transfer_proofs_active ?? 0,
     bank_transfer_proofs_today: data.bank_transfer_proofs_today ?? 0,
     bank_transfer_proofs_total: data.bank_transfer_proofs_total ?? 0,
+  }
+}
+
+export async function fetchRecentCustomerSignups(
+  days = 7,
+  limit = 5,
+  offset = 0,
+): Promise<{ customers: RecentCustomerSignup[]; total: number; limit: number; offset: number }> {
+  const { data } = await api.get<{
+    customers: RecentCustomerSignup[]
+    total: number
+    limit: number
+    offset: number
+  }>('/admin/stats/recent-signups', { params: { days, limit, offset } })
+  return {
+    customers: data.customers ?? [],
+    total: data.total ?? 0,
+    limit: data.limit ?? limit,
+    offset: data.offset ?? offset,
   }
 }
 
