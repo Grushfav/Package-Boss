@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { DollarSign, MapPin, PackageCheck, Plane, Shield } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
@@ -6,6 +7,7 @@ import {
 } from '../../lib/dashboardStats'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import { LoadErrorBanner } from '../ui/LoadErrorBanner'
+import { PackageLoader } from '../ui/PackageLoader'
 
 function StatCard({
   to,
@@ -51,8 +53,10 @@ function StatCard({
 
 export function DashboardPackageStatsCard() {
   const { dashboardStats, dashboardLoading, dashboardError, refreshAll } = useCustomerData()
+  const [introDone, setIntroDone] = useState(false)
   const stats = dashboardStats ?? computeDashboardPackageStats([])
   const loading = !dashboardStats && dashboardLoading
+  const waiting = !dashboardStats && !introDone
 
   return (
     <div className="space-y-4">
@@ -66,57 +70,69 @@ export function DashboardPackageStatsCard() {
         </Link>
       </div>
 
-      {dashboardError && (
-        <LoadErrorBanner message={dashboardError} onRetry={() => void refreshAll()} />
-      )}
+      {waiting ? (
+        <PackageLoader
+          done={Boolean(dashboardStats)}
+          failed={Boolean(dashboardError) && !dashboardStats}
+          size="lg"
+          label="Loading your packages…"
+          onComplete={() => setIntroDone(true)}
+        />
+      ) : (
+        <>
+          {dashboardError && (
+            <LoadErrorBanner message={dashboardError} onRetry={() => void refreshAll()} />
+          )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard
-          to="/dashboard/packages"
-          icon={MapPin}
-          label="Received"
-          value={String(stats.receivedFortLauderdale)}
-          sub="At our Fort Lauderdale warehouse"
-          loading={loading}
-        />
-        <StatCard
-          to="/dashboard/packages"
-          icon={Plane}
-          label="In transit"
-          value={String(stats.inTransit)}
-          sub="En route to Jamaica"
-          loading={loading}
-        />
-        <StatCard
-          to="/dashboard/packages"
-          icon={Shield}
-          label="Customs"
-          value={String(stats.customs)}
-          sub="Clearing Jamaican customs"
-          loading={loading}
-        />
-        <StatCard
-          to="/dashboard/packages"
-          icon={PackageCheck}
-          label="Ready pickup / delivery"
-          value={String(stats.readyPickupDelivery)}
-          sub="Ready for pickup or delivery"
-          loading={loading}
-        />
-        <StatCard
-          to="/dashboard/packages"
-          icon={DollarSign}
-          label="Total due"
-          value={stats.totalDueJmd > 0 ? formatDashboardTotalDue(stats.totalDueJmd) : 'J$0'}
-          sub={
-            stats.handlingFeeJmd > 0
-              ? `Includes J$${stats.handlingFeeJmd} multi-package handling fee`
-              : 'Published bills awaiting payment'
-          }
-          loading={loading}
-          className="col-span-2"
-        />
-      </div>
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              to="/dashboard/packages"
+              icon={MapPin}
+              label="Received"
+              value={String(stats.receivedFortLauderdale)}
+              sub="At our Fort Lauderdale warehouse"
+              loading={loading}
+            />
+            <StatCard
+              to="/dashboard/packages"
+              icon={Plane}
+              label="In transit"
+              value={String(stats.inTransit)}
+              sub="En route to Jamaica"
+              loading={loading}
+            />
+            <StatCard
+              to="/dashboard/packages"
+              icon={Shield}
+              label="Customs"
+              value={String(stats.customs)}
+              sub="Clearing Jamaican customs"
+              loading={loading}
+            />
+            <StatCard
+              to="/dashboard/packages"
+              icon={PackageCheck}
+              label="Ready pickup / delivery"
+              value={String(stats.readyPickupDelivery)}
+              sub="Ready for pickup or delivery"
+              loading={loading}
+            />
+            <StatCard
+              to="/dashboard/packages"
+              icon={DollarSign}
+              label="Total due"
+              value={stats.totalDueJmd > 0 ? formatDashboardTotalDue(stats.totalDueJmd) : 'J$0'}
+              sub={
+                stats.handlingFeeJmd > 0
+                  ? `Includes J$${stats.handlingFeeJmd} multi-package handling fee`
+                  : 'Published bills awaiting payment'
+              }
+              loading={loading}
+              className="col-span-2"
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

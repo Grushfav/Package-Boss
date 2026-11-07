@@ -6,6 +6,7 @@ import {
   type Announcement,
 } from '../../api/announcements'
 import { getErrorMessage } from '../../api/client'
+import { PackageLoader } from '../ui/PackageLoader'
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -77,7 +78,9 @@ export function MessagesSection() {
       )}
 
       {loading ? (
-        <p className="mt-4 text-sm text-muted">Loading messages…</p>
+        <div className="mt-4">
+          <PackageLoader done={!loading} size="sm" label="Loading messages…" />
+        </div>
       ) : messages.length === 0 ? (
         <p className="mt-4 rounded-xl border border-border bg-card px-5 py-4 text-sm text-muted">
           No announcements yet. Important updates will appear here when we send them.
