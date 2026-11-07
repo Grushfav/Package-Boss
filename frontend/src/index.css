@@ -455,7 +455,7 @@ body {
 
 /* Ring appears after transform; spins during load */
 .pb-loader__ring {
-  transform-origin: 50% 50%;
+  transform-origin: 60px 56px;
   opacity: 0;
 }
 
