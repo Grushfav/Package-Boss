@@ -483,6 +483,7 @@ body {
 }
 
 @keyframes pb-loader-ring-out {
+  from { opacity: 1; }
   to { opacity: 0; transform: scale(1.08); }
 }
 

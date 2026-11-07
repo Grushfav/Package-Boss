@@ -101,6 +101,10 @@ export function PackageLoader({
     }
 
     if (phase === 'complete') {
+      if (failed) {
+        setPhase('fade')
+        return
+      }
       const t = window.setTimeout(() => {
         finishedRef.current = true
         onCompleteRef.current?.()
