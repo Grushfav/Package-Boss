@@ -16,6 +16,7 @@ import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
+import { PackageLoader } from '../components/ui/PackageLoader'
 import { formatAppDateInput } from '../lib/datetime'
 import type { Package } from '../types'
 
@@ -213,7 +214,7 @@ function DepartureList({
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {loading ? (
-        <p className="text-sm text-muted">Loading departures…</p>
+        <PackageLoader done={false} size="md" label="Loading departures…" />
       ) : (
         <>
           <section>
@@ -312,6 +313,7 @@ function DepartureDetail({ shipmentId, onBack }: { shipmentId: string; onBack: (
   const scanRef = useRef<HTMLInputElement>(null)
   const [shipment, setShipment] = useState<ShipmentSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [bootDone, setBootDone] = useState(false)
   const [scanValue, setScanValue] = useState('')
   const [scanLoading, setScanLoading] = useState(false)
   const [departLoading, setDepartLoading] = useState(false)
@@ -321,6 +323,7 @@ function DepartureDetail({ shipmentId, onBack }: { shipmentId: string; onBack: (
 
   const load = useCallback(async () => {
     setLoading(true)
+    setBootDone(false)
     setError('')
     try {
       const data = await fetchShipment(shipmentId)
@@ -409,8 +412,16 @@ function DepartureDetail({ shipmentId, onBack }: { shipmentId: string; onBack: (
     }
   }
 
-  if (loading) {
-    return <p className="text-sm text-muted">Loading departure…</p>
+  if (loading || !bootDone) {
+    return (
+      <PackageLoader
+        done={!loading}
+        failed={Boolean(error) && !loading}
+        size="md"
+        label="Loading departure…"
+        onComplete={() => setBootDone(true)}
+      />
+    )
   }
 
   if (!shipment) {

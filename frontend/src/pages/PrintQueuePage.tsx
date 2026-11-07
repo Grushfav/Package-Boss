@@ -12,6 +12,7 @@ import { EditLabelModal } from '../components/warehouse/EditLabelModal'
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
+import { PackageLoader } from '../components/ui/PackageLoader'
 import { useVisibleInterval } from '../hooks/useVisibleInterval'
 import type { Package, StaffCustomer } from '../types'
 
@@ -203,7 +204,12 @@ export function PrintQueuePage() {
       </div>
 
       {loading ? (
-        <p className="no-print text-muted">Loading queue...</p>
+        <PackageLoader
+          done={false}
+          size="md"
+          label="Loading queue…"
+          className="no-print"
+        />
       ) : packages.length === 0 ? (
         <div className="no-print rounded-2xl border border-border bg-card p-8 text-center">
           <Printer className="mx-auto h-10 w-10 text-muted" />

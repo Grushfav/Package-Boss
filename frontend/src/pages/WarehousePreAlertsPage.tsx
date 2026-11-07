@@ -5,6 +5,7 @@ import { fetchStaffPreAlerts } from '../api/staff'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
+import { PackageLoader } from '../components/ui/PackageLoader'
 import type { PreAlert } from '../types'
 
 const PAGE_SIZE = 25
@@ -129,7 +130,7 @@ export function WarehousePreAlertsPage() {
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
         {loading ? (
-          <p className="p-8 text-center text-sm text-muted">Loading pre-alerts...</p>
+          <PackageLoader done={false} size="md" label="Loading pre-alerts…" />
         ) : preAlerts.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted">
             {debouncedQuery || statusFilter !== 'all'

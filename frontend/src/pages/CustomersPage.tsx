@@ -5,6 +5,7 @@ import { fetchCustomers } from '../api/staff'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
+import { PackageLoader } from '../components/ui/PackageLoader'
 import type { StaffCustomer } from '../types'
 
 const PAGE_SIZE = 25
@@ -70,7 +71,7 @@ export function CustomersPage() {
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         {loading ? (
-          <p className="p-8 text-center text-sm text-muted">Loading customers...</p>
+          <PackageLoader done={false} size="md" label="Loading customers…" />
         ) : customers.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted">
             {debouncedQuery ? 'No customers match your search.' : 'No customers registered yet.'}
