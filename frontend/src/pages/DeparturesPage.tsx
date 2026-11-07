@@ -323,7 +323,6 @@ function DepartureDetail({ shipmentId, onBack }: { shipmentId: string; onBack: (
 
   const load = useCallback(async () => {
     setLoading(true)
-    setBootDone(false)
     setError('')
     try {
       const data = await fetchShipment(shipmentId)
@@ -337,8 +336,9 @@ function DepartureDetail({ shipmentId, onBack }: { shipmentId: string; onBack: (
   }, [shipmentId])
 
   useEffect(() => {
+    setBootDone(false)
     load()
-  }, [load])
+  }, [load, shipmentId])
 
   useEffect(() => {
     if (shipment?.status === 'open') {

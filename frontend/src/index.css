@@ -419,7 +419,7 @@ body {
 }
 
 /* Box slide-in */
-.pb-loader--phase-arrive .pb-loader__box {
+.pb-loader--phase-arrive .pb-loader__box-closed {
   animation: pb-loader-arrive 0.6s ease-out both;
 }
 
@@ -548,9 +548,9 @@ body {
     animation: none !important;
   }
 
-  .pb-loader--reduced.pb-loader--phase-arrive .pb-loader__box,
-  .pb-loader--reduced.pb-loader--phase-transform .pb-loader__box,
-  .pb-loader--reduced.pb-loader--phase-load .pb-loader__box {
+  .pb-loader--reduced.pb-loader--phase-arrive .pb-loader__box-closed,
+  .pb-loader--reduced.pb-loader--phase-transform .pb-loader__box-closed,
+  .pb-loader--reduced.pb-loader--phase-load .pb-loader__box-closed {
     animation: pb-loader-pulse 1.2s ease-in-out infinite !important;
   }
 
