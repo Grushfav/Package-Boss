@@ -124,7 +124,7 @@ export function renderPackageStatusHtml(
   logoUrl?: string | null,
   opts: { ctaUrl?: string; ctaLabel?: string } = {},
 ): string {
-  const body = `<p style="margin:0 0 12px;">Hi ${esc(firstName)},</p><p style="margin:0 0 12px;">Your package status is now: <strong>${esc(statusLabel)}</strong>.</p><p style="margin:0;font-family:ui-monospace,Consolas,monospace;font-size:16px;font-weight:700;color:${BRAND_GREEN_DARK};">${esc(trackingNumber)}</p>`
+  const body = `<p style="margin:0 0 12px;">Hi ${esc(firstName)},</p><p style="margin:0 0 12px;">Your package status is now: <strong>${esc(statusLabel)}</strong>.</p><p style="margin:0;font-family:ui-monospace,Consolas,monospace;font-size:16px;font-weight:700;color:${BRAND_GREEN_DARK};">${esc(trackingNumber)}</p><p style="margin:20px 0 0;font-size:14px;font-weight:700;letter-spacing:0.04em;color:${TEXT_PRIMARY};">PACKAGE BOSS TEAM</p>`
   return renderLayout({
     preheader: `Package ${trackingNumber} — ${statusLabel}`,
     title: 'Package status update',
@@ -173,7 +173,7 @@ export function renderPackageStatusBatchHtml(
 
   const packagesTable = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid ${BORDER};border-radius:8px;overflow:hidden;"><tr><td style="padding:10px 12px;background:${BG_PAGE};font-size:12px;font-weight:700;color:${TEXT_MUTED};text-transform:uppercase;letter-spacing:0.04em;">${count} package${count !== 1 ? 's' : ''} · ${esc(statusLabel)}</td></tr>${tableRows}</table>`
 
-  const body = `<p style="margin:0 0 12px;">Hi ${esc(firstName)},</p><p style="margin:0 0 12px;">${esc(message)}</p>${packagesTable}${noteBlock}`
+  const body = `<p style="margin:0 0 12px;">Hi ${esc(firstName)},</p><p style="margin:0 0 12px;">${esc(message)}</p>${packagesTable}${noteBlock}<p style="margin:20px 0 0;font-size:14px;font-weight:700;letter-spacing:0.04em;color:${TEXT_PRIMARY};">PACKAGE BOSS TEAM</p>`
 
   let trackingPreview = packageRows
     .slice(0, 3)

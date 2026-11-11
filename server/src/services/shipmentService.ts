@@ -1,9 +1,10 @@
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 
 import { db } from '../db/index.js'
-import { packages, shipments } from '../db/schema/index.js'
+import { auditLogs, packageEvents, packages, shipments } from '../db/schema/index.js'
 import type { packages as packagesTable, shipments as shipmentsTable } from '../db/schema/index.js'
 import type { UserRow } from '../db/schema/index.js'
+import { userFullName } from '../lib/user.js'
 import {
   ACTION_PACKAGE_STATUS_UPDATED,
   ACTION_SHIPMENT_CREATED,
@@ -359,123 +360,203 @@ export async function batchDepartPackages(
   if (!packageIds.length) throw new Error('package_ids must be a non-empty array')
   if (packageIds.length > 500) throw new Error('Cannot depart more than 500 packages at once')
 
-  let shipment: ShipmentRow
+  const uniqueIds = [...new Set(packageIds.map((id) => String(id)))]
+  const actor = options?.actor ?? null
+  const noteTrimmed = options?.note?.trim() || null
 
-  if (options?.shipmentId) {
-    const found = await getShipment(options.shipmentId)
-    if (!found) throw new Error('Departure not found')
-    assertOpen(found)
-    shipment = found
-  } else {
-    const reference = (options?.reference ?? '').trim()
-    if (!reference) throw new Error('Departure reference is required')
-    if (!options?.departureDate) throw new Error('departure_date is required')
-    shipment = await createShipment({
-      reference,
-      departureDate: options.departureDate,
-      note: options.note,
-      createdBy: options.actor ?? null,
-    })
-    if (options?.actor) {
-      await logEntityAction(
-        options.actor,
-        ACTION_SHIPMENT_CREATED,
-        'shipment',
-        shipment.id,
-        `Created departure ${reference}`,
-        {
+  const result = await db.transaction(async (tx) => {
+    let shipment: ShipmentRow
+
+    if (options?.shipmentId) {
+      const [found] = await tx
+        .select()
+        .from(shipments)
+        .where(eq(shipments.id, options.shipmentId))
+        .limit(1)
+      if (!found) throw new Error('Departure not found')
+      assertOpen(found)
+      shipment = found
+    } else {
+      const reference = (options?.reference ?? '').trim()
+      if (!reference) throw new Error('Departure reference is required')
+      if (!options?.departureDate) throw new Error('departure_date is required')
+      const [created] = await tx
+        .insert(shipments)
+        .values({
+          id: crypto.randomUUID(),
           reference,
-          departure_date: options.departureDate,
-          batch_depart: true,
-        },
+          departureDate: options.departureDate,
+          note: noteTrimmed,
+          status: 'open',
+          createdById: actor?.id ?? null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning()
+      shipment = created!
+      if (actor) {
+        await tx.insert(auditLogs).values({
+          actorId: actor.id,
+          actorName: userFullName(actor),
+          actorRole: actor.role,
+          action: ACTION_SHIPMENT_CREATED,
+          entityType: 'shipment',
+          entityId: shipment.id,
+          summary: `Created departure ${reference}`,
+          metadataJson: {
+            reference,
+            departure_date: options.departureDate,
+            batch_depart: true,
+          },
+        })
+      }
+    }
+
+    const rows = await tx.select().from(packages).where(inArray(packages.id, uniqueIds))
+    const byId = new Map(rows.map((pkg) => [pkg.id, pkg]))
+    const ordered: PackageRow[] = []
+    for (const id of uniqueIds) {
+      const pkg = byId.get(id)
+      if (!pkg) throw new Error(`Package not found: ${id}`)
+      ordered.push(pkg)
+    }
+
+    const notReceived = ordered.filter((pkg) => pkg.status !== 'received')
+    if (notReceived.length) {
+      const sample = notReceived
+        .slice(0, 5)
+        .map((pkg) => `${pkg.trackingNumber} (${pkg.status})`)
+        .join(', ')
+      const more = notReceived.length > 5 ? ` (+${notReceived.length - 5} more)` : ''
+      throw new Error(
+        `${notReceived.length} package(s) are not in received status: ${sample}${more}`,
       )
     }
-  }
 
-  const assigned: PackageRow[] = []
-  for (const rawId of packageIds) {
-    const [pkg] = await db.select().from(packages).where(eq(packages.id, String(rawId))).limit(1)
-    if (!pkg) throw new Error(`Package not found: ${rawId}`)
-    if (pkg.status !== 'received') {
-      throw new Error(`${pkg.trackingNumber} is not in received status`)
+    const otherShipmentIds = [
+      ...new Set(
+        ordered
+          .map((pkg) => pkg.shipmentId)
+          .filter((id): id is string => Boolean(id) && id !== shipment.id),
+      ),
+    ]
+    if (otherShipmentIds.length) {
+      const openOthers = await tx
+        .select()
+        .from(shipments)
+        .where(and(inArray(shipments.id, otherShipmentIds), eq(shipments.status, 'open')))
+      if (openOthers.length) {
+        const openById = new Map(openOthers.map((row) => [row.id, row]))
+        const conflict = ordered.find((pkg) => pkg.shipmentId && openById.has(pkg.shipmentId))
+        if (conflict) {
+          const other = openById.get(conflict.shipmentId!)!
+          throw new Error(
+            `${conflict.trackingNumber} is already on departure ${other.reference}`,
+          )
+        }
+      }
     }
-    const other = await findOtherOpenShipment(pkg, shipment)
-    if (other) {
-      throw new Error(`${pkg.trackingNumber} is already on departure ${other.reference}`)
-    }
-    const [updated] = await db
+
+    const now = new Date()
+    const eventNote =
+      noteTrimmed || `Departure ${shipment.reference} — ${shipment.departureDate}`
+    const ids = ordered.map((pkg) => pkg.id)
+
+    await tx
       .update(packages)
-      .set({ shipmentId: shipment.id, updatedAt: new Date() })
-      .where(eq(packages.id, pkg.id))
-      .returning()
-    assigned.push(updated)
-  }
+      .set({
+        shipmentId: shipment.id,
+        status: 'in_transit',
+        updatedAt: now,
+      })
+      .where(inArray(packages.id, ids))
 
-  if (!assigned.length) throw new Error('No packages to depart')
-
-  const eventNote =
-    options?.note?.trim() ||
-    `Departure ${shipment.reference} — ${shipment.departureDate}`
-
-  const updated: PackageRow[] = []
-  for (const pkg of assigned) {
-    await addPackageEvent(pkg, 'in_transit', eventNote, { skipStatusEmail: true })
-    const [fresh] = await db.select().from(packages).where(eq(packages.id, pkg.id)).limit(1)
-    if (fresh) updated.push(fresh)
-  }
-
-  const now = new Date()
-  await db
-    .update(shipments)
-    .set({ status: 'departed', departedAt: now, updatedAt: now })
-    .where(eq(shipments.id, shipment.id))
-
-  if (options?.actor) {
-    for (const pkg of assigned) {
-      await logEntityAction(
-        options.actor,
-        ACTION_SHIPMENT_PACKAGE_ADDED,
-        'shipment',
-        shipment.id,
-        `Added ${pkg.trackingNumber} to ${shipment.reference}`,
-        {
-          reference: shipment.reference,
-          package_id: pkg.id,
-          tracking_number: pkg.trackingNumber,
-          batch_depart: true,
-        },
-      )
-    }
-    await logEntityAction(
-      options.actor,
-      ACTION_SHIPMENT_DEPARTED,
-      'shipment',
-      shipment.id,
-      `Departed ${shipment.reference} with ${updated.length} package(s)`,
-      {
-        reference: shipment.reference,
-        departure_date: shipment.departureDate,
-        package_ids: updated.map((p) => p.id),
-        batch_depart: true,
-      },
+    await tx.insert(packageEvents).values(
+      ordered.map((pkg) => ({
+        id: crypto.randomUUID(),
+        packageId: pkg.id,
+        status: 'in_transit',
+        note: eventNote,
+        createdAt: now,
+      })),
     )
-    for (const pkg of updated) {
-      await logPackageAction(
-        options.actor,
-        ACTION_PACKAGE_STATUS_UPDATED,
-        pkg.id,
-        `${pkg.trackingNumber}: received → in transit (${shipment.reference})`,
+
+    const [departedShipment] = await tx
+      .update(shipments)
+      .set({
+        status: 'departed',
+        departedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(shipments.id, shipment.id))
+      .returning()
+
+    const updated: PackageRow[] = ordered.map((pkg) => ({
+      ...pkg,
+      shipmentId: shipment.id,
+      status: 'in_transit',
+      updatedAt: now,
+    }))
+
+    if (actor) {
+      if (actor.role !== 'clerk' && actor.role !== 'admin') {
+        throw new Error('Only clerk or admin actions are logged here')
+      }
+      await tx.insert(auditLogs).values([
         {
-          tracking_number: pkg.trackingNumber,
-          from_status: 'received',
-          to_status: 'in_transit',
-          shipment_id: shipment.id,
-          shipment_reference: shipment.reference,
-          batch_depart: true,
+          actorId: actor.id,
+          actorName: userFullName(actor),
+          actorRole: actor.role,
+          action: ACTION_SHIPMENT_PACKAGE_ADDED,
+          entityType: 'shipment',
+          entityId: shipment.id,
+          summary: `Added ${updated.length} package(s) to ${shipment.reference}`,
+          metadataJson: {
+            reference: shipment.reference,
+            package_ids: ids,
+            tracking_numbers: updated.map((pkg) => pkg.trackingNumber),
+            batch_depart: true,
+          },
         },
-      )
+        {
+          actorId: actor.id,
+          actorName: userFullName(actor),
+          actorRole: actor.role,
+          action: ACTION_SHIPMENT_DEPARTED,
+          entityType: 'shipment',
+          entityId: shipment.id,
+          summary: `Departed ${shipment.reference} with ${updated.length} package(s)`,
+          metadataJson: {
+            reference: shipment.reference,
+            departure_date: shipment.departureDate,
+            package_ids: ids,
+            batch_depart: true,
+          },
+        },
+        ...updated.map((pkg) => ({
+          actorId: actor.id,
+          actorName: userFullName(actor),
+          actorRole: actor.role,
+          action: ACTION_PACKAGE_STATUS_UPDATED,
+          entityType: 'package' as const,
+          entityId: pkg.id,
+          summary: `${pkg.trackingNumber}: received → in transit (${shipment.reference})`,
+          metadataJson: {
+            tracking_number: pkg.trackingNumber,
+            from_status: 'received',
+            to_status: 'in_transit',
+            shipment_id: shipment.id,
+            shipment_reference: shipment.reference,
+            batch_depart: true,
+          },
+        })),
+      ])
     }
-  }
+
+    return [departedShipment!, updated, eventNote] as const
+  })
+
+  const [finalShipment, updated, eventNote] = result
 
   const { scheduleNotifyCustomersOfStatusBatch } = await import(
     './packageStatusNotificationService.js'
@@ -485,6 +566,5 @@ export async function batchDepartPackages(
     'in_transit',
   )
 
-  const [finalShipment] = await db.select().from(shipments).where(eq(shipments.id, shipment.id)).limit(1)
-  return [finalShipment!, updated]
+  return [finalShipment, updated]
 }

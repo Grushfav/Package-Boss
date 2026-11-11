@@ -208,7 +208,7 @@ export async function sendPackageStatusEmail(
       ? `${frontend}/dashboard/packages/${opts.packageId}/bill`
       : trackUrl
   const ctaLabel = status === 'ready_for_pickup' && opts.packageId ? 'View invoice' : 'Track package'
-  const subject = `Package update — ${trackingNumber}: ${label}`
+  const subject = `Package Update — ${trackingNumber}: ${label}`
 
   const shipmentLines = [`Package Boss tracking: ${trackingNumber}`]
   if (opts.carrierTracking?.trim()) shipmentLines.push(`Carrier tracking: ${opts.carrierTracking.trim()}`)
@@ -219,14 +219,14 @@ export async function sendPackageStatusEmail(
   body += status === 'ready_for_pickup' && opts.packageId
     ? `View your invoice: ${ctaUrl}\n\n`
     : `Track your package: ${trackUrl}\n\n`
-  body += '— Package Boss'
+  body += 'PACKAGE BOSS TEAM'
 
   if (opts.note) {
     body = `Hi ${firstName},\n\nYour package status is now: ${label}.\n\n${opts.note}\n\n${shipmentBlock}\n\n`
     body += status === 'ready_for_pickup' && opts.packageId
       ? `View your invoice: ${ctaUrl}\n\n`
       : `Track your package: ${trackUrl}\n\n`
-    body += '— Package Boss'
+    body += 'PACKAGE BOSS TEAM'
   }
 
   const htmlBody = renderPackageStatusHtml(firstName, trackingNumber, label, trackUrl, resolveLogoUrl(), {
@@ -266,7 +266,7 @@ export async function sendPackageStatusBatchEmail(
   const packagesUrl = `${frontend}/dashboard/packages`
   const ctaLabel = status === 'ready_for_pickup' ? 'View packages & bills' : 'View packages'
   const trackingNumbers = pkgs.map((pkg) => pkg.trackingNumber)
-  const subject = `Package update — ${count} packages: ${label}`
+  const subject = `Package Update — ${count} packages: ${label}`
 
   const trackingLines = trackingNumbers.map((tn) => `  • ${tn}`).join('\n')
   let body =
@@ -274,7 +274,7 @@ export async function sendPackageStatusBatchEmail(
     `Your package status is now: ${label}.\n\n` +
     `${count} packages:\n${trackingLines}\n\n` +
     `View your packages: ${packagesUrl}\n\n` +
-    `— Package Boss`
+    `PACKAGE BOSS TEAM`
   if (opts.note) {
     body =
       `Hi ${firstName},\n\n` +
@@ -282,7 +282,7 @@ export async function sendPackageStatusBatchEmail(
       `${opts.note}\n\n` +
       `${count} packages:\n${trackingLines}\n\n` +
       `View your packages: ${packagesUrl}\n\n` +
-      `— Package Boss`
+      `PACKAGE BOSS TEAM`
   }
 
   const packageRows: Array<[string, string | null, string | null]> = pkgs.map((pkg) => [
@@ -348,7 +348,7 @@ export async function sendCheckoutInvoiceEmail(
   customer: typeof users.$inferSelect,
   checkout: typeof paymentCheckouts.$inferSelect,
   pkgs: Array<typeof packages.$inferSelect>,
-): Promise<Record<string, unknown>> {
+): Promise<Record<string, unknown> | null> {
   const itemAmounts = new Map(pkgs.map((pkg) => [pkg.id, pkg.totalDueJmd ?? '0']))
   const htmlBody = renderCheckoutInvoiceHtml(checkout, customer, pkgs, itemAmounts)
   const methodLabel = PAYMENT_METHOD_LABELS[checkout.method] ?? checkout.method
@@ -357,15 +357,12 @@ export async function sendCheckoutInvoiceEmail(
   const subject = `Package Boss invoice ${checkout.invoiceNumber}`
   const body = `Hi ${customer.firstName},\n\nThank you for your payment. Invoice ${checkout.invoiceNumber} for ${totalDisplay} (${methodLabel}) is included below.\n\n— Package Boss Shipping & Logistics`
 
-  const result = await dispatchEmail(customer.email, subject, body, {
+  // Queue send so checkout HTTP response is not blocked on the email provider.
+  return dispatchEmail(customer.email, subject, body, {
     htmlBody,
     metadata: { type: 'checkout_invoice', invoiceNumber: checkout.invoiceNumber },
-    asyncSend: false,
+    asyncSend: true,
   })
-  if (result == null) {
-    throw new EmailServiceError('Email provider is not configured')
-  }
-  return result
 }
 
 export async function sendAnnouncementEmail(

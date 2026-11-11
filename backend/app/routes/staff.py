@@ -155,11 +155,29 @@ def warehouse_summary():
 @staff_bp.route("/warehouse/customers", methods=["GET"])
 @permission_required("directory")
 def list_customers():
+    from sqlalchemy import exists as sa_exists
+
+    from app.constants import DELIVERY_REQUEST_OPEN_STATUSES, WORKFLOW_STATUSES
+    from app.models.delivery_request import DeliveryRequest
+
     q = (request.args.get("q") or "").strip()
     limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
     limit = max(1, min(limit, 100))
     offset = max(0, offset)
+
+    package_status = (request.args.get("package_status") or "").strip()
+    active_packages = (request.args.get("active_packages") or "any").strip().lower()
+    if active_packages not in ("any", "has", "none"):
+        return jsonify({"error": "active_packages must be any, has, or none"}), 400
+    open_request = (request.args.get("open_request") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    if package_status and package_status not in WORKFLOW_STATUSES:
+        return jsonify({"error": "Invalid package_status"}), 400
 
     query = customer_query()
 
@@ -174,6 +192,37 @@ def list_customers():
                 User.email.ilike(pattern),
                 User.contact_number.ilike(pattern),
                 User.company_name.ilike(pattern),
+            )
+        )
+
+    if package_status:
+        query = query.filter(
+            sa_exists().where(
+                Package.customer_id == User.id,
+                Package.status == package_status,
+            )
+        )
+
+    if active_packages == "has":
+        query = query.filter(
+            sa_exists().where(
+                Package.customer_id == User.id,
+                Package.status != "delivered",
+            )
+        )
+    elif active_packages == "none":
+        query = query.filter(
+            ~sa_exists().where(
+                Package.customer_id == User.id,
+                Package.status != "delivered",
+            )
+        )
+
+    if open_request:
+        query = query.filter(
+            sa_exists().where(
+                DeliveryRequest.customer_id == User.id,
+                DeliveryRequest.status.in_(DELIVERY_REQUEST_OPEN_STATUSES),
             )
         )
 
@@ -334,9 +383,11 @@ def customer_account(shipping_id: str):
             row["payment"] = payment_map.get(str(pkg.id))
         package_rows.append(row)
 
+    addresses = list_delivery_addresses(user)
     payload = {
         "customer": _customer_dict(user),
         "packages": package_rows,
+        "delivery_addresses": [addr.to_dict() for addr in addresses],
     }
     if show_billing:
         checkouts = list_customer_checkouts(user)
@@ -548,6 +599,7 @@ def customer_checkout(shipping_id: str):
         try:
             from app.services.email_service import EmailServiceError, send_checkout_invoice_email
 
+            # Queued send — email_sent means accepted for delivery, not provider ACK.
             send_checkout_invoice_email(user, checkout, packages)
             email_sent = True
         except EmailServiceError as exc:
@@ -572,7 +624,10 @@ def customer_checkout(shipping_id: str):
                 "reference": checkout.reference,
                 "package_count": len(checkout.items),
             },
+            commit=False,
         )
+    if checkout.items:
+        db.session.commit()
 
     delivered_count = 0
     delivery_failed: list[dict] = []
@@ -990,9 +1045,9 @@ def list_packages():
     from_date = (request.args.get("from") or "").strip()
     to_date = (request.args.get("to") or "").strip()
     status = (request.args.get("status") or "").strip() or None
-    limit = request.args.get("limit", 100, type=int)
+    limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
-    limit = max(1, min(limit, 100))
+    limit = max(1, min(limit, 200))
     offset = max(0, offset)
 
     if status and status not in UPDATABLE_STATUSES:
@@ -1010,6 +1065,8 @@ def list_packages():
         {
             "packages": [warehouse_package_list_to_dict(p) for p in packages],
             "total": total,
+            "limit": limit,
+            "offset": offset,
         }
     )
 
@@ -1668,13 +1725,35 @@ def batch_depart_packages_route():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    from app.services.package_service import warehouse_package_to_dict
+    # Status Update only needs counts + shipment summary. Avoid loading/serializing
+    # every package (and customer relations) on the response path.
+    from app.constants import SHIPMENT_STATUS_LABELS
+    from app.utils.datetime_format import utc_isoformat
+
+    total_weight = 0.0
+    for package in updated:
+        if package.actual_weight_lbs is not None:
+            total_weight += float(package.actual_weight_lbs)
 
     return jsonify(
         {
-            "shipment": shipment.to_dict(include_packages=True),
+            "shipment": {
+                "id": str(shipment.id),
+                "reference": shipment.reference,
+                "departure_date": shipment.departure_date.isoformat(),
+                "status": shipment.status,
+                "status_label": SHIPMENT_STATUS_LABELS.get(shipment.status, shipment.status),
+                "note": shipment.note,
+                "created_by_id": str(shipment.created_by_id) if shipment.created_by_id else None,
+                "created_by_name": shipment.created_by.full_name if shipment.created_by else None,
+                "departed_at": utc_isoformat(shipment.departed_at),
+                "package_count": len(updated),
+                "total_weight_lbs": round(total_weight, 2),
+                "created_at": utc_isoformat(shipment.created_at),
+                "updated_at": utc_isoformat(shipment.updated_at),
+            },
             "updated": len(updated),
-            "packages": [warehouse_package_to_dict(p) for p in updated],
+            "packages": [],
             "failed": [],
         }
     )

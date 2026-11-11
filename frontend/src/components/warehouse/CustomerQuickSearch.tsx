@@ -2,10 +2,16 @@ import { Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchCustomers } from '../../api/staff'
+import { useAuth } from '../../context/AuthContext'
+import { clerkHasAnyPermission } from '../../lib/clerkPermissions'
 import type { StaffCustomer } from '../../types'
 
 export function CustomerQuickSearch() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const perms = user?.permissions || user?.clerk_permissions
+  const role = user?.role
+  const canOpenAccount = clerkHasAnyPermission(perms, ['directory', 'billing'], role)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<StaffCustomer[]>([])
   const [open, setOpen] = useState(false)
@@ -45,11 +51,12 @@ export function CustomerQuickSearch() {
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
-  function selectCustomer(c: StaffCustomer, action: 'account' | 'receive' = 'account') {
-    if (action === 'receive') {
-      navigate(`/warehouse/receive?shipping_id=${encodeURIComponent(c.shipping_id)}`)
-    } else {
+  function selectCustomer(c: StaffCustomer) {
+    // Receive-only clerks can search customers but cannot load the account page.
+    if (canOpenAccount) {
       navigate(`/warehouse/customers/${encodeURIComponent(c.shipping_id)}`)
+    } else {
+      navigate(`/warehouse/receive?shipping_id=${encodeURIComponent(c.shipping_id)}`)
     }
     setQuery('')
     setResults([])
@@ -76,14 +83,17 @@ export function CustomerQuickSearch() {
             <li key={c.id}>
               <button
                 type="button"
-                onClick={() => selectCustomer(c, 'account')}
+                onClick={() => selectCustomer(c)}
                 className="w-full px-3 py-2 text-left hover:bg-boss-gold/10"
               >
                 <p className="text-sm font-medium">{c.full_name}</p>
                 {c.account_type === 'business' && c.company_name && (
                   <p className="text-xs font-semibold text-boss-gold">{c.company_name}</p>
                 )}
-                <p className="text-xs text-muted">{c.shipping_id}</p>
+                <p className="text-xs text-muted">
+                  {c.shipping_id}
+                  {!canOpenAccount ? ' · Receive' : ''}
+                </p>
               </button>
             </li>
           ))}

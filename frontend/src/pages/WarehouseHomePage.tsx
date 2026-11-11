@@ -1,7 +1,5 @@
 import {
-  Bell,
   PackagePlus,
-  PackageSearch,
   Plane,
   Printer,
   RefreshCw,
@@ -62,22 +60,6 @@ export function WarehouseHomePage() {
           title="Print queue"
           description="Labels queued during busy receival — batch print when ready."
           count={counts?.print_queue_pending}
-        />
-        <HubCard
-          to="/warehouse/unidentified"
-          icon={PackageSearch}
-          title="Unidentified"
-          description="Packages with no matching customer — assign owners when identified."
-          count={counts?.unidentified_count}
-          urgent
-        />
-        <HubCard
-          to="/warehouse/pre-alerts"
-          icon={Bell}
-          title="Pre-alerts"
-          description="Customer tracking submissions waiting to be matched on receive."
-          count={counts?.pending_pre_alerts}
-          urgent={(counts?.pending_pre_alerts ?? 0) > 0}
         />
       </div>
 

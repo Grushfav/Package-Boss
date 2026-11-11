@@ -1,6 +1,6 @@
-import { CalendarDays, ChevronDown, ChevronUp, Megaphone, Package as PackageIcon, Plane, RefreshCw, ScanLine, Search, Shield, ShoppingBag } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ChevronDown, ChevronUp, Megaphone, Package as PackageIcon, Plane, RefreshCw, ScanLine, Search, Shield, ShoppingBag, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import {
@@ -56,6 +56,7 @@ function defaultFromDate(): string {
 interface QueuePreset {
   id: QueuePresetId
   label: string
+  shortLabel: string
   description: string
   from?: (today: string) => string
   to?: (today: string) => string
@@ -66,6 +67,7 @@ const QUEUE_PRESETS: QueuePreset[] = [
   {
     id: 'today',
     label: 'Received today',
+    shortLabel: 'Today',
     description: 'Packages received today',
     from: (today) => today,
     to: (today) => today,
@@ -73,28 +75,51 @@ const QUEUE_PRESETS: QueuePreset[] = [
   {
     id: 'received',
     label: 'Received',
+    shortLabel: 'Received',
     description: 'Received — mark in transit when shipped',
     status: 'received',
   },
   {
     id: 'in-transit',
     label: 'In Transit',
+    shortLabel: 'Transit',
     description: 'In transit — mark in customs on arrival',
     status: 'in_transit',
   },
   {
     id: 'customs',
     label: 'Customs',
+    shortLabel: 'Customs',
     description: 'Request invoices or release & bill',
     status: 'customs',
   },
   {
     id: 'ready',
     label: 'Ready for Pickup',
+    shortLabel: 'Ready',
     description: 'Ready for pickup — payment required before marking delivered',
     status: 'ready_for_pickup',
   },
 ]
+
+const PAGE_SIZE_OPTIONS = [50, 100, 150, 200] as const
+type QueuePageSize = (typeof PAGE_SIZE_OPTIONS)[number]
+
+function queueQueryForPreset(
+  presetId: QueuePresetId,
+  today: string,
+): { from: string; to: string; status: string } | null {
+  if (presetId === 'custom') return null
+  const config = QUEUE_PRESETS.find((p) => p.id === presetId)
+  if (!config) return null
+  // Status queues list every package in that stage; received-date filters would
+  // hide older packages while badge counts still include them.
+  return {
+    from: config.status ? '' : config.from ? config.from(today) : defaultFromDate(),
+    to: config.status ? '' : config.to ? config.to(today) : today,
+    status: config.status ?? '',
+  }
+}
 
 const PRESET_ICONS: Record<QueuePresetId, LucideIcon> = {
   today: CalendarDays,
@@ -105,7 +130,7 @@ const PRESET_ICONS: Record<QueuePresetId, LucideIcon> = {
   custom: Search,
 }
 
-function QueuePresetCard({
+function QueuePresetChip({
   label,
   description,
   icon: Icon,
@@ -123,33 +148,31 @@ function QueuePresetCard({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
+      title={description}
       onClick={onClick}
-      className={`group flex min-h-[7.5rem] flex-col rounded-2xl border p-4 text-left transition-all ${
+      className={`inline-flex h-11 shrink-0 snap-start items-center gap-2 rounded-xl border px-3 transition-colors ${
         active
-          ? 'border-boss-gold bg-boss-gold/10 shadow-sm ring-2 ring-boss-gold/25'
-          : 'border-border bg-card hover:border-boss-gold/40 hover:bg-background/40'
+          ? 'border-boss-gold bg-boss-gold/15 text-boss-gold shadow-sm'
+          : 'border-border bg-card text-foreground hover:border-boss-gold/40 hover:bg-background/40'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <Icon
+        className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-boss-gold' : 'text-muted'}`}
+        strokeWidth={2.25}
+        aria-hidden
+      />
+      <span className="text-[11px] font-bold uppercase tracking-wide whitespace-nowrap">{label}</span>
+      {count != null && (
         <span
-          className={`inline-flex rounded-xl p-2 ${
-            active ? 'bg-boss-gold/20 text-boss-gold' : 'bg-background/80 text-muted group-hover:text-boss-gold'
+          className={`min-w-[1.25rem] text-right text-sm font-black tabular-nums leading-none ${
+            active ? 'text-boss-green' : 'text-boss-green/90'
           }`}
         >
-          <Icon className="h-4 w-4" strokeWidth={2.25} />
+          {count}
         </span>
-        {count != null && (
-          <span className="text-2xl font-black tabular-nums leading-none text-boss-green">{count}</span>
-        )}
-      </div>
-      <p
-        className={`mt-3 text-xs font-bold uppercase tracking-wide ${
-          active ? 'text-boss-gold' : 'text-foreground'
-        }`}
-      >
-        {label}
-      </p>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted">{description}</p>
+      )}
     </button>
   )
 }
@@ -177,7 +200,13 @@ export function StatusUpdatePage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [packages, setPackages] = useState<Package[]>([])
   const [total, setTotal] = useState(0)
+  const [pageSize, setPageSize] = useState<QueuePageSize>(50)
+  const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  /** When set, bulk actions use this full-queue set instead of only the current page. */
+  const [selectionPool, setSelectionPool] = useState<Package[]>([])
+  const [selectAllLoading, setSelectAllLoading] = useState(false)
+  const [queueLoaded, setQueueLoaded] = useState(false)
 
   const [loadLoading, setLoadLoading] = useState(false)
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -195,6 +224,7 @@ export function StatusUpdatePage() {
   const [notifyOpen, setNotifyOpen] = useState(false)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const [actionSuccess, setActionSuccess] = useState('')
+  const [toast, setToast] = useState<string | null>(null)
   const [reviewOpen, setReviewOpen] = useState(false)
 
   const [error, setError] = useState('')
@@ -204,6 +234,7 @@ export function StatusUpdatePage() {
   const [scanPackage, setScanPackage] = useState<Package | null>(null)
   const [scanSuccess, setScanSuccess] = useState('')
   const [staffPackage, setStaffPackage] = useState<Package | null>(null)
+  const loadSeqRef = useRef(0)
 
   const scanParam = searchParams.get('scan')
 
@@ -233,12 +264,17 @@ export function StatusUpdatePage() {
     )
   }, [scanParam, setSearchParams])
 
-  const allSelected = packages.length > 0 && selectedIds.size === packages.length
-  const someSelected = selectedIds.size > 0 && selectedIds.size < packages.length
+  const pageAllSelected =
+    packages.length > 0 && packages.every((pkg) => selectedIds.has(pkg.id))
+  const pageSomeSelected =
+    packages.some((pkg) => selectedIds.has(pkg.id)) && !pageAllSelected
+  const entireQueueSelected =
+    total > 0 && selectionPool.length > 0 && selectedIds.size === total
 
+  const selectionSource = selectionPool.length > 0 ? selectionPool : packages
   const selection = useMemo(
-    () => analyzeSelection(packages, selectedIds),
-    [packages, selectedIds],
+    () => analyzeSelection(selectionSource, selectedIds),
+    [selectionSource, selectedIds],
   )
 
   function presetCount(preset: QueuePreset): number | null {
@@ -249,17 +285,31 @@ export function StatusUpdatePage() {
   }
 
   const selectedCustomsPackages = useMemo(
-    () => packages.filter((pkg) => selectedIds.has(pkg.id) && pkg.status === 'customs'),
-    [packages, selectedIds],
+    () => selectionSource.filter((pkg) => selectedIds.has(pkg.id) && pkg.status === 'customs'),
+    [selectionSource, selectedIds],
   )
 
   const selectedNotifyPackages = useMemo(
-    () => packages.filter((pkg) => selectedIds.has(pkg.id)),
-    [packages, selectedIds],
+    () => selectionSource.filter((pkg) => selectedIds.has(pkg.id)),
+    [selectionSource, selectedIds],
   )
 
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeEnd = Math.min(currentPage * pageSize, total)
+
   const loadPackages = useCallback(
-    async (from: string, to: string, status: string) => {
+    async (
+      from: string,
+      to: string,
+      status: string,
+      options?: { page?: number; pageSize?: QueuePageSize },
+    ) => {
+      const nextPageSize = options?.pageSize ?? pageSize
+      const nextPage = options?.page ?? page
+      const offset = (nextPage - 1) * nextPageSize
+      const seq = ++loadSeqRef.current
       setError('')
       setBulkResult(null)
       setDepartResult(null)
@@ -270,69 +320,284 @@ export function StatusUpdatePage() {
           from,
           to,
           status: status || undefined,
-          limit: 50,
+          limit: nextPageSize,
+          offset,
         })
+        // Ignore outdated responses when the user switches queues quickly.
+        if (seq !== loadSeqRef.current) return
         setPackages(pkgs)
         setTotal(count)
         setSelectedIds(new Set())
+        setSelectionPool([])
         setReviewOpen(false)
+        setQueueLoaded(true)
+        const maxPage = Math.max(1, Math.ceil(count / nextPageSize))
+        if (nextPage > maxPage) {
+          setPage(maxPage)
+        }
       } catch (err) {
+        if (seq !== loadSeqRef.current) return
         setError(getErrorMessage(err))
         setPackages([])
         setTotal(0)
         setSelectedIds(new Set())
+        setSelectionPool([])
+        setQueueLoaded(false)
       } finally {
-        setLoadLoading(false)
+        if (seq === loadSeqRef.current) {
+          setLoadLoading(false)
+        }
       }
     },
-    [],
+    [page, pageSize],
   )
 
   const handleLoad = useCallback(async () => {
-    await loadPackages(fromDate, toDate, filterStatus)
+    setPage(1)
+    await loadPackages(fromDate, toDate, filterStatus, { page: 1 })
   }, [fromDate, toDate, filterStatus, loadPackages])
 
   function selectPreset(preset: QueuePresetId) {
     if (preset === 'custom') {
+      loadSeqRef.current += 1
       setSearchParams({})
       setPackages([])
       setTotal(0)
+      setPage(1)
+      setQueueLoaded(false)
+      setLoadLoading(false)
       setSelectedIds(new Set())
+      setSelectionPool([])
       return
     }
+    // Clear the previous queue immediately so we never flash Today results under Received.
+    loadSeqRef.current += 1
+    setPackages([])
+    setTotal(0)
+    setSelectedIds(new Set())
+    setSelectionPool([])
+    setLoadLoading(true)
+    setPage(1)
     setSearchParams({ preset })
   }
 
+  // Work-queue presets: derive filters from the preset and load in one place
+  // (avoids a race where Today params briefly load under the Received tab).
   useEffect(() => {
     if (activePreset === 'custom') return
-    const config = QUEUE_PRESETS.find((p) => p.id === activePreset)
-    if (!config) return
+    const query = queueQueryForPreset(activePreset, today)
+    if (!query) return
 
-    // Status queues list every package in that stage; received-date filters would
-    // hide older packages while badge counts still include them.
-    const nextFrom = config.status ? '' : config.from ? config.from(today) : defaultFromDate()
-    const nextTo = config.status ? '' : config.to ? config.to(today) : today
-    const nextStatus = config.status ?? ''
-
-    setFromDate(nextFrom)
-    setToDate(nextTo)
-    setFilterStatus(nextStatus)
+    setFromDate(query.from)
+    setToDate(query.to)
+    setFilterStatus(query.status)
     setShowFilters(false)
-    void loadPackages(nextFrom, nextTo, nextStatus)
-  }, [activePreset, today, loadPackages])
+    setQueueLoaded(true)
+    void loadPackages(query.from, query.to, query.status)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePreset, today, page, pageSize])
 
-  function toggleSelectAll(checked: boolean) {
-    setSelectedIds(checked ? new Set(packages.map((p) => p.id)) : new Set())
+  // Custom search: only reload after the user has clicked Load (queueLoaded).
+  useEffect(() => {
+    if (activePreset !== 'custom' || !queueLoaded) return
+    void loadPackages(fromDate, toDate, filterStatus)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePreset, fromDate, toDate, filterStatus, page, pageSize, queueLoaded])
+
+  function changePageSize(nextSize: QueuePageSize) {
+    setPageSize(nextSize)
+    setPage(1)
+  }
+
+  function renderSelectionControls() {
+    if (packages.length === 0) return null
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted">
+            {total} package{total === 1 ? '' : 's'}
+            {total > 0 && ` · showing ${rangeStart}–${rangeEnd}`}
+            {selectedIds.size > 0 && (
+              <>
+                {' · '}
+                {entireQueueSelected
+                  ? `${selectedIds.size} selected (entire queue)`
+                  : `${selectedIds.size} selected`}
+              </>
+            )}
+          </p>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={pageAllSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = pageSomeSelected
+              }}
+              onChange={(e) => toggleSelectAllOnPage(e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-boss-gold"
+            />
+            Select all on this page
+          </label>
+        </div>
+        {total > packages.length && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-boss-gold/25 bg-boss-gold/5 px-3 py-2 text-sm">
+            {entireQueueSelected ? (
+              <>
+                <span className="text-foreground">
+                  All <span className="font-semibold">{total}</span> packages in this queue are
+                  selected.
+                </span>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="font-semibold text-boss-gold hover:underline"
+                >
+                  Clear selection
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-muted">
+                  {pageAllSelected
+                    ? `All ${packages.length} on this page are selected.`
+                    : `Only this page is selectable with the checkbox.`}
+                </span>
+                <button
+                  type="button"
+                  disabled={selectAllLoading}
+                  onClick={() => void selectEntireQueue()}
+                  className="font-semibold text-boss-gold hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {selectAllLoading
+                    ? 'Selecting…'
+                    : `Select all ${total} packages in this queue`}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderQueuePager() {
+    if (total === 0) return null
+    return (
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">
+          Showing {rangeStart}–{rangeEnd} of {total}
+          {totalPages > 1 ? ` · Page ${currentPage} of ${totalPages}` : ''}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-muted">
+            Per page
+            <select
+              value={pageSize}
+              onChange={(e) => changePageSize(Number(e.target.value) as QueuePageSize)}
+              className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+          {totalPages > 1 && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={currentPage <= 1 || loadLoading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="!py-2 !text-xs"
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={currentPage >= totalPages || loadLoading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="!py-2 !text-xs"
+              >
+                Next
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+    setSelectionPool([])
     setReviewOpen(false)
   }
 
+  function toggleSelectAllOnPage(checked: boolean) {
+    if (!checked) {
+      clearSelection()
+      return
+    }
+    setSelectionPool([])
+    setSelectedIds(new Set(packages.map((p) => p.id)))
+    setReviewOpen(false)
+  }
+
+  async function selectEntireQueue() {
+    if (total === 0 || selectAllLoading) return
+    setSelectAllLoading(true)
+    setError('')
+    try {
+      const pageLimit = 200
+      const all: Package[] = []
+      let offset = 0
+      while (offset < total) {
+        const { packages: batch, total: latestTotal } = await fetchWarehousePackages({
+          from: fromDate || undefined,
+          to: toDate || undefined,
+          status: filterStatus || undefined,
+          limit: pageLimit,
+          offset,
+        })
+        all.push(...batch)
+        offset += pageLimit
+        if (batch.length === 0) break
+        if (all.length >= latestTotal) break
+      }
+      setSelectionPool(all)
+      setSelectedIds(new Set(all.map((pkg) => pkg.id)))
+      setReviewOpen(false)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setSelectAllLoading(false)
+    }
+  }
+
   function togglePackage(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    const wasSelected = selectedIds.has(id)
+    const nextIds = new Set(selectedIds)
+    if (wasSelected) nextIds.delete(id)
+    else nextIds.add(id)
+    setSelectedIds(nextIds)
+
+    // Keep full-queue mode in sync when the user tweaks a row after "Select all N".
+    // Clearing the pool while leaving off-page IDs in selectedIds made the count look
+    // correct but bulk actions (Delivered / customs / notify) only saw the current page.
+    if (selectionPool.length > 0) {
+      if (wasSelected) {
+        setSelectionPool((prev) => prev.filter((pkg) => pkg.id !== id))
+      } else {
+        const onPage = packages.find((pkg) => pkg.id === id)
+        if (onPage && !selectionPool.some((pkg) => pkg.id === id)) {
+          setSelectionPool((prev) => [...prev, onPage])
+        }
+      }
+    }
+
     setReviewOpen(false)
   }
 
@@ -362,10 +627,16 @@ export function StatusUpdatePage() {
       .finally(() => setOpenShipmentsLoading(false))
   }, [reviewOpen, isTransitAdvance])
 
+  useEffect(() => {
+    if (!toast) return
+    const timer = window.setTimeout(() => setToast(null), 4500)
+    return () => window.clearTimeout(timer)
+  }, [toast])
+
   async function executeBulkAdvance(targetStatus: string, packageIds?: string[]) {
     let ids = packageIds ?? Array.from(selectedIds)
     if (targetStatus === 'delivered') {
-      const selected = packages.filter((pkg) => ids.includes(pkg.id))
+      const selected = selectionSource.filter((pkg) => ids.includes(pkg.id))
       const deliverable = selected.filter((pkg) => packagePaymentConfirmed(pkg))
       if (deliverable.length === 0) {
         setError('Record payment before marking packages delivered.')
@@ -399,15 +670,23 @@ export function StatusUpdatePage() {
           reference: batchMode === 'new' ? batchReference.trim() : undefined,
           departureDate: batchMode === 'new' ? batchDepartureDate : undefined,
         })
+        const departed = new Set(ids)
         setDepartResult({
           updated: result.updated,
           reference: result.shipment.reference,
         })
+        setToast(
+          `${result.updated} package${result.updated === 1 ? '' : 's'} removed from this queue · departed on ${result.shipment.reference}`,
+        )
         setReviewOpen(false)
         setBatchReference('')
         setBatchDepartureDate(today)
-        await handleLoad()
-        refreshCounts()
+        setSelectedIds(new Set())
+        setSelectionPool((prev) => prev.filter((pkg) => !departed.has(pkg.id)))
+        setPackages((prev) => prev.filter((pkg) => !departed.has(pkg.id)))
+        setTotal((prev) => Math.max(0, prev - result.updated))
+        // Don't block the spinner on queue reload — depart already succeeded.
+        void handleLoad().finally(() => refreshCounts())
         return
       }
 
@@ -415,10 +694,19 @@ export function StatusUpdatePage() {
         packageIds: ids,
         status: targetStatus,
       })
+      const removed = new Set(ids)
+      const nextLabel =
+        WORKFLOW_STATUSES.find((s) => s.value === targetStatus)?.label ?? targetStatus
       setBulkResult(result)
+      setToast(
+        `${result.updated} package${result.updated === 1 ? '' : 's'} removed from this queue · now ${nextLabel}`,
+      )
       setReviewOpen(false)
-      await handleLoad()
-      refreshCounts()
+      setSelectedIds(new Set())
+      setSelectionPool((prev) => prev.filter((pkg) => !removed.has(pkg.id)))
+      setPackages((prev) => prev.filter((pkg) => !removed.has(pkg.id)))
+      setTotal((prev) => Math.max(0, prev - result.updated))
+      void handleLoad().finally(() => refreshCounts())
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -497,6 +785,25 @@ export function StatusUpdatePage() {
 
   return (
     <div className="px-4 py-8 pb-40">
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-20 left-4 right-4 z-40 mx-auto flex max-w-lg items-start gap-3 rounded-xl border border-boss-green/40 bg-card px-4 py-3 shadow-lg md:bottom-6 md:left-auto md:right-6"
+        >
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-boss-green" aria-hidden />
+          <p className="min-w-0 flex-1 text-sm font-medium text-foreground">{toast}</p>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="shrink-0 rounded-md p-1 text-muted hover:bg-background/60 hover:text-foreground"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="mb-6 flex items-center gap-2.5">
         <IconBadge icon={RefreshCw} size="sm" />
         <div>
@@ -507,28 +814,33 @@ export function StatusUpdatePage() {
 
       <form
         onSubmit={handleScanLookup}
-        className="mb-4 rounded-2xl border border-border bg-card p-4"
+        className="mb-4 rounded-2xl border border-border bg-card px-3 py-2.5"
       >
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-          <ScanLine className="h-4 w-4" />
-          Scan or enter tracking
-        </div>
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-          <Input
-            label="Tracking number"
-            placeholder="PB-2026-000001"
-            value={scanTracking}
-            onChange={(e) => setScanTracking(e.target.value.toUpperCase())}
-            className="flex-1"
-          />
-          <Button type="submit" disabled={scanLoading || !scanTracking.trim()} className="sm:self-end">
-            {scanLoading ? 'Looking up…' : 'Look up'}
+        <div className="flex items-center gap-2">
+          <ScanLine className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <Input
+              aria-label="Tracking number"
+              placeholder="Scan or enter tracking"
+              value={scanTracking}
+              onChange={(e) => setScanTracking(e.target.value.toUpperCase())}
+              className="!py-2"
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={scanLoading || !scanTracking.trim()}
+            className="shrink-0 px-3 py-2"
+          >
+            {scanLoading ? '…' : 'Look up'}
           </Button>
         </div>
         {scanPackage && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/50 p-4">
-            <div>
-              <p className="font-mono font-bold text-boss-gold">{scanPackage.tracking_number}</p>
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background/50 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="font-mono text-sm font-bold text-boss-gold">{scanPackage.tracking_number}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <StatusBadge status={scanPackage.status} label={scanPackage.status_label} />
                 {scanPackage.customer && (
@@ -592,16 +904,20 @@ export function StatusUpdatePage() {
             </div>
           </div>
         )}
-        {scanSuccess && <p className="mt-3 text-sm text-boss-gold">{scanSuccess}</p>}
+        {scanSuccess && <p className="mt-2 text-sm text-boss-gold">{scanSuccess}</p>}
       </form>
 
-      <div className="mb-6">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Work queues</p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mb-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Work queues</p>
+        <div
+          role="tablist"
+          aria-label="Work queues"
+          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0 md:snap-none"
+        >
           {QUEUE_PRESETS.map((preset) => (
-            <QueuePresetCard
+            <QueuePresetChip
               key={preset.id}
-              label={preset.label}
+              label={preset.shortLabel}
               description={preset.description}
               icon={PRESET_ICONS[preset.id]}
               count={presetCount(preset)}
@@ -609,7 +925,7 @@ export function StatusUpdatePage() {
               onClick={() => selectPreset(preset.id)}
             />
           ))}
-          <QueuePresetCard
+          <QueuePresetChip
             label="Search"
             description="Filter by date range and any status"
             icon={PRESET_ICONS.custom}
@@ -752,32 +1068,7 @@ export function StatusUpdatePage() {
 
       {activePreset !== 'custom' && !loadLoading && (
         <div className="mt-6 rounded-2xl border border-border bg-card p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted">
-              {total} package{total === 1 ? '' : 's'}
-              {total > packages.length && ` (showing ${packages.length})`}
-              {packages.length > 0 && (
-                <>
-                  {' · '}
-                  {selectedIds.size} selected
-                </>
-              )}
-            </p>
-            {packages.length > 0 && (
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelected
-                  }}
-                  onChange={(e) => toggleSelectAll(e.target.checked)}
-                  className="h-4 w-4 rounded border-border accent-boss-gold"
-                />
-                Select all in queue
-              </label>
-            )}
-          </div>
+          {renderSelectionControls()}
 
           {packages.length === 0 ? (
             <p className="mt-6 text-center text-sm text-muted">No packages in this queue.</p>
@@ -878,31 +1169,13 @@ export function StatusUpdatePage() {
             </table>
             </div>
           )}
+          {renderQueuePager()}
         </div>
       )}
 
       {activePreset === 'custom' && packages.length > 0 && (
         <div className="mt-6 rounded-2xl border border-border bg-card p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted">
-              {total} package{total === 1 ? '' : 's'}
-              {total > packages.length && ` (showing ${packages.length})`}
-              {' · '}
-              {selectedIds.size} selected
-            </p>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                ref={(el) => {
-                  if (el) el.indeterminate = someSelected
-                }}
-                onChange={(e) => toggleSelectAll(e.target.checked)}
-                className="h-4 w-4 rounded border-border accent-boss-gold"
-              />
-              Select all in queue
-            </label>
-          </div>
+          {renderSelectionControls()}
 
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[960px] text-left text-sm">
@@ -999,6 +1272,7 @@ export function StatusUpdatePage() {
               </tbody>
             </table>
           </div>
+          {renderQueuePager()}
         </div>
       )}
 
@@ -1131,7 +1405,7 @@ export function StatusUpdatePage() {
                         executeBulkAdvance(
                           primaryAdvance.value,
                           selection.mode === 'payment_required'
-                            ? packages
+                            ? selectionSource
                                 .filter(
                                   (pkg) =>
                                     selectedIds.has(pkg.id) && packagePaymentConfirmed(pkg),

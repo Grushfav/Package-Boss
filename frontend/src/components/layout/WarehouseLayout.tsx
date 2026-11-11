@@ -49,11 +49,27 @@ function WarehouseShell() {
     end?: boolean
     icon: typeof LayoutDashboard
     label: string
+    mobileLabel?: string
     badge?: number
     permission: ClerkPermission | ClerkPermission[]
   }[] = [
     { to: '/warehouse', end: true, icon: LayoutDashboard, label: 'Floor', permission: 'receive' },
     { to: '/warehouse/receive', icon: PackagePlus, label: 'Receive', permission: 'receive' },
+    { to: '/warehouse/customers', icon: Users, label: 'Directory', permission: 'directory' },
+    {
+      to: '/warehouse/status',
+      icon: RefreshCw,
+      label: 'Package status',
+      mobileLabel: 'Status',
+      permission: ['status_transit', 'status_customs', 'status_pickup'],
+    },
+    {
+      to: '/warehouse/requests',
+      icon: Inbox,
+      label: 'Requests',
+      badge: counts?.pending_customer_requests,
+      permission: ['status_pickup', 'billing'],
+    },
     {
       to: '/warehouse/pre-alerts',
       icon: Bell,
@@ -69,13 +85,6 @@ function WarehouseShell() {
       permission: 'receive',
     },
     {
-      to: '/warehouse/requests',
-      icon: Inbox,
-      label: 'Requests',
-      badge: counts?.pending_customer_requests,
-      permission: ['status_pickup', 'billing'],
-    },
-    {
       to: '/warehouse/unidentified',
       icon: PackageSearch,
       label: 'Unidentified',
@@ -89,13 +98,6 @@ function WarehouseShell() {
       badge: counts?.open_shipments,
       permission: 'status_transit',
     },
-    {
-      to: '/warehouse/status',
-      icon: RefreshCw,
-      label: 'Package status',
-      permission: ['status_transit', 'status_customs', 'status_pickup'],
-    },
-    { to: '/warehouse/customers', icon: Users, label: 'Directory', permission: 'directory' },
     { to: '/warehouse/activity', icon: Activity, label: 'Activity', permission: 'activity' },
   ]
 
@@ -184,7 +186,7 @@ function WarehouseShell() {
             }
           >
             <item.icon className="h-5 w-5" strokeWidth={2} />
-            {item.label.split(' ')[0]}
+            {item.mobileLabel ?? item.label.split(' ')[0]}
             {item.badge != null && item.badge > 0 && (
               <span className="absolute right-2 top-1 h-2 w-2 rounded-full bg-boss-gold" />
             )}

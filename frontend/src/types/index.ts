@@ -286,8 +286,11 @@ export interface CustomerAccountSummary {
 export interface CustomerAccount {
   customer: StaffCustomer
   packages: Package[]
-  checkouts: PaymentCheckout[]
-  summary: CustomerAccountSummary
+  /** Present when the actor has billing permission. */
+  checkouts?: PaymentCheckout[]
+  /** Present when the actor has billing permission. */
+  summary?: CustomerAccountSummary
+  delivery_addresses?: DeliveryAddress[]
   pending_transfer_proofs?: BankTransferProof[]
   pending_delivery_requests?: DeliveryRequest[]
 }
@@ -435,6 +438,7 @@ export interface MonthlyGrowthPoint {
   label: string
   active_customers: number
   revenue_jmd: number
+  weight_lbs: number
 }
 
 export interface MonthlyGrowthStats {

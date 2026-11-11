@@ -26,7 +26,14 @@ export async function fetchShippers(): Promise<Shipper[]> {
 }
 
 export async function fetchCustomers(
-  options: { q?: string; limit?: number; offset?: number } = {},
+  options: {
+    q?: string
+    limit?: number
+    offset?: number
+    packageStatus?: string
+    activePackages?: 'any' | 'has' | 'none'
+    openRequest?: boolean
+  } = {},
 ): Promise<{ customers: StaffCustomer[]; total: number }> {
   const { data } = await api.get<{ customers: StaffCustomer[]; total: number }>(
     '/warehouse/customers',
@@ -35,6 +42,12 @@ export async function fetchCustomers(
         q: options.q || undefined,
         limit: options.limit,
         offset: options.offset,
+        package_status: options.packageStatus || undefined,
+        active_packages:
+          options.activePackages && options.activePackages !== 'any'
+            ? options.activePackages
+            : undefined,
+        open_request: options.openRequest ? '1' : undefined,
       },
     },
   )
@@ -260,8 +273,13 @@ export async function fetchWarehousePackages(options: {
   status?: string
   limit?: number
   offset?: number
-}): Promise<{ packages: Package[]; total: number }> {
-  const { data } = await api.get<{ packages: Package[]; total: number }>('/staff/packages', {
+}): Promise<{ packages: Package[]; total: number; limit?: number; offset?: number }> {
+  const { data } = await api.get<{
+    packages: Package[]
+    total: number
+    limit?: number
+    offset?: number
+  }>('/staff/packages', {
     params: {
       from: options.from || undefined,
       to: options.to || undefined,

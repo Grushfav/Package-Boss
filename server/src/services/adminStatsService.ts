@@ -383,11 +383,16 @@ export async function getMonthlyGrowth(months = 12) {
   const revenueByMonth = Object.fromEntries(
     monthStarts.map((m) => [monthKey(m.year, m.monthIndex), 0]),
   ) as Record<string, number>
+  const weightByMonth = Object.fromEntries(
+    monthStarts.map((m) => [monthKey(m.year, m.monthIndex), 0]),
+  ) as Record<string, number>
 
   const packageRows = await db
     .select({
       customerId: packages.customerId,
       receivedAt: packages.receivedAt,
+      billableWeightLbs: packages.billableWeightLbs,
+      actualWeightLbs: packages.actualWeightLbs,
     })
     .from(packages)
     .innerJoin(users, eq(users.id, packages.customerId))
@@ -404,6 +409,12 @@ export async function getMonthlyGrowth(months = 12) {
     const local = jamaicaLocalDate(row.receivedAt)
     const key = monthKey(local.getUTCFullYear(), local.getUTCMonth())
     customersByMonth[key]?.add(row.customerId)
+    if (key in weightByMonth) {
+      const billable = row.billableWeightLbs != null ? Number(row.billableWeightLbs) : NaN
+      const actual = row.actualWeightLbs != null ? parseFloat(String(row.actualWeightLbs)) : NaN
+      const weight = Number.isFinite(billable) ? billable : Number.isFinite(actual) ? actual : 0
+      weightByMonth[key] += weight
+    }
   }
 
   const checkoutRows = await db
@@ -430,6 +441,7 @@ export async function getMonthlyGrowth(months = 12) {
       label: monthLabel(m.year, m.monthIndex),
       active_customers: customersByMonth[key]?.size ?? 0,
       revenue_jmd: Math.round((revenueByMonth[key] ?? 0) * 100) / 100,
+      weight_lbs: Math.round((weightByMonth[key] ?? 0) * 100) / 100,
     }
   })
 

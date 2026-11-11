@@ -27,7 +27,7 @@ interface CheckoutPaymentModalProps {
   onCompleted: (
     checkout: PaymentCheckout,
     packageIds: string[],
-    options?: { markDelivered?: boolean },
+    options?: { markDelivered?: boolean; deliveryWarning?: string | null },
   ) => void
 }
 
@@ -132,39 +132,22 @@ export function CheckoutPaymentModal({
         mark_delivered: markDelivered,
       })
 
-      onCompleted(result.checkout, packageIds, { markDelivered })
-
       const deliveryIssue =
         markDelivered &&
         ((result.delivery_failed?.length ?? 0) > 0 ||
           (result.delivered_count ?? 0) < packageIds.length)
+      const deliveryWarning = deliveryIssue
+        ? result.delivery_failed?.map((f) => f.error).filter(Boolean).join('; ') ||
+          'Some packages were not marked delivered'
+        : null
 
-      if (emailInvoice && !result.email_sent && result.email_error) {
-        setError(`Payment recorded, but email failed: ${result.email_error}`)
-        if (printInvoice) {
-          await openCheckoutBillInvoice(result.checkout.id)
-        }
-        return
-      }
-
-      if (deliveryIssue) {
-        const failedMsg = result.delivery_failed?.map((f) => f.error).join('; ')
-        setError(
-          failedMsg
-            ? `Payment recorded, but delivery update failed: ${failedMsg}`
-            : 'Payment recorded, but some packages were not marked delivered',
-        )
-        if (printInvoice) {
-          await openCheckoutBillInvoice(result.checkout.id)
-        }
-        return
-      }
+      onCompleted(result.checkout, packageIds, { markDelivered, deliveryWarning })
 
       if (printInvoice) {
-        await openCheckoutBillInvoice(result.checkout.id)
+        void openCheckoutBillInvoice(result.checkout.id).catch((err) => {
+          console.warn('Checkout invoice print failed:', getErrorMessage(err))
+        })
       }
-
-      onClose()
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {

@@ -38,7 +38,6 @@ import { MAX_AUTO_RATE_LBS, MAX_RECEIVE_LBS } from '../lib/warehouseConstants'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
-import { PackageLoader } from '../components/ui/PackageLoader'
 import type { Package, Shipper, StaffCustomer } from '../types'
 
 type ReceiveStep = 'idle' | 'receiving' | 'preview' | 'complete'
@@ -991,12 +990,7 @@ export function ReceivePage() {
           </div>
 
           {receiveBatchesLoading ? (
-            <PackageLoader
-              done={false}
-              size="sm"
-              label="Loading batches…"
-              className="mt-2"
-            />
+            <p className="mt-2 text-xs text-muted">Loading batches…</p>
           ) : showNewBatchForm ? (
             <div className="mt-3 space-y-2 rounded-lg border border-border bg-background/50 p-3">
               <Input
@@ -1067,7 +1061,7 @@ export function ReceivePage() {
             Your last 3 receivals today
           </h2>
           {recentLoading ? (
-            <PackageLoader done={false} size="sm" label="Loading…" className="mt-2" />
+            <p className="mt-2 text-xs text-muted">Loading…</p>
           ) : recentReceives.length === 0 ? (
             <p className="mt-2 text-xs text-muted">No packages received yet today.</p>
           ) : (

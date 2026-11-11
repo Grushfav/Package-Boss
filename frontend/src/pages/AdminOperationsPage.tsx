@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Landmark,
   Minus,
+  Scale,
   TrendingDown,
   TrendingUp,
   Truck,
@@ -48,6 +49,15 @@ const SIGNUP_PAGE_SIZE = 5
 
 function formatShortDate(dateStr: string) {
   return dateStr.slice(5)
+}
+
+function formatLbs(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  const text =
+    rounded === Math.trunc(rounded)
+      ? rounded.toLocaleString('en-JM')
+      : rounded.toLocaleString('en-JM', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return `${text} lbs`
 }
 
 function formatPercent(value: number) {
@@ -335,6 +345,7 @@ export function AdminOperationsPage() {
     const previous = monthlyGrowth[monthlyGrowth.length - 2] ?? {
       active_customers: 0,
       revenue_jmd: 0,
+      weight_lbs: 0,
       label: '—',
       month: '',
     }
@@ -498,7 +509,7 @@ export function AdminOperationsPage() {
                 This month (MTD)
               </h2>
               <p className="text-xs text-muted">
-                MTD vs prior full month · active shippers & collected checkout totals
+                MTD vs prior full month · shippers, checkout totals & received weight
               </p>
             </div>
           </div>
@@ -509,7 +520,7 @@ export function AdminOperationsPage() {
           ) : momLoadState === 'empty' || !momSummary ? (
             <p className="mt-5 text-sm text-muted">No month-over-month data yet.</p>
           ) : (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <MomMetricCard
                 icon={Users}
                 label="Active customers"
@@ -525,6 +536,14 @@ export function AdminOperationsPage() {
                 current={momSummary.current.revenue_jmd}
                 previous={momSummary.previous.revenue_jmd}
                 hint={`${momSummary.current.label} (MTD) · recorded checkout totals`}
+              />
+              <MomMetricCard
+                icon={Scale}
+                label="Weight collected"
+                value={formatLbs(momSummary.current.weight_lbs)}
+                current={momSummary.current.weight_lbs}
+                previous={momSummary.previous.weight_lbs}
+                hint={`${momSummary.current.label} (MTD) · billable weight of packages received`}
               />
             </div>
           )}
@@ -563,7 +582,7 @@ export function AdminOperationsPage() {
         </Link>
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-2">
+      <div className="mt-8 grid gap-8 lg:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-6">
           <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
             Active customers by month
@@ -623,6 +642,42 @@ export function AdminOperationsPage() {
                   dataKey="revenue_jmd"
                   fill="#eab308"
                   name="Revenue"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-6 lg:col-span-2 xl:col-span-1">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-boss-gold">
+            Weight collected by month
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Billable lbs of packages received · current month is MTD
+          </p>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartSeries}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                <XAxis dataKey="shortLabel" tick={{ fontSize: 11 }} />
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  width={48}
+                  tickFormatter={(v) =>
+                    Number(v) >= 1000 ? `${Math.round(Number(v) / 1000)}k` : String(v)
+                  }
+                />
+                <Tooltip
+                  labelFormatter={(_, payload) =>
+                    String(payload?.[0]?.payload?.label ?? '')
+                  }
+                  formatter={(value) => [formatLbs(Number(value ?? 0)), 'Weight']}
+                />
+                <Bar
+                  dataKey="weight_lbs"
+                  fill="#22c55e"
+                  name="Weight"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>

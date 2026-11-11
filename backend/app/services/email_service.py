@@ -323,7 +323,7 @@ def send_package_status_email(
         cta_url = track_url
         cta_label = "Track package"
         action_line = f"Track your package: {track_url}"
-    subject = f"Package update — {tracking_number}: {label}"
+    subject = f"Package Update — {tracking_number}: {label}"
 
     shipment_lines = [f"Package Boss tracking: {tracking_number}"]
     if carrier_tracking and carrier_tracking.strip():
@@ -337,7 +337,7 @@ def send_package_status_email(
         f"Your package status is now: {label}.\n\n"
         f"{shipment_block}\n\n"
         f"{action_line}\n\n"
-        f"— Package Boss"
+        f"PACKAGE BOSS TEAM"
     )
     if note:
         body = (
@@ -346,7 +346,7 @@ def send_package_status_email(
             f"{note}\n\n"
             f"{shipment_block}\n\n"
             f"{action_line}\n\n"
-            f"— Package Boss"
+            f"PACKAGE BOSS TEAM"
         )
     html_body = render_package_status_html(
         first_name,
@@ -408,7 +408,7 @@ def send_package_status_batch_email(
         cta_label = "View packages"
 
     tracking_numbers = [pkg.tracking_number for pkg in packages]
-    subject = f"Package update — {count} packages: {label}"
+    subject = f"Package Update — {count} packages: {label}"
 
     tracking_lines = "\n".join(f"  • {tn}" for tn in tracking_numbers)
     body = (
@@ -416,7 +416,7 @@ def send_package_status_batch_email(
         f"Your package status is now: {label}.\n\n"
         f"{count} packages:\n{tracking_lines}\n\n"
         f"View your packages: {packages_url}\n\n"
-        f"— Package Boss"
+        f"PACKAGE BOSS TEAM"
     )
     if note:
         body = (
@@ -425,7 +425,7 @@ def send_package_status_batch_email(
             f"{note}\n\n"
             f"{count} packages:\n{tracking_lines}\n\n"
             f"View your packages: {packages_url}\n\n"
-            f"— Package Boss"
+            f"PACKAGE BOSS TEAM"
         )
 
     package_rows: list[tuple[str, str | None, str | None]] = []
@@ -575,7 +575,7 @@ def send_checkout_invoice_email(
         body,
         html_body=html_body,
         metadata={"type": "checkout_invoice", "invoiceNumber": checkout.invoice_number},
-        async_send=False,
+        async_send=True,
     )
 
 

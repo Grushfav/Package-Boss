@@ -367,7 +367,10 @@ def render_package_status_html(
       <p style="margin:0 0 12px;">Hi {safe_name},</p>
       <p style="margin:0 0 12px;">{safe_message}</p>
       {tracking_box}
-      {note_block}"""
+      {note_block}
+      <p style="margin:20px 0 0;font-size:14px;font-weight:700;letter-spacing:0.04em;color:{TEXT_PRIMARY};">
+        PACKAGE BOSS TEAM
+      </p>"""
     return render_layout(
         preheader=(
             f"Package {tracking_number}"
@@ -444,7 +447,10 @@ def render_package_status_batch_html(
       <p style="margin:0 0 12px;">Hi {safe_name},</p>
       <p style="margin:0 0 12px;">{safe_message}</p>
       {packages_table}
-      {note_block}"""
+      {note_block}
+      <p style="margin:20px 0 0;font-size:14px;font-weight:700;letter-spacing:0.04em;color:{TEXT_PRIMARY};">
+        PACKAGE BOSS TEAM
+      </p>"""
     tracking_preview = ", ".join(row[0] for row in package_rows[:3])
     if count > 3:
         tracking_preview += f" +{count - 3} more"

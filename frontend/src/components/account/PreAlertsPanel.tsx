@@ -5,7 +5,6 @@ import { getErrorMessage } from '../../api/client'
 import { deletePreAlert } from '../../api/preAlerts'
 import { useCustomerData } from '../../context/CustomerDataContext'
 import type { PreAlert } from '../../types'
-import { PackageLoader } from '../ui/PackageLoader'
 
 function statusBadgeClass() {
   return 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
@@ -119,13 +118,9 @@ export function PreAlertsPanel() {
       )}
 
       {preAlertsLoading && pending.length === 0 ? (
-        <div className="mt-4">
-          <PackageLoader
-            done={!preAlertsLoading}
-            size="sm"
-            label="Loading pre-alerts…"
-          />
-        </div>
+        <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
+          Loading pre-alerts...
+        </p>
       ) : pending.length === 0 ? (
         <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
           No active pre-alerts. Submit a new one when you are expecting a shipment.

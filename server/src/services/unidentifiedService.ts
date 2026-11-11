@@ -1,10 +1,17 @@
-import { and, asc, count, eq, ilike, inArray, ne, or } from 'drizzle-orm'
+import { and, asc, count, eq, exists, ilike, inArray, ne, notExists, or } from 'drizzle-orm'
 
-import { UNIDENTIFIED_HOLDER_EMAIL, UNIDENTIFIED_HOLDER_SHIPPING_ID } from '../constants.js'
+import {
+  DELIVERY_REQUEST_OPEN_STATUSES,
+  UNIDENTIFIED_HOLDER_EMAIL,
+  UNIDENTIFIED_HOLDER_SHIPPING_ID,
+  WORKFLOW_STATUSES,
+} from '../constants.js'
 import { db } from '../db/index.js'
-import { packages, users } from '../db/schema/index.js'
+import { deliveryRequests, packages, users } from '../db/schema/index.js'
 import type { UserRow } from '../db/schema/index.js'
 import { hashPassword } from './werkzeugPassword.js'
+
+export type CustomerActivePackagesFilter = 'any' | 'has' | 'none'
 
 export function isUnidentifiedHolder(user: UserRow | null | undefined): boolean {
   return Boolean(user && user.shippingId === UNIDENTIFIED_HOLDER_SHIPPING_ID)
@@ -62,10 +69,16 @@ export async function listCustomers(options: {
   q?: string
   limit?: number
   offset?: number
+  packageStatus?: string | null
+  activePackages?: CustomerActivePackagesFilter | null
+  openRequest?: boolean | null
 }): Promise<[UserRow[], number]> {
   const limit = Math.max(1, Math.min(options.limit ?? 50, 100))
   const offset = Math.max(0, options.offset ?? 0)
   const q = (options.q ?? '').trim()
+  const packageStatus = (options.packageStatus ?? '').trim()
+  const activePackages = options.activePackages ?? 'any'
+  const openRequest = Boolean(options.openRequest)
 
   const conditions = [customerUsersWhere()]
   if (q) {
@@ -80,6 +93,56 @@ export async function listCustomers(options: {
         ilike(users.contactNumber, pattern),
         ilike(users.companyName, pattern),
       )!,
+    )
+  }
+
+  if (packageStatus) {
+    if (!(WORKFLOW_STATUSES as readonly string[]).includes(packageStatus)) {
+      throw new Error('Invalid package_status')
+    }
+    conditions.push(
+      exists(
+        db
+          .select({ id: packages.id })
+          .from(packages)
+          .where(and(eq(packages.customerId, users.id), eq(packages.status, packageStatus))),
+      ),
+    )
+  }
+
+  if (activePackages === 'has') {
+    conditions.push(
+      exists(
+        db
+          .select({ id: packages.id })
+          .from(packages)
+          .where(and(eq(packages.customerId, users.id), ne(packages.status, 'delivered'))),
+      ),
+    )
+  } else if (activePackages === 'none') {
+    conditions.push(
+      notExists(
+        db
+          .select({ id: packages.id })
+          .from(packages)
+          .where(and(eq(packages.customerId, users.id), ne(packages.status, 'delivered'))),
+      ),
+    )
+  }
+
+  if (openRequest) {
+    conditions.push(
+      exists(
+        db
+          .select({ id: deliveryRequests.id })
+          .from(deliveryRequests)
+          .where(
+            and(
+              eq(deliveryRequests.customerId, users.id),
+              inArray(deliveryRequests.status, [...DELIVERY_REQUEST_OPEN_STATUSES]),
+            ),
+          ),
+      ),
     )
   }
 

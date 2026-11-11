@@ -198,6 +198,7 @@ export async function fetchMonthlyGrowth(months = 12): Promise<MonthlyGrowthStat
       label: point.label,
       active_customers: point.active_customers ?? 0,
       revenue_jmd: point.revenue_jmd ?? 0,
+      weight_lbs: point.weight_lbs ?? 0,
     })),
   }
 }

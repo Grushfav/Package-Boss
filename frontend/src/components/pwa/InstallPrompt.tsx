@@ -1,5 +1,6 @@
 import { Download, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import { Button } from '../ui/Button'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -8,6 +9,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function InstallPrompt() {
+  const { user } = useAuth()
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [dismissed, setDismissed] = useState(
     () => localStorage.getItem('pwa-install-dismissed') === 'true',
@@ -23,6 +25,8 @@ export function InstallPrompt() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
   }, [])
 
+  // Staff/admin UIs have bottom actions — don't cover Save / nav with the install card.
+  if (user?.role === 'clerk' || user?.role === 'admin') return null
   if (!deferredPrompt || dismissed) return null
 
   async function handleInstall() {

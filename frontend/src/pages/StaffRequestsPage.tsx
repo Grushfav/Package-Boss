@@ -16,7 +16,6 @@ import {
 } from '../api/staff'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
-import { PackageLoader } from '../components/ui/PackageLoader'
 import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { formatJmd } from '../lib/money'
 import { PICKUP_HOURS_SHORT, PICKUP_LOCATION_LABEL } from '../lib/pickupLocation'
@@ -492,7 +491,7 @@ export function StaffRequestsPage() {
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
         {loading ? (
-          <PackageLoader done={false} size="md" label="Loading requests…" />
+          <p className="px-5 py-8 text-sm text-muted">Loading requests…</p>
         ) : filteredRows.length === 0 ? (
           <div className="px-5 py-10 text-center">
             <Inbox className="mx-auto h-9 w-9 text-muted" />

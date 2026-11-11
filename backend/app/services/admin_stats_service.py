@@ -202,11 +202,12 @@ def _month_label(value: date) -> str:
 
 
 def get_monthly_growth(months: int = 12) -> dict:
-    """Calendar-month active shippers + collected revenue (Jamaica time).
+    """Calendar-month active shippers, collected revenue, and weight (Jamaica time).
 
     Active customers = distinct customers with at least one package received
     that month (excludes unidentified holder and staff). Revenue = sum of
-    payment_checkouts.total_jmd by recorded month.
+    payment_checkouts.total_jmd by recorded month. Weight = sum of billable
+    (else actual) lbs for packages received that month.
     """
     months = max(3, min(int(months), 24))
     today = jamaica_local_date(_utc_now())
@@ -221,8 +222,14 @@ def get_monthly_growth(months: int = 12) -> dict:
         cursor = _add_months(cursor, 1)
 
     customers_by_month: dict[str, set] = {_month_key(m): set() for m in month_starts}
+    weight_by_month: dict[str, float] = {_month_key(m): 0.0 for m in month_starts}
     package_rows = (
-        db.session.query(Package.customer_id, Package.received_at)
+        db.session.query(
+            Package.customer_id,
+            Package.received_at,
+            Package.billable_weight_lbs,
+            Package.actual_weight_lbs,
+        )
         .join(User, User.id == Package.customer_id)
         .filter(
             Package.received_at >= range_start,
@@ -231,13 +238,18 @@ def get_monthly_growth(months: int = 12) -> dict:
         )
         .all()
     )
-    for customer_id, received_at in package_rows:
+    for customer_id, received_at, billable_weight, actual_weight in package_rows:
         if customer_id is None or received_at is None:
             continue
         key = _month_key(jamaica_local_date(received_at))
         bucket = customers_by_month.get(key)
         if bucket is not None:
             bucket.add(customer_id)
+        if key in weight_by_month:
+            if billable_weight is not None:
+                weight_by_month[key] += float(billable_weight)
+            elif actual_weight is not None:
+                weight_by_month[key] += float(actual_weight)
 
     revenue_by_month: dict[str, float] = {_month_key(m): 0.0 for m in month_starts}
     checkout_rows = (
@@ -258,6 +270,7 @@ def get_monthly_growth(months: int = 12) -> dict:
             "label": _month_label(m),
             "active_customers": len(customers_by_month[_month_key(m)]),
             "revenue_jmd": round(revenue_by_month[_month_key(m)], 2),
+            "weight_lbs": round(weight_by_month[_month_key(m)], 2),
         }
         for m in month_starts
     ]

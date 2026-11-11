@@ -1,4 +1,4 @@
-import { BarChart3, FileText, Megaphone, Truck, UserCog, Warehouse } from 'lucide-react'
+import { BarChart3, FileText, Megaphone, Truck, UserCog, Users, Warehouse } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchAdminOverview, fetchClerks } from '../api/admin'
 import { getErrorMessage } from '../api/client'
@@ -62,12 +62,13 @@ export function AdminHubPage() {
         />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <HubCard
           to="/admin/operations"
           icon={BarChart3}
           title="Metrics"
           description="Volume, trends, revenue, and activity."
+          accent="green"
           stat={
             overview
               ? `${overview.packages_today} received today · $${overview.revenue_30d_usd.toFixed(0)} (30d)`
@@ -81,8 +82,16 @@ export function AdminHubPage() {
           description="Receive, print labels, and update statuses."
           count={warehouseAttention > 0 ? warehouseAttention : undefined}
           urgent={warehouseUrgent}
+          accent="gold"
           stat={warehouseAttention > 0 ? undefined : 'All clear'}
           statTone="success"
+        />
+        <HubCard
+          to="/warehouse/customers"
+          icon={Users}
+          title="Directory"
+          description="Look up customers by name, email, or BOSS ID."
+          accent="gold"
         />
         <HubCard
           to="/admin/invoices"

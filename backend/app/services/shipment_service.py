@@ -350,142 +350,216 @@ def batch_depart_packages(
     note: str | None = None,
     actor: User | None = None,
 ) -> tuple[Shipment, list[Package]]:
-    """Create or use an open departure, assign packages, and mark them in transit."""
+    """Validate all packages, then assign + depart in one transaction (bulk writes)."""
+    from app.models.audit_log import AuditLog
+    from app.models.package import PackageEvent
+
     if not package_ids:
         raise ValueError("package_ids must be a non-empty array")
     if len(package_ids) > 500:
         raise ValueError("Cannot depart more than 500 packages at once")
 
-    if shipment_id:
-        shipment = get_shipment(shipment_id)
-        if not shipment:
-            raise ValueError("Departure not found")
-        _assert_open(shipment)
-    else:
-        reference = (reference or "").strip()
-        if not reference:
-            raise ValueError("Departure reference is required")
-        if not departure_date:
-            raise ValueError("departure_date is required")
-        shipment = Shipment(
-            reference=reference,
-            departure_date=departure_date,
-            note=note.strip() if note else None,
-            status="open",
-            created_by_id=actor.id if actor else None,
-        )
-        db.session.add(shipment)
-        db.session.flush()
-        if actor:
-            log_entity_action(
-                actor,
-                ACTION_SHIPMENT_CREATED,
-                "shipment",
-                str(shipment.id),
-                f"Created departure {reference}",
-                metadata={
-                    "reference": reference,
-                    "departure_date": departure_date.isoformat(),
-                    "batch_depart": True,
-                },
-            )
+    note_trimmed = note.strip() if note else None
 
-    packages: list[Package] = []
+    # Preserve first-seen order while de-duplicating.
+    seen: set[uuid.UUID] = set()
+    unique_ids: list[uuid.UUID] = []
     for raw_id in package_ids:
         try:
             pid = uuid.UUID(str(raw_id))
         except (TypeError, ValueError):
-            db.session.rollback()
             raise ValueError(f"Invalid package ID: {raw_id}")
+        if pid in seen:
+            continue
+        seen.add(pid)
+        unique_ids.append(pid)
 
-        package = db.session.get(Package, pid)
-        if not package:
-            db.session.rollback()
-            raise ValueError(f"Package not found: {raw_id}")
+    try:
+        if shipment_id:
+            shipment = get_shipment(shipment_id)
+            if not shipment:
+                raise ValueError("Departure not found")
+            _assert_open(shipment)
+        else:
+            reference = (reference or "").strip()
+            if not reference:
+                raise ValueError("Departure reference is required")
+            if not departure_date:
+                raise ValueError("departure_date is required")
+            shipment = Shipment(
+                reference=reference,
+                departure_date=departure_date,
+                note=note_trimmed,
+                status="open",
+                created_by_id=actor.id if actor else None,
+            )
+            db.session.add(shipment)
+            db.session.flush()
+            if actor:
+                log_entity_action(
+                    actor,
+                    ACTION_SHIPMENT_CREATED,
+                    "shipment",
+                    str(shipment.id),
+                    f"Created departure {reference}",
+                    metadata={
+                        "reference": reference,
+                        "departure_date": departure_date.isoformat(),
+                        "batch_depart": True,
+                    },
+                )
 
-        if package.status != "received":
-            db.session.rollback()
-            raise ValueError(f"{package.tracking_number} is not in received status")
+        rows = Package.query.filter(Package.id.in_(unique_ids)).all()
+        by_id = {pkg.id: pkg for pkg in rows}
+        ordered: list[Package] = []
+        for pid in unique_ids:
+            pkg = by_id.get(pid)
+            if not pkg:
+                raise ValueError(f"Package not found: {pid}")
+            ordered.append(pkg)
 
-        other = _find_other_open_shipment(package, shipment)
-        if other:
-            db.session.rollback()
+        not_received = [pkg for pkg in ordered if pkg.status != "received"]
+        if not_received:
+            sample = ", ".join(
+                f"{pkg.tracking_number} ({pkg.status})" for pkg in not_received[:5]
+            )
+            more = f" (+{len(not_received) - 5} more)" if len(not_received) > 5 else ""
             raise ValueError(
-                f"{package.tracking_number} is already on departure {other.reference}"
+                f"{len(not_received)} package(s) are not in received status: {sample}{more}"
             )
 
-        package.shipment_id = shipment.id
-        package.updated_at = datetime.utcnow()
-        packages.append(package)
+        other_shipment_ids = {
+            pkg.shipment_id
+            for pkg in ordered
+            if pkg.shipment_id and pkg.shipment_id != shipment.id
+        }
+        if other_shipment_ids:
+            open_others = {
+                row.id: row
+                for row in Shipment.query.filter(
+                    Shipment.id.in_(other_shipment_ids),
+                    Shipment.status == "open",
+                ).all()
+            }
+            if open_others:
+                conflict = next(
+                    (
+                        pkg
+                        for pkg in ordered
+                        if pkg.shipment_id and pkg.shipment_id in open_others
+                    ),
+                    None,
+                )
+                if conflict:
+                    other = open_others[conflict.shipment_id]
+                    raise ValueError(
+                        f"{conflict.tracking_number} is already on departure {other.reference}"
+                    )
 
-    if not packages:
-        db.session.rollback()
-        raise ValueError("No packages to depart")
+        now = datetime.utcnow()
+        event_note = (
+            note_trimmed
+            or f"Departure {shipment.reference} — {shipment.departure_date.isoformat()}"
+        )
+        ids = [pkg.id for pkg in ordered]
 
-    event_note = (
-        note.strip()
-        if note
-        else f"Departure {shipment.reference} — {shipment.departure_date.isoformat()}"
-    )
-    updated: list[Package] = []
-    for package in packages:
-        add_package_event(package, "in_transit", event_note, skip_status_email=True)
-        updated.append(package)
+        Package.query.filter(Package.id.in_(ids)).update(
+            {
+                "shipment_id": shipment.id,
+                "status": "in_transit",
+                "updated_at": now,
+            },
+            synchronize_session=False,
+        )
 
-    now = datetime.utcnow()
-    shipment.status = "departed"
-    shipment.departed_at = now
-    shipment.updated_at = now
+        db.session.bulk_save_objects(
+            [
+                PackageEvent(
+                    package_id=pkg.id,
+                    status="in_transit",
+                    note=event_note,
+                    created_at=now,
+                )
+                for pkg in ordered
+            ]
+        )
 
-    if actor:
-        for package in packages:
+        shipment.status = "departed"
+        shipment.departed_at = now
+        shipment.updated_at = now
+
+        # Refresh ORM instances so callers see post-update fields.
+        for pkg in ordered:
+            pkg.shipment_id = shipment.id
+            pkg.status = "in_transit"
+            pkg.updated_at = now
+
+        if actor:
+            if actor.role not in ("clerk", "admin"):
+                raise ValueError("Only clerk or admin actions are logged here")
             log_entity_action(
                 actor,
                 ACTION_SHIPMENT_PACKAGE_ADDED,
                 "shipment",
                 str(shipment.id),
-                f"Added {package.tracking_number} to {shipment.reference}",
+                f"Added {len(ordered)} package(s) to {shipment.reference}",
                 metadata={
                     "reference": shipment.reference,
-                    "package_id": str(package.id),
-                    "tracking_number": package.tracking_number,
+                    "package_ids": [str(pid) for pid in ids],
+                    "tracking_numbers": [pkg.tracking_number for pkg in ordered],
                     "batch_depart": True,
                 },
             )
-        log_entity_action(
-            actor,
-            ACTION_SHIPMENT_DEPARTED,
-            "shipment",
-            str(shipment.id),
-            f"Departed {shipment.reference} with {len(updated)} package(s)",
-            metadata={
-                "reference": shipment.reference,
-                "departure_date": shipment.departure_date.isoformat(),
-                "package_ids": [str(p.id) for p in updated],
-                "batch_depart": True,
-            },
-        )
-        for package in updated:
-            log_package_action(
+            log_entity_action(
                 actor,
-                ACTION_PACKAGE_STATUS_UPDATED,
-                str(package.id),
-                f"{package.tracking_number}: received → in transit ({shipment.reference})",
+                ACTION_SHIPMENT_DEPARTED,
+                "shipment",
+                str(shipment.id),
+                f"Departed {shipment.reference} with {len(ordered)} package(s)",
                 metadata={
-                    "tracking_number": package.tracking_number,
-                    "from_status": "received",
-                    "to_status": "in_transit",
-                    "shipment_id": str(shipment.id),
-                    "shipment_reference": shipment.reference,
+                    "reference": shipment.reference,
+                    "departure_date": shipment.departure_date.isoformat(),
+                    "package_ids": [str(pid) for pid in ids],
                     "batch_depart": True,
                 },
-                commit=False,
+            )
+            db.session.add_all(
+                [
+                    AuditLog(
+                        actor_id=actor.id,
+                        actor_name=actor.full_name,
+                        actor_role=actor.role,
+                        action=ACTION_PACKAGE_STATUS_UPDATED,
+                        entity_type="package",
+                        entity_id=str(pkg.id),
+                        summary=(
+                            f"{pkg.tracking_number}: received → in transit "
+                            f"({shipment.reference})"
+                        ),
+                        metadata_json={
+                            "tracking_number": pkg.tracking_number,
+                            "from_status": "received",
+                            "to_status": "in_transit",
+                            "shipment_id": str(shipment.id),
+                            "shipment_reference": shipment.reference,
+                            "batch_depart": True,
+                        },
+                    )
+                    for pkg in ordered
+                ]
             )
 
-    db.session.commit()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
     from app.services.package_status_notification_service import (
         schedule_notify_customers_of_status_batch,
     )
 
-    schedule_notify_customers_of_status_batch([(pkg, event_note) for pkg in updated], "in_transit")
-    return shipment, updated
+    schedule_notify_customers_of_status_batch(
+        [(pkg, event_note) for pkg in ordered],
+        "in_transit",
+    )
+    return shipment, ordered

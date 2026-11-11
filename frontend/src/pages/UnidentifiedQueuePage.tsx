@@ -11,7 +11,6 @@ import { useWarehouseCounts } from '../context/WarehouseCountsContext'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
 import { Input } from '../components/ui/Input'
-import { PackageLoader } from '../components/ui/PackageLoader'
 import type { Package, StaffCustomer } from '../types'
 
 export function UnidentifiedQueuePage() {
@@ -111,7 +110,7 @@ export function UnidentifiedQueuePage() {
       </div>
 
       {loading ? (
-        <PackageLoader done={false} size="md" label="Loading queue…" />
+        <p className="text-muted">Loading queue...</p>
       ) : packages.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-8 text-center">
           <AlertTriangle className="mx-auto h-10 w-10 text-muted" />

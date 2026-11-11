@@ -85,13 +85,10 @@ export function AdminClerksPage() {
   async function handlePermissionChange(clerk: User, permissions: ClerkPermission[]) {
     setError('')
     setSuccess('')
-    try {
-      const updated = await updateClerk(clerk.id, { permissions })
-      setClerks((prev) => prev.map((c) => (c.id === clerk.id ? updated : c)))
-      setSuccess(`Updated permissions for ${updated.full_name}.`)
-    } catch (err) {
-      setError(getErrorMessage(err))
-    }
+    const updated = await updateClerk(clerk.id, { permissions })
+    setClerks((prev) => prev.map((c) => (c.id === clerk.id ? updated : c)))
+    setSuccess(`Updated permissions for ${updated.full_name}.`)
+    return updated
   }
 
   async function handleResendInvite(clerkId: string) {
@@ -133,7 +130,7 @@ export function AdminClerksPage() {
   const suspendedClerks = clerks.filter((c) => c.is_active === false)
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 pb-28">
       <div className="mb-6 flex items-center gap-2.5">
         <IconBadge icon={Shield} size="sm" />
         <div>
@@ -322,7 +319,7 @@ function ClerkRow({
 }: {
   clerk: User
   permissionOptions: ClerkPermissionOption[]
-  onSavePermissions: (clerk: User, permissions: ClerkPermission[]) => void
+  onSavePermissions: (clerk: User, permissions: ClerkPermission[]) => Promise<User>
   onResendInvite: (id: string) => void
   onSuspend: (id: string) => void
   onReactivate: (id: string) => void
@@ -331,7 +328,28 @@ function ClerkRow({
   const [permissions, setPermissions] = useState<ClerkPermission[]>(
     clerk.clerk_permissions || clerk.permissions || [...DEFAULT_CLERK_PERMISSIONS],
   )
+  const [saving, setSaving] = useState(false)
+  const [localError, setLocalError] = useState('')
+  const [localSuccess, setLocalSuccess] = useState('')
   const suspended = clerk.is_active === false
+
+  useEffect(() => {
+    setPermissions(clerk.clerk_permissions || clerk.permissions || [...DEFAULT_CLERK_PERMISSIONS])
+  }, [clerk.id, clerk.clerk_permissions, clerk.permissions])
+
+  async function handleSave() {
+    setLocalError('')
+    setLocalSuccess('')
+    setSaving(true)
+    try {
+      await onSavePermissions(clerk, permissions)
+      setLocalSuccess('Permissions saved.')
+    } catch (err) {
+      setLocalError(getErrorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <li
@@ -355,6 +373,7 @@ function ClerkRow({
         <div className="flex flex-wrap gap-2">
           {suspended ? (
             <Button
+              type="button"
               variant="outline"
               onClick={() => onReactivate(clerk.id)}
               className="!py-2 !text-xs"
@@ -365,6 +384,7 @@ function ClerkRow({
             <>
               {clerk.must_set_password && (
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={() => onResendInvite(clerk.id)}
                   className="!py-2 !text-xs"
@@ -373,6 +393,7 @@ function ClerkRow({
                 </Button>
               )}
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => setExpanded((v) => !v)}
                 className="!py-2 !text-xs"
@@ -380,6 +401,7 @@ function ClerkRow({
                 {expanded ? 'Hide permissions' : 'Edit permissions'}
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => onSuspend(clerk.id)}
                 className="!py-2 !text-xs"
@@ -395,17 +417,30 @@ function ClerkRow({
           <PermissionCheckboxes
             options={permissionOptions}
             selected={permissions}
-            onToggle={(code) =>
+            onToggle={(code) => {
+              setLocalSuccess('')
+              setLocalError('')
               setPermissions((prev) =>
                 prev.includes(code) ? prev.filter((p) => p !== code) : [...prev, code],
               )
-            }
+            }}
           />
+          {localError && (
+            <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">{localError}</p>
+          )}
+          {localSuccess && (
+            <p className="mt-3 rounded-lg bg-boss-green/10 px-3 py-2 text-sm text-boss-green">
+              {localSuccess}
+            </p>
+          )}
           <Button
-            className="mt-3 !text-xs"
-            onClick={() => onSavePermissions(clerk, permissions)}
+            type="button"
+            fullWidth
+            className="relative z-10 mt-3 !text-xs"
+            disabled={saving}
+            onClick={() => void handleSave()}
           >
-            Save permissions
+            {saving ? 'Saving…' : 'Save permissions'}
           </Button>
         </div>
       )}

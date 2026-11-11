@@ -19,7 +19,6 @@ import { ShippingHelpButton } from './ShippingHelpButton'
 import { StatusBadge } from '../warehouse/StatusBadge'
 import { Button } from '../ui/Button'
 import { LoadErrorBanner } from '../ui/LoadErrorBanner'
-import { PackageLoader } from '../ui/PackageLoader'
 import type { Package } from '../../types'
 
 const ACTIVE_PAGE_SIZE = 10
@@ -343,7 +342,6 @@ export function PackagesHistoryPanel() {
   const [completedLoading, setCompletedLoading] = useState(true)
   const [activeError, setActiveError] = useState('')
   const [completedError, setCompletedError] = useState('')
-  const [bootDone, setBootDone] = useState(false)
 
   const selectedIds = [...selectedPackages.keys()]
   const selectedList = [...selectedPackages.values()]
@@ -536,16 +534,8 @@ export function PackagesHistoryPanel() {
         </div>
       )}
 
-      {!bootDone ? (
-        <div className="mt-4">
-          <PackageLoader
-            done={!activeLoading && !completedLoading}
-            failed={Boolean(activeError || completedError)}
-            size="md"
-            label="Loading packages…"
-            onComplete={() => setBootDone(true)}
-          />
-        </div>
+      {activeLoading && completedLoading && !hasPackages ? (
+        <p className="mt-4 text-sm text-muted">Loading packages...</p>
       ) : !activeLoading && !completedLoading && !hasPackages && !activeError && !completedError ? (
         <div className="relative mt-4 rounded-xl border border-border bg-card p-6 pr-16 text-sm text-muted">
           <div className="absolute right-3 top-3">
@@ -562,14 +552,7 @@ export function PackagesHistoryPanel() {
               Packages still moving through our warehouse and delivery process.
             </p>
             {activeLoading && activePackages.length === 0 ? (
-              <div className="mt-4">
-                <PackageLoader
-                  done={!activeLoading}
-                  failed={Boolean(activeError)}
-                  size="sm"
-                  label="Loading active packages…"
-                />
-              </div>
+              <p className="mt-4 text-sm text-muted">Loading active packages...</p>
             ) : activeTotal === 0 && !activeError ? (
               <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
                 No active packages right now.
@@ -595,14 +578,7 @@ export function PackagesHistoryPanel() {
               <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">Completed</h3>
               <p className="mt-1 text-xs text-muted">Delivered packages.</p>
               {completedLoading && completedPackages.length === 0 ? (
-                <div className="mt-4">
-                  <PackageLoader
-                    done={!completedLoading}
-                    failed={Boolean(completedError)}
-                    size="sm"
-                    label="Loading completed packages…"
-                  />
-                </div>
+                <p className="mt-4 text-sm text-muted">Loading completed packages...</p>
               ) : completedPackages.length > 0 ? (
                 <div className="mt-4">
                   <PackageCards

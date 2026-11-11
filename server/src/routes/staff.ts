@@ -279,15 +279,36 @@ staffRouter.get('/warehouse/customers', permissionRequired('directory'), async (
   if (Number.isNaN(limit)) limit = 50
   if (Number.isNaN(offset)) offset = 0
 
-  const [customerRows, total] = await listCustomers({ q, limit, offset })
-  const counts = await activePackageCountsByCustomerIds(customerRows.map((u) => u.id))
+  const packageStatus = String(req.query.package_status ?? '').trim() || null
+  const activeRaw = String(req.query.active_packages ?? 'any').trim().toLowerCase()
+  const activePackages =
+    activeRaw === 'has' || activeRaw === 'none' || activeRaw === 'any' ? activeRaw : null
+  if (!activePackages) {
+    return res.status(400).json({ error: 'active_packages must be any, has, or none' })
+  }
+  const openRequestRaw = String(req.query.open_request ?? '').trim().toLowerCase()
+  const openRequest = ['1', 'true', 'yes'].includes(openRequestRaw)
 
-  res.json({
-    customers: customerRows.map((u) =>
-      customerStaffDict(u, { activePackageCount: counts.get(u.id) ?? 0 }),
-    ),
-    total,
-  })
+  try {
+    const [customerRows, total] = await listCustomers({
+      q,
+      limit,
+      offset,
+      packageStatus,
+      activePackages,
+      openRequest,
+    })
+    const counts = await activePackageCountsByCustomerIds(customerRows.map((u) => u.id))
+
+    res.json({
+      customers: customerRows.map((u) =>
+        customerStaffDict(u, { activePackageCount: counts.get(u.id) ?? 0 }),
+      ),
+      total,
+    })
+  } catch (err) {
+    return res.status(400).json({ error: err instanceof Error ? err.message : String(err) })
+  }
 })
 
 staffRouter.get(
@@ -408,9 +429,11 @@ staffRouter.get(
       return row
     })
 
+    const addresses = await listDeliveryAddresses(user)
     const payload: Record<string, unknown> = {
       customer: customerStaffDict(user),
       packages: packageRows,
+      delivery_addresses: addresses.map(deliveryAddressToDict),
     }
 
     if (showBilling) {
@@ -621,12 +644,16 @@ staffRouter.post(
       return res.status(400).json({ error: message })
     }
 
+    const checkoutItems = await getCheckoutItems(checkout.id)
+
     let emailSent = false
     let emailError: string | null = null
     if (data.email_invoice) {
-      const items = await getCheckoutItems(checkout.id)
-      const pkgs = items.map((i) => i.pkg).filter(Boolean) as Array<typeof packages.$inferSelect>
+      const pkgs = checkoutItems
+        .map((i) => i.pkg)
+        .filter(Boolean) as Array<typeof packages.$inferSelect>
       try {
+        // Queued send — email_sent means accepted for delivery, not provider ACK.
         await sendCheckoutInvoiceEmail(user, checkout, pkgs)
         emailSent = true
       } catch (err) {
@@ -635,7 +662,6 @@ staffRouter.post(
       }
     }
 
-    const checkoutItems = await getCheckoutItems(checkout.id)
     for (const { item } of checkoutItems) {
       await logPackageAction(
         actor,
@@ -657,28 +683,44 @@ staffRouter.post(
     const deliveryFailed: Array<Record<string, unknown>> = []
     if (data.mark_delivered) {
       const deliveryNote = `Delivered at checkout ${checkout.invoiceNumber}`
-      for (const { item, pkg } of checkoutItems) {
-        if (!pkg) continue
-        try {
-          await updatePackageStatus(pkg, 'delivered', deliveryNote)
-          deliveredCount += 1
-          await logPackageAction(
-            actor,
-            ACTION_PACKAGE_STATUS_UPDATED,
-            pkg.id,
-            `Marked ${pkg.trackingNumber} delivered at checkout`,
-            {
-              tracking_number: pkg.trackingNumber,
-              to_status: 'delivered',
-              checkout_id: checkout.id,
-            },
-          )
-        } catch (err) {
-          deliveryFailed.push({
-            id: pkg.id,
+      const packageIdsToDeliver = checkoutItems
+        .map(({ item }) => item.packageId)
+        .filter((id): id is string => Boolean(id))
+      const [updatedPackages, statusFailures] = await bulkUpdatePackageStatus(
+        packageIdsToDeliver,
+        'delivered',
+        deliveryNote,
+      )
+      deliveredCount = updatedPackages.length
+      deliveryFailed.push(...statusFailures)
+      for (const pkg of updatedPackages) {
+        await logPackageAction(
+          actor,
+          ACTION_PACKAGE_STATUS_UPDATED,
+          pkg.id,
+          `Marked ${pkg.trackingNumber} delivered at checkout`,
+          {
             tracking_number: pkg.trackingNumber,
-            error: err instanceof Error ? err.message : String(err),
-          })
+            to_status: 'delivered',
+            checkout_id: checkout.id,
+          },
+        )
+      }
+
+      if (checkout.deliveryRequestId) {
+        const deliveryRequest = await getDeliveryRequest(checkout.deliveryRequestId)
+        if (
+          deliveryRequest &&
+          (deliveryRequest.status === 'pending' || deliveryRequest.status === 'in_progress')
+        ) {
+          try {
+            await completeDeliveryRequest(deliveryRequest, actor)
+          } catch (err) {
+            deliveryFailed.push({
+              id: deliveryRequest.id,
+              error: err instanceof Error ? err.message : String(err),
+            })
+          }
         }
       }
     }
@@ -1091,11 +1133,11 @@ staffRouter.get(
     const fromDate = String(req.query.from ?? '').trim()
     const toDate = String(req.query.to ?? '').trim()
     const status = String(req.query.status ?? '').trim() || null
-    let limit = parseInt(String(req.query.limit ?? '100'), 10)
+    let limit = parseInt(String(req.query.limit ?? '50'), 10)
     let offset = parseInt(String(req.query.offset ?? '0'), 10)
-    if (Number.isNaN(limit)) limit = 100
+    if (Number.isNaN(limit)) limit = 50
     if (Number.isNaN(offset)) offset = 0
-    limit = Math.max(1, Math.min(limit, 100))
+    limit = Math.max(1, Math.min(limit, 200))
     offset = Math.max(0, offset)
 
     if (status && !(UPDATABLE_STATUSES as readonly string[]).includes(status)) {
@@ -1113,6 +1155,8 @@ staffRouter.get(
     res.json({
       packages: await serializeWarehousePackages(rows),
       total,
+      limit,
+      offset,
     })
   },
 )
@@ -1747,15 +1791,12 @@ staffRouter.post(
         note,
         actor: actor ?? null,
       })
-      const shipmentPackages = await db
-        .select()
-        .from(packages)
-        .where(eq(packages.shipmentId, shipment.id))
-      const packagesData = await Promise.all(updated.map((pkg) => serializeWarehousePackage(pkg)))
+      // Status Update only needs counts + shipment summary. Avoid per-package
+      // relation loads (customer/events/photos) that dominated prior latency.
       res.json({
-        shipment: shipmentToDict(shipment, { includePackages: true, packages: shipmentPackages }),
+        shipment: shipmentToDict(shipment, { packages: updated }),
         updated: updated.length,
-        packages: packagesData,
+        packages: [],
         failed: [],
       })
     } catch (err) {
