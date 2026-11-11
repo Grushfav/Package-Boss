@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { AboutPreview } from '../components/landing/AboutPreview'
 import { BossMemberLogin } from '../components/landing/BossMemberLogin'
 import { Hero } from '../components/landing/Hero'
@@ -6,9 +6,18 @@ import { ShippingEstimator } from '../components/landing/ShippingEstimator'
 import { WhyBossRules } from '../components/landing/WhyBossRules'
 import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
+import { useAuth } from '../context/AuthContext'
 import { PAGE_SEO } from '../lib/seo'
 
 export function LandingPage() {
+  const { isAuthenticated, isLoading, homeRoute } = useAuth()
+
+  // Google/Facebook popup login can set the session without a reliable navigate().
+  // If we're already signed in on `/`, send the user to their home route.
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to={homeRoute} replace />
+  }
+
   return (
     <>
       <Seo {...PAGE_SEO.home} includeOrganization />

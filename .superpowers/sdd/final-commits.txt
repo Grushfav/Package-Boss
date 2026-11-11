@@ -1,0 +1,8 @@
+﻿fe48bbc Fix PackageLoader ring spin transform origin.
+2310208 Polish PackageLoader geometry and motion timing.
+9c719e0 Wire PackageLoader into warehouse loading placeholders.
+94ca971 Wire PackageLoader into customer loading states.
+a37ff10 Add PackageLoader phase animation and gate helper.
+18aff41 Add PackageLoader CSS phase keyframes.
+cc7bd3f Add PackageLoader implementation plan.
+6779f9a Document PackageLoader branded loading animation design.

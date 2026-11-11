@@ -79,7 +79,7 @@ export function FacebookSignInButton({ label = 'continue' }: FacebookSignInButto
 
       setLastAuthProvider('facebook')
       setSession(data.access_token, data.user)
-      navigate(getPostLoginPath(data.user.role, searchParams.get('next')))
+      navigate(getPostLoginPath(data.user.role, searchParams.get('next')), { replace: true })
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {

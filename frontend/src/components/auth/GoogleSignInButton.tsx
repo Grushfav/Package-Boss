@@ -71,7 +71,8 @@ function GoogleSignInButtonInner({ label = 'continue' }: GoogleSignInButtonProps
 
           setLastAuthProvider('google')
           setSession(data.access_token, data.user)
-          navigate(getPostLoginPath(data.user.role, searchParams.get('next')))
+          // replace: true — popup focus races can drop a normal push navigate after OAuth.
+          navigate(getPostLoginPath(data.user.role, searchParams.get('next')), { replace: true })
         } catch (err) {
           setError(getErrorMessage(err))
         } finally {
@@ -97,7 +98,12 @@ function GoogleSignInButtonInner({ label = 'continue' }: GoogleSignInButtonProps
         onClick={() => {
           setError('')
           setLoading(true)
-          startGoogleLogin()
+          try {
+            startGoogleLogin()
+          } catch {
+            setLoading(false)
+            setError('Google sign-in was cancelled or failed')
+          }
         }}
         className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-700 dark:hover:bg-gray-100"
       >

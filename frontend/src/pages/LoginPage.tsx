@@ -1,6 +1,6 @@
 import { Lock, User } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { login } from '../api/auth'
 import { getErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -18,7 +18,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
-  const { setSession } = useAuth()
+  const { setSession, user, isAuthenticated, isLoading } = useAuth()
   const passwordUpdated = (location.state as { passwordUpdated?: boolean } | null)?.passwordUpdated
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,12 +33,16 @@ export function LoginPage() {
       const data = await login(email, password)
       setLastAuthProvider('email')
       setSession(data.access_token, data.user)
-      navigate(getPostLoginPath(data.user.role, searchParams.get('next')))
+      navigate(getPostLoginPath(data.user.role, searchParams.get('next')), { replace: true })
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to={getPostLoginPath(user?.role, searchParams.get('next'))} replace />
   }
 
   return (

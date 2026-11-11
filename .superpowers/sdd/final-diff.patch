@@ -1,0 +1,2208 @@
+﻿diff --git a/docs/superpowers/plans/2026-11-07-package-loader.md b/docs/superpowers/plans/2026-11-07-package-loader.md
+new file mode 100644
+index 0000000..8f35a55
+--- /dev/null
++++ b/docs/superpowers/plans/2026-11-07-package-loader.md
+@@ -0,0 +1,880 @@
++# PackageLoader Implementation Plan
++
++> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
++
++**Goal:** Ship a branded `PackageLoader` (arrive ΓåÆ transform ΓåÆ ring ΓåÆ open) and wire it into major customer and warehouse loading placeholders.
++
++**Architecture:** One React phase-machine component plus CSS keyframes (no animation libraries). Parents pass `done` / `failed` and stay mounted until `onComplete`. A thin `PackageLoaderGate` helper keeps wiring DRY. Styles live in `index.css` under a `.pb-loader` namespace using existing boss-green / boss-gold tokens.
++
++**Tech Stack:** React 19, TypeScript, Tailwind v4 + custom CSS keyframes in `frontend/src/index.css`, SVG markup in the component. Verification via `npx tsc -b` and manual visual checks (no frontend unit-test runner in this repo).
++
++## Global Constraints
++
++- No new runtime dependencies (no Lottie, Rive, Framer Motion).
++- Use `--color-boss-green` / `--color-boss-gold` (Tailwind `boss-green` / `boss-gold`).
++- Hybrid completion: hold load phase until `done` **and** ΓëÑ ~0.8s in load.
++- On `failed`, fade out ΓÇö no open/burst.
++- Honor `prefers-reduced-motion: reduce`.
++- Do not replace button busy labels, ShipperSelect copy, or onboarding tour text.
++- Spec: `docs/superpowers/specs/2026-11-07-package-loader-design.md`.
++
++## File map
++
++| File | Responsibility |
++| --- | --- |
++| `frontend/src/index.css` | `.pb-loader` keyframes, phase classes, reduced-motion overrides |
++| `frontend/src/components/ui/PackageLoader.tsx` | SVG + phase machine + `PackageLoaderGate` |
++| Customer / warehouse screens listed in Tasks 3ΓÇô4 | Swap text loaders for `PackageLoaderGate` |
++
++---
++
++### Task 1: CSS foundation for PackageLoader
++
++**Files:**
++- Modify: `frontend/src/index.css` (append at end of file)
++
++**Interfaces:**
++- Produces: CSS classes `.pb-loader`, `.pb-loader--sm|md|lg`, `.pb-loader--fullscreen`, `.pb-loader--phase-arrive|transform|load|complete|fade`, `.pb-loader__stage`, `.pb-loader__box`, `.pb-loader__box--open`, `.pb-loader__stripes`, `.pb-loader__stripe`, `.pb-loader__ring`, `.pb-loader__burst`, `.pb-loader__label`, `.pb-loader--reduced`
++
++- [ ] **Step 1: Append loader CSS**
++
++Append to `frontend/src/index.css`:
++
++```css
++/* ΓÇöΓÇö PackageLoader ΓÇöΓÇö */
++.pb-loader {
++  --pb-green: var(--color-boss-green);
++  --pb-gold: var(--color-boss-gold);
++  --pb-size: 120px;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  justify-content: center;
++  gap: 0.75rem;
++}
++
++.pb-loader--sm { --pb-size: 72px; }
++.pb-loader--md { --pb-size: 120px; }
++.pb-loader--lg { --pb-size: 160px; }
++
++.pb-loader--fullscreen {
++  min-height: 40vh;
++  width: 100%;
++}
++
++.pb-loader__stage {
++  position: relative;
++  width: var(--pb-size);
++  height: var(--pb-size);
++}
++
++.pb-loader__stage svg {
++  display: block;
++  width: 100%;
++  height: 100%;
++  overflow: visible;
++}
++
++.pb-loader__label {
++  margin: 0;
++  font-size: 0.875rem;
++  color: var(--color-muted);
++}
++
++/* Box slide-in */
++.pb-loader--phase-arrive .pb-loader__box {
++  animation: pb-loader-arrive 0.6s ease-out both;
++}
++
++@keyframes pb-loader-arrive {
++  from { transform: translateX(-42%); opacity: 0.35; }
++  to { transform: translateX(0); opacity: 1; }
++}
++
++/* Stripes: horizontal in arrive ΓåÆ arc slots in transform ΓåÆ hidden when ring owns motion */
++.pb-loader__stripes {
++  transform-origin: 50% 50%;
++}
++
++.pb-loader--phase-arrive .pb-loader__stripes {
++  opacity: 1;
++}
++
++.pb-loader--phase-transform .pb-loader__stripes {
++  animation: pb-loader-stripes-curl 0.5s ease-in-out both;
++}
++
++.pb-loader--phase-load .pb-loader__stripes,
++.pb-loader--phase-complete .pb-loader__stripes,
++.pb-loader--phase-fade .pb-loader__stripes {
++  opacity: 0;
++  pointer-events: none;
++}
++
++@keyframes pb-loader-stripes-curl {
++  from { opacity: 1; transform: scaleX(1) rotate(0deg); }
++  to { opacity: 0; transform: scaleX(0.35) rotate(-55deg); }
++}
++
++/* Ring appears after transform; spins during load */
++.pb-loader__ring {
++  transform-origin: 50% 50%;
++  opacity: 0;
++}
++
++.pb-loader--phase-transform .pb-loader__ring {
++  animation: pb-loader-ring-in 0.5s ease-out both;
++}
++
++.pb-loader--phase-load .pb-loader__ring {
++  opacity: 1;
++  animation: pb-loader-spin 1.05s linear infinite;
++}
++
++.pb-loader--phase-complete .pb-loader__ring,
++.pb-loader--phase-fade .pb-loader__ring {
++  animation: pb-loader-ring-out 0.35s ease-in both;
++}
++
++@keyframes pb-loader-ring-in {
++  from { opacity: 0; transform: scale(0.7) rotate(-40deg); }
++  to { opacity: 1; transform: scale(1) rotate(0deg); }
++}
++
++@keyframes pb-loader-spin {
++  to { transform: rotate(360deg); }
++}
++
++@keyframes pb-loader-ring-out {
++  to { opacity: 0; transform: scale(1.08); }
++}
++
++/* Closed vs open box */
++.pb-loader__box-open {
++  opacity: 0;
++}
++
++.pb-loader--phase-complete .pb-loader__box-closed {
++  opacity: 0;
++  transition: opacity 0.15s ease;
++}
++
++.pb-loader--phase-complete .pb-loader__box-open {
++  opacity: 1;
++  animation: pb-loader-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both;
++}
++
++@keyframes pb-loader-pop {
++  from { transform: scale(0.92); }
++  60% { transform: scale(1.06); }
++  to { transform: scale(1); }
++}
++
++.pb-loader__burst {
++  opacity: 0;
++  transform-origin: 50% 40%;
++}
++
++.pb-loader--phase-complete .pb-loader__burst {
++  animation: pb-loader-burst 0.7s ease-out both;
++}
++
++@keyframes pb-loader-burst {
++  0% { opacity: 0; transform: scale(0.4); }
++  35% { opacity: 1; transform: scale(1); }
++  100% { opacity: 0; transform: scale(1.25); }
++}
++
++.pb-loader--phase-fade {
++  animation: pb-loader-fade 0.4s ease-in both;
++}
++
++@keyframes pb-loader-fade {
++  to { opacity: 0; }
++}
++
++.pb-loader__shadow {
++  fill: rgb(15 23 42 / 0.18);
++}
++
++:root.dark .pb-loader__shadow,
++.dark .pb-loader__shadow {
++  fill: rgb(0 0 0 / 0.45);
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .pb-loader--reduced .pb-loader__box,
++  .pb-loader--reduced .pb-loader__stripes,
++  .pb-loader--reduced .pb-loader__ring,
++  .pb-loader--reduced .pb-loader__burst {
++    animation: none !important;
++  }
++
++  .pb-loader--reduced.pb-loader--phase-arrive .pb-loader__box,
++  .pb-loader--reduced.pb-loader--phase-transform .pb-loader__box,
++  .pb-loader--reduced.pb-loader--phase-load .pb-loader__box {
++    animation: pb-loader-pulse 1.2s ease-in-out infinite !important;
++  }
++
++  .pb-loader--reduced .pb-loader__stripes,
++  .pb-loader--reduced .pb-loader__ring,
++  .pb-loader--reduced .pb-loader__burst {
++    opacity: 0 !important;
++  }
++
++  .pb-loader--reduced.pb-loader--phase-complete .pb-loader__box-closed {
++    opacity: 0;
++  }
++
++  .pb-loader--reduced.pb-loader--phase-complete .pb-loader__box-open {
++    opacity: 1;
++  }
++}
++
++@keyframes pb-loader-pulse {
++  0%, 100% { opacity: 0.55; }
++  50% { opacity: 1; }
++}
++```
++
++- [ ] **Step 2: Confirm CSS parses with the app**
++
++Run from `frontend`: `npx vite build` is heavy; instead open `index.css` and ensure no unclosed braces. Optionally run:
++
++```bash
++cd frontend
++npx tsc -b --pretty false --noEmit
++```
++
++Expected: PASS (CSS not typechecked; this just confirms repo still clean).
++
++- [ ] **Step 3: Commit**
++
++```bash
++git add frontend/src/index.css
++git commit -m "Add PackageLoader CSS phase keyframes."
++```
++
++---
++
++### Task 2: PackageLoader + PackageLoaderGate components
++
++**Files:**
++- Create: `frontend/src/components/ui/PackageLoader.tsx`
++
++**Interfaces:**
++- Consumes: CSS classes from Task 1
++- Produces:
++  - `PackageLoaderProps`: `{ done?: boolean; failed?: boolean; variant?: 'inline' | 'fullscreen'; size?: 'sm' | 'md' | 'lg'; label?: string; onComplete?: () => void; className?: string }`
++  - `PackageLoader(props)`
++  - `PackageLoaderGate({ ready, failed?, children, ...loaderProps })` ΓÇö shows loader until outro finishes after `ready` (or `failed`), then renders `children`
++
++- [ ] **Step 1: Create `PackageLoader.tsx`**
++
++Create `frontend/src/components/ui/PackageLoader.tsx` with this full implementation:
++
++```tsx
++import { useEffect, useRef, useState, type ReactNode } from 'react'
++
++export type PackageLoaderPhase = 'arrive' | 'transform' | 'load' | 'complete' | 'fade'
++
++export type PackageLoaderProps = {
++  done?: boolean
++  failed?: boolean
++  variant?: 'inline' | 'fullscreen'
++  size?: 'sm' | 'md' | 'lg'
++  label?: string
++  onComplete?: () => void
++  className?: string
++}
++
++const ARRIVE_MS = 600
++const TRANSFORM_MS = 500
++const MIN_LOAD_MS = 800
++const COMPLETE_MS = 700
++const FADE_MS = 400
++
++function usePrefersReducedMotion() {
++  const [reduced, setReduced] = useState(false)
++  useEffect(() => {
++    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
++    const update = () => setReduced(mq.matches)
++    update()
++    mq.addEventListener('change', update)
++    return () => mq.removeEventListener('change', update)
++  }, [])
++  return reduced
++}
++
++export function PackageLoader({
++  done = false,
++  failed = false,
++  variant = 'inline',
++  size = 'md',
++  label,
++  onComplete,
++  className = '',
++}: PackageLoaderProps) {
++  const reduced = usePrefersReducedMotion()
++  const [phase, setPhase] = useState<PackageLoaderPhase>('arrive')
++  const loadEnteredAt = useRef<number | null>(null)
++  const onCompleteRef = useRef(onComplete)
++  onCompleteRef.current = onComplete
++  const finishedRef = useRef(false)
++
++  useEffect(() => {
++    finishedRef.current = false
++    setPhase('arrive')
++    loadEnteredAt.current = null
++  }, [])
++
++  useEffect(() => {
++    if (finishedRef.current) return
++
++    if (reduced) {
++      if (failed) {
++        setPhase('fade')
++        const t = window.setTimeout(() => {
++          finishedRef.current = true
++          onCompleteRef.current?.()
++        }, FADE_MS)
++        return () => window.clearTimeout(t)
++      }
++      if (done) {
++        setPhase('complete')
++        const t = window.setTimeout(() => {
++          finishedRef.current = true
++          onCompleteRef.current?.()
++        }, 250)
++        return () => window.clearTimeout(t)
++      }
++      setPhase('load')
++      return
++    }
++
++    if (phase === 'arrive') {
++      const t = window.setTimeout(() => setPhase('transform'), ARRIVE_MS)
++      return () => window.clearTimeout(t)
++    }
++
++    if (phase === 'transform') {
++      const t = window.setTimeout(() => {
++        loadEnteredAt.current = performance.now()
++        setPhase('load')
++      }, TRANSFORM_MS)
++      return () => window.clearTimeout(t)
++    }
++
++    if (phase === 'load') {
++      if (!done && !failed) return
++      const entered = loadEnteredAt.current ?? performance.now()
++      const waited = performance.now() - entered
++      const remaining = Math.max(0, MIN_LOAD_MS - waited)
++      const t = window.setTimeout(() => {
++        setPhase(failed ? 'fade' : 'complete')
++      }, remaining)
++      return () => window.clearTimeout(t)
++    }
++
++    if (phase === 'complete') {
++      const t = window.setTimeout(() => {
++        finishedRef.current = true
++        onCompleteRef.current?.()
++      }, COMPLETE_MS)
++      return () => window.clearTimeout(t)
++    }
++
++    if (phase === 'fade') {
++      const t = window.setTimeout(() => {
++        finishedRef.current = true
++        onCompleteRef.current?.()
++      }, FADE_MS)
++      return () => window.clearTimeout(t)
++    }
++  }, [phase, done, failed, reduced])
++
++  const classes = [
++    'pb-loader',
++    `pb-loader--${size}`,
++    variant === 'fullscreen' ? 'pb-loader--fullscreen' : '',
++    `pb-loader--phase-${phase}`,
++    reduced ? 'pb-loader--reduced' : '',
++    className,
++  ]
++    .filter(Boolean)
++    .join(' ')
++
++  return (
++    <div className={classes} role="status" aria-live="polite" aria-busy={phase !== 'complete' && phase !== 'fade'}>
++      <div className="pb-loader__stage">
++        <svg viewBox="0 0 120 120" aria-hidden="true">
++          <ellipse className="pb-loader__shadow" cx="60" cy="102" rx="28" ry="6" />
++
++          <g className="pb-loader__stripes">
++            <rect className="pb-loader__stripe" x="8" y="38" width="34" height="5" rx="2.5" fill="url(#pbStripeGold)" />
++            <rect className="pb-loader__stripe" x="4" y="50" width="42" height="5" rx="2.5" fill="url(#pbStripeGreen)" />
++            <rect className="pb-loader__stripe" x="10" y="62" width="30" height="5" rx="2.5" fill="url(#pbStripeMix)" />
++            <rect className="pb-loader__stripe" x="6" y="74" width="36" height="5" rx="2.5" fill="url(#pbStripeGreen)" />
++          </g>
++
++          <g className="pb-loader__ring">
++            <circle
++              cx="60"
++              cy="56"
++              r="40"
++              fill="none"
++              stroke="url(#pbRingGrad)"
++              strokeWidth="5"
++              strokeLinecap="round"
++              strokeDasharray="70 180"
++            />
++            <circle cx="60" cy="16" r="3.5" fill="var(--pb-green, #22c55e)" />
++          </g>
++
++          <g className="pb-loader__box pb-loader__box-closed">
++            <path
++              d="M38 44 L60 32 L82 44 L82 72 L60 84 L38 72 Z"
++              fill="var(--pb-gold, #eab308)"
++              stroke="#111"
++              strokeWidth="1.5"
++              strokeLinejoin="round"
++            />
++            <path d="M38 44 L60 56 L82 44" fill="none" stroke="#111" strokeWidth="1.5" />
++            <path d="M60 56 L60 84" fill="none" stroke="#111" strokeWidth="1.5" />
++            <path d="M48 38 L72 38" stroke="#111" strokeWidth="4" strokeLinecap="round" />
++          </g>
++
++          <g className="pb-loader__box pb-loader__box-open">
++            <path
++              d="M38 50 L60 38 L82 50 L82 76 L60 88 L38 76 Z"
++              fill="var(--pb-gold, #eab308)"
++              stroke="#111"
++              strokeWidth="1.5"
++              strokeLinejoin="round"
++            />
++            <path d="M38 50 L60 62 L82 50" fill="none" stroke="#111" strokeWidth="1.5" />
++            <path d="M60 62 L60 88" fill="none" stroke="#111" strokeWidth="1.5" />
++            <path d="M60 38 L48 22 L38 50" fill="var(--pb-gold, #eab308)" stroke="#111" strokeWidth="1.5" strokeLinejoin="round" />
++            <path d="M60 38 L72 22 L82 50" fill="var(--pb-gold, #eab308)" stroke="#111" strokeWidth="1.5" strokeLinejoin="round" />
++            <path d="M48 22 L60 14 L72 22" fill="#fde68a" stroke="#111" strokeWidth="1" opacity="0.9" />
++          </g>
++
++          <g className="pb-loader__burst">
++            <path d="M60 8 L64 20 L56 20 Z" fill="var(--pb-gold, #eab308)" />
++            <path d="M88 28 L82 38 L76 30 Z" fill="var(--pb-green, #22c55e)" />
++            <path d="M32 28 L38 38 L44 30 Z" fill="var(--pb-green, #22c55e)" />
++            <path d="M92 52 L84 54 L88 62 Z" fill="var(--pb-gold, #eab308)" />
++            <path d="M28 52 L36 54 L32 62 Z" fill="var(--pb-gold, #eab308)" />
++          </g>
++
++          <defs>
++            <linearGradient id="pbStripeGold" x1="0" y1="0" x2="1" y2="0">
++              <stop offset="0%" stopColor="#22c55e" />
++              <stop offset="100%" stopColor="#eab308" />
++            </linearGradient>
++            <linearGradient id="pbStripeGreen" x1="0" y1="0" x2="1" y2="0">
++              <stop offset="0%" stopColor="#16a34a" />
++              <stop offset="100%" stopColor="#eab308" />
++            </linearGradient>
++            <linearGradient id="pbStripeMix" x1="0" y1="0" x2="1" y2="0">
++              <stop offset="0%" stopColor="#22c55e" />
++              <stop offset="100%" stopColor="#ca8a04" />
++            </linearGradient>
++            <linearGradient id="pbRingGrad" x1="0" y1="0" x2="1" y2="1">
++              <stop offset="0%" stopColor="#22c55e" />
++              <stop offset="100%" stopColor="#eab308" />
++            </linearGradient>
++          </defs>
++        </svg>
++      </div>
++      {label ? <p className="pb-loader__label">{label}</p> : null}
++    </div>
++  )
++}
++
++export function PackageLoaderGate({
++  ready,
++  failed = false,
++  children,
++  ...loaderProps
++}: {
++  ready: boolean
++  failed?: boolean
++  children: ReactNode
++} & Omit<PackageLoaderProps, 'done' | 'failed' | 'onComplete'>) {
++  const [revealed, setRevealed] = useState(false)
++
++  useEffect(() => {
++    if (!ready && !failed) setRevealed(false)
++  }, [ready, failed])
++
++  if (revealed) return <>{children}</>
++
++  return (
++    <PackageLoader
++      {...loaderProps}
++      done={ready && !failed}
++      failed={failed}
++      onComplete={() => setRevealed(true)}
++    />
++  )
++}
++```
++
++- [ ] **Step 2: Typecheck**
++
++```bash
++cd frontend
++npx tsc -b --pretty false --noEmit
++```
++
++Expected: PASS with exit code 0.
++
++- [ ] **Step 3: Manual smoke (optional in agent; required before merge)**
++
++Temporarily render `<PackageLoader label="Demo" />` on any page, confirm arrive ΓåÆ transform ΓåÆ spinning ring. Pass `done` after a few seconds and confirm open/burst. Pass `failed` and confirm fade. Remove the temp render before committing if used.
++
++- [ ] **Step 4: Commit**
++
++```bash
++git add frontend/src/components/ui/PackageLoader.tsx
++git commit -m "Add PackageLoader phase animation and gate helper."
++```
++
++---
++
++### Task 3: Wire customer screens
++
++**Files:**
++- Modify: `frontend/src/components/account/DashboardPackageStatsCard.tsx`
++- Modify: `frontend/src/components/account/PackagesHistoryPanel.tsx`
++- Modify: `frontend/src/components/account/PreAlertsPanel.tsx`
++- Modify: `frontend/src/components/account/MessagesSection.tsx`
++
++**Interfaces:**
++- Consumes: `PackageLoaderGate` from `../ui/PackageLoader` (or correct relative path)
++- Produces: same page behavior with branded loader instead of text
++
++- [ ] **Step 1: Dashboard first paint**
++
++In `DashboardPackageStatsCard.tsx`:
++
++1. Import `PackageLoaderGate`.
++2. When `loading` (`!dashboardStats && dashboardLoading`) **and** no `dashboardError`, replace the stats grid with:
++
++```tsx
++<PackageLoaderGate ready={!loading} failed={Boolean(dashboardError)} size="lg" label="Loading your packagesΓÇª">
++  {/* existing grid of StatCards */}
++</PackageLoaderGate>
++```
++
++Keep the title row and `LoadErrorBanner` outside the gate. When `dashboardError && !dashboardStats`, show the banner (already present) and still allow fade via `failed` if the gate is shown ΓÇö if error with no stats, prefer banner only (skip loader):
++
++```tsx
++{loading && !dashboardError ? (
++  <PackageLoader size="lg" label="Loading your packagesΓÇª" />
++) : (
++  <div className="grid grid-cols-2 gap-3">...</div>
++)}
++```
++
++Use the simpler branch above (direct `PackageLoader` while `loading`, no gate needed for always-visible stats skeleton replacement) **or** gate if you hide the whole grid. Prefer:
++
++```tsx
++{loading && !dashboardError ? (
++  <PackageLoader done={false} size="lg" variant="inline" label="Loading your packagesΓÇª" />
++) : (
++  <>
++    {dashboardError && (...banner...)}
++    <div className="grid ...">...</div>
++  </>
++)}
++```
++
++Note: first paint often ends by `dashboardStats` arriving; unmounting mid-spin is OK for dashboard if we accept cutting the burst. Spec prefers finishing the outro ΓÇö so use gate:
++
++```tsx
++const showInitial = !dashboardStats
++// ...
++{showInitial ? (
++  <PackageLoaderGate
++    ready={Boolean(dashboardStats)}
++    failed={Boolean(dashboardError)}
++    size="lg"
++    label="Loading your packagesΓÇª"
++  >
++    <div className="grid grid-cols-2 gap-3">{/* StatCards with loading=false */}</div>
++  </PackageLoaderGate>
++) : (
++  <>
++    {dashboardError && <LoadErrorBanner ... />}
++    <div className="grid ...">...</div>
++  </>
++)}
++```
++
++Once revealed once, subsequent refreshes keep the grid (stale stats) and optional banner ΓÇö do not re-show the full loader on every soft refresh. Implement with a `hasRevealed` ref or by only using the gate when `!dashboardStats` on first mount as above (after reveal, `dashboardStats` is set so gate path is abandoned on next render of parent ΓÇö **but** `PackageLoaderGate` sets `revealed` then renders children; if parent switches away from gate entirely when stats exist, thatΓÇÖs fine).
++
++Simplest durable pattern for dashboard:
++
++```tsx
++const [introDone, setIntroDone] = useState(false)
++const waiting = !dashboardStats && !introDone
++
++if (waiting) {
++  return (
++    <div className="space-y-4">
++      ...header...
++      <PackageLoader
++        done={Boolean(dashboardStats)}
++        failed={Boolean(dashboardError) && !dashboardStats}
++        size="lg"
++        label="Loading your packagesΓÇª"
++        onComplete={() => setIntroDone(true)}
++      />
++    </div>
++  )
++}
++// existing return with grid + banner
++```
++
++- [ ] **Step 2: PackagesHistoryPanel**
++
++Replace:
++
++- `Loading packages...` (both sections still loading, no totals)
++- `Loading active packages...`
++- `Loading completed packages...`
++
++with centered `PackageLoader` / `PackageLoaderGate`:
++
++```tsx
++{activeLoading && completedLoading && !hasPackages ? (
++  <PackageLoaderGate
++    ready={!activeLoading && !completedLoading}
++    failed={Boolean(activeError || completedError)}
++    size="md"
++    label="Loading packagesΓÇª"
++  >
++    {null}
++  </PackageLoaderGate>
++) : ...}
++```
++
++For the empty-children case after complete, the parent structure already branches ΓÇö better approach: keep structural branches, only swap the loading `<p>` nodes:
++
++```tsx
++{activeLoading && activePackages.length === 0 ? (
++  <PackageLoader done={!activeLoading} size="sm" label="Loading active packagesΓÇª" />
++) : ...}
++```
++
++Using `done={!activeLoading}` without gate will unmount when loading flips false and may cut the burst. Prefer gate when the loading branch owns the whole section:
++
++```tsx
++{activePackages.length === 0 && (activeLoading || activePendingReveal) ? (
++  <PackageLoaderGate ready={!activeLoading} failed={Boolean(activeError)} size="sm" label="Loading active packagesΓÇª">
++    {activeTotal === 0 && !activeError ? <p>No active packagesΓÇª</p> : null}
++  </PackageLoaderGate>
++) : activePackages.length > 0 ? ( ...cards... ) : ...}
++```
++
++Keep selection/pager logic unchanged. Minimum acceptable: swap text for `<PackageLoader done={!activeLoading} size="sm" label="ΓÇª" />` even if burst is sometimes cut ΓÇö **prefer gate**.
++
++- [ ] **Step 3: PreAlertsPanel + MessagesSection**
++
++`PreAlertsPanel.tsx` ΓÇö replace loading card text:
++
++```tsx
++{preAlertsLoading && pending.length === 0 ? (
++  <PackageLoaderGate ready={!preAlertsLoading} size="sm" label="Loading pre-alertsΓÇª">
++    {null}
++  </PackageLoaderGate>
++) : pending.length === 0 ? (
++  ...
++```
++
++When gate completes with empty pending, children `null` would flash empty ΓÇö instead:
++
++```tsx
++{preAlertsLoading && pending.length === 0 ? (
++  <div className="mt-4">
++    <PackageLoader done={!preAlertsLoading} size="sm" label="Loading pre-alertsΓÇª" />
++  </div>
++) : pending.length === 0 ? (
++```
++
++Same for `MessagesSection.tsx` loading branch.
++
++- [ ] **Step 4: Typecheck**
++
++```bash
++cd frontend
++npx tsc -b --pretty false --noEmit
++```
++
++Expected: PASS.
++
++- [ ] **Step 5: Commit**
++
++```bash
++git add frontend/src/components/account/DashboardPackageStatsCard.tsx frontend/src/components/account/PackagesHistoryPanel.tsx frontend/src/components/account/PreAlertsPanel.tsx frontend/src/components/account/MessagesSection.tsx
++git commit -m "Wire PackageLoader into customer loading states."
++```
++
++---
++
++### Task 4: Wire warehouse / staff screens
++
++**Files:**
++- Modify: `frontend/src/pages/PrintQueuePage.tsx`
++- Modify: `frontend/src/pages/UnidentifiedQueuePage.tsx`
++- Modify: `frontend/src/pages/DeparturesPage.tsx`
++- Modify: `frontend/src/pages/CustomersPage.tsx`
++- Modify: `frontend/src/pages/WarehousePreAlertsPage.tsx`
++- Modify: `frontend/src/pages/StaffRequestsPage.tsx`
++- Modify: `frontend/src/pages/ReceivePage.tsx` (main block loaders only)
++
++**Interfaces:**
++- Consumes: `PackageLoader` from `../components/ui/PackageLoader`
++
++- [ ] **Step 1: Queue / list pages**
++
++For each file, find the early `LoadingΓÇª` paragraph used as the page placeholder and replace with:
++
++```tsx
++import { PackageLoader } from '../components/ui/PackageLoader'
++
++// when loading && !data:
++<PackageLoader done={false} size="md" label="Loading queueΓÇª" />
++// or appropriate label: customers / pre-alerts / requests / departures
++```
++
++Exact labels:
++
++| Page | Label |
++| --- | --- |
++| PrintQueuePage | `Loading queueΓÇª` |
++| UnidentifiedQueuePage | `Loading queueΓÇª` |
++| DeparturesPage (list) | `Loading departuresΓÇª` |
++| DeparturesPage (single) | `Loading departureΓÇª` |
++| CustomersPage | `Loading customersΓÇª` |
++| WarehousePreAlertsPage | `Loading pre-alertsΓÇª` |
++| StaffRequestsPage (main list) | `Loading requestsΓÇª` |
++
++When the parent currently does `if (loading) return <p>ΓÇª`, change to:
++
++```tsx
++if (loading) {
++  return <PackageLoader done={false} size="md" label="Loading ΓÇª" />
++}
++```
++
++Burst will cut on unmount ΓÇö acceptable for full-page swaps **or** introduce local state:
++
++```tsx
++const [bootDone, setBootDone] = useState(false)
++if (loading || !bootDone) {
++  return (
++    <PackageLoader
++      done={!loading}
++      failed={Boolean(error) && !loading}
++      size="md"
++      label="ΓÇª"
++      onComplete={() => setBootDone(true)}
++    />
++  )
++}
++```
++
++Use the `bootDone` pattern on full-page returns so the outro can finish.
++
++- [ ] **Step 2: ReceivePage main blocks only**
++
++Replace only the larger section placeholders (batch list / main empty loading), **not** tiny inline field hints. Search for `Loading batches` and the main `LoadingΓÇª` under primary panels; leave micro copy under inputs alone.
++
++- [ ] **Step 3: Typecheck**
++
++```bash
++cd frontend
++npx tsc -b --pretty false --noEmit
++```
++
++Expected: PASS.
++
++- [ ] **Step 4: Commit**
++
++```bash
++git add frontend/src/pages/PrintQueuePage.tsx frontend/src/pages/UnidentifiedQueuePage.tsx frontend/src/pages/DeparturesPage.tsx frontend/src/pages/CustomersPage.tsx frontend/src/pages/WarehousePreAlertsPage.tsx frontend/src/pages/StaffRequestsPage.tsx frontend/src/pages/ReceivePage.tsx
++git commit -m "Wire PackageLoader into warehouse loading placeholders."
++```
++
++---
++
++### Task 5: Visual QA checklist + polish pass
++
++**Files:**
++- Possibly tweak: `frontend/src/index.css`, `frontend/src/components/ui/PackageLoader.tsx` (geometry only)
++
++- [ ] **Step 1: Run app and verify storyboard beats**
++
++```bash
++cd frontend
++npm run dev
++```
++
++Check:
++
++1. Arrive: box enters from left with stripes  
++2. Transform: stripes curl / fade as ring fades in  
++3. Load: ring spins, centered on box  
++4. Complete: flaps open + burst (on success)  
++5. Failed path: fade, no burst  
++6. Light + dark theme  
++7. Reduced motion (OS setting): pulse then open / fade  
++8. Customer dashboard, packages, pre-alerts, messages  
++9. Warehouse: print queue, unidentified, departures, customers, pre-alerts, staff requests  
++10. Buttons / ShipperSelect still use text busy states  
++
++- [ ] **Step 2: Fix any alignment issues**
++
++If the ring is off-center, adjust SVG `viewBox` circle `cx/cy/r` so the ring shares the box center (`60,56` in the template). Keep shadow under the box.
++
++- [ ] **Step 3: Final typecheck**
++
++```bash
++cd frontend
++npx tsc -b --pretty false --noEmit
++```
++
++Expected: PASS.
++
++- [ ] **Step 4: Commit polish if any**
++
++```bash
++git add frontend/src/index.css frontend/src/components/ui/PackageLoader.tsx
++git commit -m "Polish PackageLoader geometry and motion timing."
++```
++
++(Skip commit if no changes.)
++
++---
++
++## Spec coverage (self-review)
++
++| Spec requirement | Task |
++| --- | --- |
++| Shared inline + fullscreen | Task 2 (`variant`) |
++| Hybrid done + min load time | Task 2 (`MIN_LOAD_MS`) |
++| React + SVG/CSS, no new deps | Tasks 1ΓÇô2 |
++| Phases arrive/transform/load/complete | Tasks 1ΓÇô2 |
++| failed ΓåÆ fade | Task 2 |
++| reduced motion | Tasks 1ΓÇô2 |
++| Customer wiring | Task 3 |
++| Warehouse wiring | Task 4 |
++| Skip buttons / ShipperSelect / onboarding | Task 4 notes + Task 5 checklist |
++| Typecheck / no new deps | Tasks 2ΓÇô5 |
++
++## Placeholder scan
++
++No TBD/TODO left in tasks; wiring steps include concrete props and labels.
+diff --git a/docs/superpowers/specs/2026-11-07-package-loader-design.md b/docs/superpowers/specs/2026-11-07-package-loader-design.md
+new file mode 100644
+index 0000000..31d19fd
+--- /dev/null
++++ b/docs/superpowers/specs/2026-11-07-package-loader-design.md
+@@ -0,0 +1,103 @@
++# PackageLoader ΓÇö branded loading animation
++
++**Date:** 2026-11-07  
++**Status:** Approved for implementation planning  
++**Branch context:** `test` (Package Boss frontend)
++
++## Goal
++
++Replace plain ΓÇ£LoadingΓÇªΓÇ¥ placeholders on major customer and warehouse screens with a branded animation: a gold package arrives with green/gold speed stripes, stripes morph into a rotating ring around the box, then on success the box opens with a subtle green/gold burst.
++
++## Decisions (locked)
++
++| Topic | Choice |
++| --- | --- |
++| Scope | Shared component with `inline` + `fullscreen` variants |
++| Completion | Hybrid: spin until parent `done`, with minimum time in load phase |
++| Tech | React phase machine + SVG/CSS (no Lottie/Rive) |
++| First ship | Wire main customer + warehouse page/panel loaders (not button micro-spinners) |
++
++## Component
++
++**Path:** `frontend/src/components/ui/PackageLoader.tsx`  
++**Styles:** Co-located CSS module or keyframes in `frontend/src/index.css` using existing `--color-boss-green` / `--color-boss-gold`.
++
++### Props
++
++| Prop | Type | Default | Purpose |
++| --- | --- | --- | --- |
++| `done` | `boolean` | `false` | Parent sets `true` when data is ready |
++| `variant` | `'inline' \| 'fullscreen'` | `'inline'` | Panel vs centered overlay |
++| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | Inline scale |
++| `label` | `string` | optional | Muted caption under animation |
++| `failed` | `boolean` | `false` | Skip success burst; fade out instead |
++| `onComplete` | `() => void` | optional | After complete (or error fade) finishes |
++| `className` | `string` | optional | Wrapper class |
++
++### Phase machine
++
++1. **Arrive** (~0.6s) ΓÇö box slides in from the left; greenΓåÆgold speed stripes trail behind.  
++2. **Transform** (~0.5s) ΓÇö stripes shorten into rounded segments and curve around the box.  
++3. **Load** ΓÇö segments form a rotating circular indicator. **Hold** until `done === true` **and** at least ~0.8s has been spent in this phase.  
++4. **Complete** (~0.7s) ΓÇö ring resolves; box flaps open; gold/green burst; then call `onComplete`.
++
++If `failed` becomes true while loading (or when finishing), skip open/burst and fade out, then call `onComplete`.
++
++### Visual rules
++
++- Flat SVG cardboard box (┬╛ view), black tape strip when closed; flaps open on complete.  
++- Cleaner than the storyboard sketch: ring centered on the box, even segment gaps, soft drop shadow.  
++- Brand colors stay gold/green in light and dark; shadow softens in dark mode.  
++- `prefers-reduced-motion: reduce` ΓÇö static closed box + opacity pulse during load; on `done`, show open box without morph/burst; on `failed`, fade out.
++
++## Integration
++
++Parents keep the loader mounted until `onComplete` so the open/burst is not cut off:
++
++```tsx
++const [showLoader, setShowLoader] = useState(true)
++// when fetch settles: setDone(true) or setFailed(true)
++// onComplete={() => setShowLoader(false)} then render content
++```
++
++### Wire (replace text placeholders)
++
++**Customer**
++
++- Dashboard first paint when `dashboardLoading && !dashboardStats` (large inline or fullscreen in content area)  
++- `PackagesHistoryPanel` primary loading states  
++- `PreAlertsPanel`  
++- `MessagesSection`
++
++**Warehouse / staff**
++
++- Print queue, Unidentified queue, Departures list (and single-departure loading), Customers, Warehouse pre-alerts, Staff requests main list  
++- Receive page: main block loaders only (not every field-level ΓÇ£LoadingΓÇªΓÇ¥)
++
++### Do not wire
++
++- Button busy labels (`LoadingΓÇª` / `RefreshingΓÇª`)  
++- `ShipperSelect` ΓÇ£Loading merchantsΓÇªΓÇ¥  
++- Onboarding tour instructional copy  
++
++## Edge cases
++
++- **Fast loads:** still run arrive ΓåÆ transform ΓåÆ min load hold ΓåÆ complete.  
++- **Errors:** fade out (no success burst).  
++- **Unmount mid-animation:** clear timers; never call `onComplete` after unmount.  
++- **Re-entry:** remounting resets to Arrive.
++
++## Out of scope
++
++- Progress percentage API  
++- Replacing every micro-loading string in the app  
++- New animation libraries (Lottie, Rive, Framer Motion) unless later justified  
++
++## Success criteria
++
++- Animation reads clearly as arrive ΓåÆ transform ΓåÆ ring ΓåÆ open.  
++- Ring is visually centered on the box.  
++- Hybrid `done` behavior works for fast and slow fetches.  
++- Major customer + warehouse loading placeholders use `PackageLoader`.  
++- Reduced-motion path remains usable.  
++- Typecheck passes; no new runtime dependencies.
+diff --git a/frontend/src/components/account/DashboardPackageStatsCard.tsx b/frontend/src/components/account/DashboardPackageStatsCard.tsx
+index 0aebee2..aed0c4d 100644
+--- a/frontend/src/components/account/DashboardPackageStatsCard.tsx
++++ b/frontend/src/components/account/DashboardPackageStatsCard.tsx
+@@ -1,16 +1,18 @@
++import { useState } from 'react'
+ import { DollarSign, MapPin, PackageCheck, Plane, Shield } from 'lucide-react'
+ import { Link } from 'react-router-dom'
+ import {
+   computeDashboardPackageStats,
+   formatDashboardTotalDue,
+ } from '../../lib/dashboardStats'
+ import { useCustomerData } from '../../context/CustomerDataContext'
+ import { LoadErrorBanner } from '../ui/LoadErrorBanner'
++import { PackageLoader } from '../ui/PackageLoader'
+ 
+ function StatCard({
+   to,
+   icon: Icon,
+   label,
+   value,
+   sub,
+   loading,
+@@ -46,77 +48,91 @@ function StatCard({
+         </div>
+       </div>
+     </Link>
+   )
+ }
+ 
+ export function DashboardPackageStatsCard() {
+   const { dashboardStats, dashboardLoading, dashboardError, refreshAll } = useCustomerData()
++  const [introDone, setIntroDone] = useState(false)
+   const stats = dashboardStats ?? computeDashboardPackageStats([])
+   const loading = !dashboardStats && dashboardLoading
++  const waiting = !dashboardStats && !introDone
+ 
+   return (
+     <div className="space-y-4">
+       <div className="flex flex-wrap items-center justify-between gap-3">
+         <p className="text-xs font-medium uppercase tracking-wider text-muted">Package overview</p>
+         <Link
+           to="/dashboard/packages"
+           className="text-xs font-semibold text-boss-gold hover:underline"
+         >
+           View all packages ΓåÆ
+         </Link>
+       </div>
+ 
+-      {dashboardError && (
+-        <LoadErrorBanner message={dashboardError} onRetry={() => void refreshAll()} />
+-      )}
+-
+-      <div className="grid grid-cols-2 gap-3">
+-        <StatCard
+-          to="/dashboard/packages"
+-          icon={MapPin}
+-          label="Received"
+-          value={String(stats.receivedFortLauderdale)}
+-          sub="At our Fort Lauderdale warehouse"
+-          loading={loading}
+-        />
+-        <StatCard
+-          to="/dashboard/packages"
+-          icon={Plane}
+-          label="In transit"
+-          value={String(stats.inTransit)}
+-          sub="En route to Jamaica"
+-          loading={loading}
+-        />
+-        <StatCard
+-          to="/dashboard/packages"
+-          icon={Shield}
+-          label="Customs"
+-          value={String(stats.customs)}
+-          sub="Clearing Jamaican customs"
+-          loading={loading}
++      {waiting ? (
++        <PackageLoader
++          done={Boolean(dashboardStats)}
++          failed={Boolean(dashboardError) && !dashboardStats}
++          size="lg"
++          label="Loading your packagesΓÇª"
++          onComplete={() => setIntroDone(true)}
+         />
+-        <StatCard
+-          to="/dashboard/packages"
+-          icon={PackageCheck}
+-          label="Ready pickup / delivery"
+-          value={String(stats.readyPickupDelivery)}
+-          sub="Ready for pickup or delivery"
+-          loading={loading}
+-        />
+-        <StatCard
+-          to="/dashboard/packages"
+-          icon={DollarSign}
+-          label="Total due"
+-          value={stats.totalDueJmd > 0 ? formatDashboardTotalDue(stats.totalDueJmd) : 'J$0'}
+-          sub={
+-            stats.handlingFeeJmd > 0
+-              ? `Includes J$${stats.handlingFeeJmd} multi-package handling fee`
+-              : 'Published bills awaiting payment'
+-          }
+-          loading={loading}
+-          className="col-span-2"
+-        />
+-      </div>
++      ) : (
++        <>
++          {dashboardError && (
++            <LoadErrorBanner message={dashboardError} onRetry={() => void refreshAll()} />
++          )}
++
++          <div className="grid grid-cols-2 gap-3">
++            <StatCard
++              to="/dashboard/packages"
++              icon={MapPin}
++              label="Received"
++              value={String(stats.receivedFortLauderdale)}
++              sub="At our Fort Lauderdale warehouse"
++              loading={loading}
++            />
++            <StatCard
++              to="/dashboard/packages"
++              icon={Plane}
++              label="In transit"
++              value={String(stats.inTransit)}
++              sub="En route to Jamaica"
++              loading={loading}
++            />
++            <StatCard
++              to="/dashboard/packages"
++              icon={Shield}
++              label="Customs"
++              value={String(stats.customs)}
++              sub="Clearing Jamaican customs"
++              loading={loading}
++            />
++            <StatCard
++              to="/dashboard/packages"
++              icon={PackageCheck}
++              label="Ready pickup / delivery"
++              value={String(stats.readyPickupDelivery)}
++              sub="Ready for pickup or delivery"
++              loading={loading}
++            />
++            <StatCard
++              to="/dashboard/packages"
++              icon={DollarSign}
++              label="Total due"
++              value={stats.totalDueJmd > 0 ? formatDashboardTotalDue(stats.totalDueJmd) : 'J$0'}
++              sub={
++                stats.handlingFeeJmd > 0
++                  ? `Includes J$${stats.handlingFeeJmd} multi-package handling fee`
++                  : 'Published bills awaiting payment'
++              }
++              loading={loading}
++              className="col-span-2"
++            />
++          </div>
++        </>
++      )}
+     </div>
+   )
+ }
+diff --git a/frontend/src/components/account/MessagesSection.tsx b/frontend/src/components/account/MessagesSection.tsx
+index 839dfbc..dacb53c 100644
+--- a/frontend/src/components/account/MessagesSection.tsx
++++ b/frontend/src/components/account/MessagesSection.tsx
+@@ -1,16 +1,17 @@
+ import { Megaphone } from 'lucide-react'
+ import { useEffect, useState } from 'react'
+ import {
+   fetchMyAnnouncements,
+   markAnnouncementRead,
+   type Announcement,
+ } from '../../api/announcements'
+ import { getErrorMessage } from '../../api/client'
++import { PackageLoader } from '../ui/PackageLoader'
+ 
+ function formatWhen(iso: string): string {
+   return new Date(iso).toLocaleString(undefined, {
+     month: 'short',
+     day: 'numeric',
+     year: 'numeric',
+     hour: 'numeric',
+     minute: '2-digit',
+@@ -72,17 +73,19 @@ export function MessagesSection() {
+         Service updates and announcements from Package Boss.
+       </p>
+ 
+       {error && (
+         <p className="mt-3 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>
+       )}
+ 
+       {loading ? (
+-        <p className="mt-4 text-sm text-muted">Loading messagesΓÇª</p>
++        <div className="mt-4">
++          <PackageLoader done={!loading} size="sm" label="Loading messagesΓÇª" />
++        </div>
+       ) : messages.length === 0 ? (
+         <p className="mt-4 rounded-xl border border-border bg-card px-5 py-4 text-sm text-muted">
+           No announcements yet. Important updates will appear here when we send them.
+         </p>
+       ) : (
+         <ul className="mt-4 space-y-3">
+           {messages.map((message) => {
+             const expanded = expandedId === message.id
+diff --git a/frontend/src/components/account/PackagesHistoryPanel.tsx b/frontend/src/components/account/PackagesHistoryPanel.tsx
+index 424527a..e9bcb0b 100644
+--- a/frontend/src/components/account/PackagesHistoryPanel.tsx
++++ b/frontend/src/components/account/PackagesHistoryPanel.tsx
+@@ -14,16 +14,17 @@ import { useCustomerData } from '../../context/CustomerDataContext'
+ import { formatJmd } from '../../lib/money'
+ import { isCustomerBillVisible } from '../../lib/packageStatuses'
+ import { PICKUP_HOURS_SHORT, PICKUP_LOCATION_LABEL, pendingFulfillmentBadge } from '../../lib/pickupLocation'
+ import { RequestDeliveryModal } from './RequestDeliveryModal'
+ import { ShippingHelpButton } from './ShippingHelpButton'
+ import { StatusBadge } from '../warehouse/StatusBadge'
+ import { Button } from '../ui/Button'
+ import { LoadErrorBanner } from '../ui/LoadErrorBanner'
++import { PackageLoader } from '../ui/PackageLoader'
+ import type { Package } from '../../types'
+ 
+ const ACTIVE_PAGE_SIZE = 10
+ const COMPLETED_PAGE_SIZE = 5
+ 
+ function totalPagesFor(count: number, pageSize: number) {
+   return Math.max(1, Math.ceil(count / pageSize))
+ }
+@@ -337,16 +338,17 @@ export function PackagesHistoryPanel() {
+   const [activeTotal, setActiveTotal] = useState(0)
+   const [completedPackages, setCompletedPackages] = useState<Package[]>([])
+   const [completedTotal, setCompletedTotal] = useState(0)
+   const [readyCount, setReadyCount] = useState<number | null>(null)
+   const [activeLoading, setActiveLoading] = useState(true)
+   const [completedLoading, setCompletedLoading] = useState(true)
+   const [activeError, setActiveError] = useState('')
+   const [completedError, setCompletedError] = useState('')
++  const [bootDone, setBootDone] = useState(false)
+ 
+   const selectedIds = [...selectedPackages.keys()]
+   const selectedList = [...selectedPackages.values()]
+   const readyForPickupCount = readyCount ?? dashboardStats?.readyPickupDelivery ?? 0
+   const hasPackages = activeTotal > 0 || completedTotal > 0
+   const activePageToLoad = activePendingPage ?? activePage
+   const completedPageToLoad = completedPendingPage ?? completedPage
+ 
+@@ -529,37 +531,50 @@ export function PackagesHistoryPanel() {
+             <LoadErrorBanner message={activeError} onRetry={() => void refreshPackages()} />
+           )}
+           {completedError && (
+             <LoadErrorBanner message={completedError} onRetry={() => void refreshPackages()} />
+           )}
+         </div>
+       )}
+ 
+-      {activeLoading && completedLoading && !hasPackages ? (
+-        <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
+-          Loading packages...
+-        </p>
++      {!bootDone ? (
++        <div className="mt-4">
++          <PackageLoader
++            done={!activeLoading && !completedLoading}
++            failed={Boolean(activeError || completedError)}
++            size="md"
++            label="Loading packagesΓÇª"
++            onComplete={() => setBootDone(true)}
++          />
++        </div>
+       ) : !activeLoading && !completedLoading && !hasPackages && !activeError && !completedError ? (
+         <div className="relative mt-4 rounded-xl border border-border bg-card p-6 pr-16 text-sm text-muted">
+           <div className="absolute right-3 top-3">
+             <ShippingHelpButton />
+           </div>
+           No packages yet. Once your shipment is received at the Fort Lauderdale warehouse, it will appear
+           here.
+         </div>
+       ) : (
+         <div className="mt-6 space-y-8">
+           <section>
+             <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">Active</h3>
+             <p className="mt-1 text-xs text-muted">
+               Packages still moving through our warehouse and delivery process.
+             </p>
+             {activeLoading && activePackages.length === 0 ? (
+-              <p className="mt-4 text-sm text-muted">Loading active packages...</p>
++              <div className="mt-4">
++                <PackageLoader
++                  done={!activeLoading}
++                  failed={Boolean(activeError)}
++                  size="sm"
++                  label="Loading active packagesΓÇª"
++                />
++              </div>
+             ) : activeTotal === 0 && !activeError ? (
+               <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
+                 No active packages right now.
+               </p>
+             ) : activePackages.length > 0 ? (
+               <div className="mt-4">
+                 <PackageCards
+                   packages={activePackages}
+@@ -575,17 +590,24 @@ export function PackagesHistoryPanel() {
+             ) : null}
+           </section>
+ 
+           {(completedLoading || completedTotal > 0 || completedError) && (
+             <section>
+               <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">Completed</h3>
+               <p className="mt-1 text-xs text-muted">Delivered packages.</p>
+               {completedLoading && completedPackages.length === 0 ? (
+-                <p className="mt-4 text-sm text-muted">Loading completed packages...</p>
++                <div className="mt-4">
++                  <PackageLoader
++                    done={!completedLoading}
++                    failed={Boolean(completedError)}
++                    size="sm"
++                    label="Loading completed packagesΓÇª"
++                  />
++                </div>
+               ) : completedPackages.length > 0 ? (
+                 <div className="mt-4">
+                   <PackageCards
+                     packages={completedPackages}
+                     page={completedPage}
+                     pageSize={COMPLETED_PAGE_SIZE}
+                     totalItems={completedTotal}
+                     loading={completedLoading || completedPendingPage != null}
+diff --git a/frontend/src/components/account/PreAlertsPanel.tsx b/frontend/src/components/account/PreAlertsPanel.tsx
+index 7e5503b..1010a52 100644
+--- a/frontend/src/components/account/PreAlertsPanel.tsx
++++ b/frontend/src/components/account/PreAlertsPanel.tsx
+@@ -1,15 +1,16 @@
+ import { useState } from 'react'
+ import { Link } from 'react-router-dom'
+ import { Bell } from 'lucide-react'
+ import { getErrorMessage } from '../../api/client'
+ import { deletePreAlert } from '../../api/preAlerts'
+ import { useCustomerData } from '../../context/CustomerDataContext'
+ import type { PreAlert } from '../../types'
++import { PackageLoader } from '../ui/PackageLoader'
+ 
+ function statusBadgeClass() {
+   return 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+ }
+ 
+ function PreAlertCard({
+   alert,
+   onDelete,
+@@ -113,19 +114,23 @@ export function PreAlertsPanel() {
+         </Link>
+       </div>
+ 
+       {error && (
+         <p className="mt-3 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{error}</p>
+       )}
+ 
+       {preAlertsLoading && pending.length === 0 ? (
+-        <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
+-          Loading pre-alerts...
+-        </p>
++        <div className="mt-4">
++          <PackageLoader
++            done={!preAlertsLoading}
++            size="sm"
++            label="Loading pre-alertsΓÇª"
++          />
++        </div>
+       ) : pending.length === 0 ? (
+         <p className="mt-4 rounded-xl border border-border bg-card p-6 text-sm text-muted">
+           No active pre-alerts. Submit a new one when you are expecting a shipment.
+         </p>
+       ) : (
+         <div className="mt-4 space-y-3">
+           {pending.map((alert) => (
+             <PreAlertCard key={alert.id} alert={alert} onDelete={handleDelete} />
+diff --git a/frontend/src/components/ui/PackageLoader.tsx b/frontend/src/components/ui/PackageLoader.tsx
+new file mode 100644
+index 0000000..c86a545
+--- /dev/null
++++ b/frontend/src/components/ui/PackageLoader.tsx
+@@ -0,0 +1,249 @@
++import { useEffect, useRef, useState, type ReactNode } from 'react'
++
++export type PackageLoaderPhase = 'arrive' | 'transform' | 'load' | 'complete' | 'fade'
++
++export type PackageLoaderProps = {
++  done?: boolean
++  failed?: boolean
++  variant?: 'inline' | 'fullscreen'
++  size?: 'sm' | 'md' | 'lg'
++  label?: string
++  onComplete?: () => void
++  className?: string
++}
++
++const ARRIVE_MS = 600
++const TRANSFORM_MS = 500
++const MIN_LOAD_MS = 800
++const COMPLETE_MS = 700
++const FADE_MS = 400
++
++function usePrefersReducedMotion() {
++  const [reduced, setReduced] = useState(false)
++  useEffect(() => {
++    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
++    const update = () => setReduced(mq.matches)
++    update()
++    mq.addEventListener('change', update)
++    return () => mq.removeEventListener('change', update)
++  }, [])
++  return reduced
++}
++
++export function PackageLoader({
++  done = false,
++  failed = false,
++  variant = 'inline',
++  size = 'md',
++  label,
++  onComplete,
++  className = '',
++}: PackageLoaderProps) {
++  const reduced = usePrefersReducedMotion()
++  const [phase, setPhase] = useState<PackageLoaderPhase>('arrive')
++  const loadEnteredAt = useRef<number | null>(null)
++  const onCompleteRef = useRef(onComplete)
++  onCompleteRef.current = onComplete
++  const finishedRef = useRef(false)
++
++  useEffect(() => {
++    finishedRef.current = false
++    setPhase('arrive')
++    loadEnteredAt.current = null
++  }, [])
++
++  useEffect(() => {
++    if (finishedRef.current) return
++
++    if (reduced) {
++      if (failed) {
++        setPhase('fade')
++        const t = window.setTimeout(() => {
++          finishedRef.current = true
++          onCompleteRef.current?.()
++        }, FADE_MS)
++        return () => window.clearTimeout(t)
++      }
++      if (done) {
++        setPhase('complete')
++        const t = window.setTimeout(() => {
++          finishedRef.current = true
++          onCompleteRef.current?.()
++        }, 250)
++        return () => window.clearTimeout(t)
++      }
++      setPhase('load')
++      return
++    }
++
++    if (phase === 'arrive') {
++      const t = window.setTimeout(() => setPhase('transform'), ARRIVE_MS)
++      return () => window.clearTimeout(t)
++    }
++
++    if (phase === 'transform') {
++      const t = window.setTimeout(() => {
++        loadEnteredAt.current = performance.now()
++        setPhase('load')
++      }, TRANSFORM_MS)
++      return () => window.clearTimeout(t)
++    }
++
++    if (phase === 'load') {
++      if (!done && !failed) return
++      const entered = loadEnteredAt.current ?? performance.now()
++      const waited = performance.now() - entered
++      const remaining = Math.max(0, MIN_LOAD_MS - waited)
++      const t = window.setTimeout(() => {
++        setPhase(failed ? 'fade' : 'complete')
++      }, remaining)
++      return () => window.clearTimeout(t)
++    }
++
++    if (phase === 'complete') {
++      if (failed) {
++        setPhase('fade')
++        return
++      }
++      const t = window.setTimeout(() => {
++        finishedRef.current = true
++        onCompleteRef.current?.()
++      }, COMPLETE_MS)
++      return () => window.clearTimeout(t)
++    }
++
++    if (phase === 'fade') {
++      const t = window.setTimeout(() => {
++        finishedRef.current = true
++        onCompleteRef.current?.()
++      }, FADE_MS)
++      return () => window.clearTimeout(t)
++    }
++  }, [phase, done, failed, reduced])
++
++  const classes = [
++    'pb-loader',
++    `pb-loader--${size}`,
++    variant === 'fullscreen' ? 'pb-loader--fullscreen' : '',
++    `pb-loader--phase-${phase}`,
++    reduced ? 'pb-loader--reduced' : '',
++    className,
++  ]
++    .filter(Boolean)
++    .join(' ')
++
++  return (
++    <div className={classes} role="status" aria-live="polite" aria-busy={phase !== 'complete' && phase !== 'fade'}>
++      <div className="pb-loader__stage">
++        <svg viewBox="0 0 120 120" aria-hidden="true">
++          <ellipse className="pb-loader__shadow" cx="60" cy="102" rx="28" ry="6" />
++
++          <g className="pb-loader__stripes">
++            <rect className="pb-loader__stripe" x="8" y="38" width="34" height="5" rx="2.5" fill="url(#pbStripeGold)" />
++            <rect className="pb-loader__stripe" x="4" y="50" width="42" height="5" rx="2.5" fill="url(#pbStripeGreen)" />
++            <rect className="pb-loader__stripe" x="10" y="62" width="30" height="5" rx="2.5" fill="url(#pbStripeMix)" />
++            <rect className="pb-loader__stripe" x="6" y="74" width="36" height="5" rx="2.5" fill="url(#pbStripeGreen)" />
++          </g>
++
++          <g className="pb-loader__ring">
++            <circle
++              cx="60"
++              cy="56"
++              r="40"
++              fill="none"
++              stroke="url(#pbRingGrad)"
++              strokeWidth="5"
++              strokeLinecap="round"
++              strokeDasharray="70 180"
++            />
++            <circle cx="60" cy="16" r="3.5" fill="var(--pb-green, #22c55e)" />
++          </g>
++
++          <g className="pb-loader__box pb-loader__box-closed">
++            <path
++              d="M38 44 L60 32 L82 44 L82 72 L60 84 L38 72 Z"
++              fill="var(--pb-gold, #eab308)"
++              stroke="#111"
++              strokeWidth="1.5"
++              strokeLinejoin="round"
++            />
++            <path d="M38 44 L60 56 L82 44" fill="none" stroke="#111" strokeWidth="1.5" />
++            <path d="M60 56 L60 84" fill="none" stroke="#111" strokeWidth="1.5" />
++            <path d="M48 38 L72 38" stroke="#111" strokeWidth="4" strokeLinecap="round" />
++          </g>
++
++          <g className="pb-loader__box pb-loader__box-open">
++            <path
++              d="M38 50 L60 38 L82 50 L82 76 L60 88 L38 76 Z"
++              fill="var(--pb-gold, #eab308)"
++              stroke="#111"
++              strokeWidth="1.5"
++              strokeLinejoin="round"
++            />
++            <path d="M38 50 L60 62 L82 50" fill="none" stroke="#111" strokeWidth="1.5" />
++            <path d="M60 62 L60 88" fill="none" stroke="#111" strokeWidth="1.5" />
++            <path d="M60 38 L48 22 L38 50" fill="var(--pb-gold, #eab308)" stroke="#111" strokeWidth="1.5" strokeLinejoin="round" />
++            <path d="M60 38 L72 22 L82 50" fill="var(--pb-gold, #eab308)" stroke="#111" strokeWidth="1.5" strokeLinejoin="round" />
++            <path d="M48 22 L60 14 L72 22" fill="#fde68a" stroke="#111" strokeWidth="1" opacity="0.9" />
++          </g>
++
++          <g className="pb-loader__burst">
++            <path d="M60 8 L64 20 L56 20 Z" fill="var(--pb-gold, #eab308)" />
++            <path d="M88 28 L82 38 L76 30 Z" fill="var(--pb-green, #22c55e)" />
++            <path d="M32 28 L38 38 L44 30 Z" fill="var(--pb-green, #22c55e)" />
++            <path d="M92 52 L84 54 L88 62 Z" fill="var(--pb-gold, #eab308)" />
++            <path d="M28 52 L36 54 L32 62 Z" fill="var(--pb-gold, #eab308)" />
++          </g>
++
++          <defs>
++            <linearGradient id="pbStripeGold" x1="0" y1="0" x2="1" y2="0">
++              <stop offset="0%" stopColor="#22c55e" />
++              <stop offset="100%" stopColor="#eab308" />
++            </linearGradient>
++            <linearGradient id="pbStripeGreen" x1="0" y1="0" x2="1" y2="0">
++              <stop offset="0%" stopColor="#16a34a" />
++              <stop offset="100%" stopColor="#eab308" />
++            </linearGradient>
++            <linearGradient id="pbStripeMix" x1="0" y1="0" x2="1" y2="0">
++              <stop offset="0%" stopColor="#22c55e" />
++              <stop offset="100%" stopColor="#ca8a04" />
++            </linearGradient>
++            <linearGradient id="pbRingGrad" x1="0" y1="0" x2="1" y2="1">
++              <stop offset="0%" stopColor="#22c55e" />
++              <stop offset="100%" stopColor="#eab308" />
++            </linearGradient>
++          </defs>
++        </svg>
++      </div>
++      {label ? <p className="pb-loader__label">{label}</p> : null}
++    </div>
++  )
++}
++
++export function PackageLoaderGate({
++  ready,
++  failed = false,
++  children,
++  ...loaderProps
++}: {
++  ready: boolean
++  failed?: boolean
++  children: ReactNode
++} & Omit<PackageLoaderProps, 'done' | 'failed' | 'onComplete'>) {
++  const [revealed, setRevealed] = useState(false)
++
++  useEffect(() => {
++    if (!ready && !failed) setRevealed(false)
++  }, [ready, failed])
++
++  if (revealed) return <>{children}</>
++
++  return (
++    <PackageLoader
++      {...loaderProps}
++      done={ready && !failed}
++      failed={failed}
++      onComplete={() => setRevealed(true)}
++    />
++  )
++}
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+index 06489f2..eaab421 100644
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -373,8 +373,204 @@ body {
+ 
+   .shipping-label-screen-scale .shipping-label {
+     transform: scale(1.85);
+     transform-origin: top center;
+     margin-bottom: calc(3in * 0.85);
+   }
+ }
+ 
++/* ΓÇöΓÇö PackageLoader ΓÇöΓÇö */
++.pb-loader {
++  --pb-green: var(--color-boss-green);
++  --pb-gold: var(--color-boss-gold);
++  --pb-size: 120px;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  justify-content: center;
++  gap: 0.75rem;
++}
++
++.pb-loader--sm { --pb-size: 72px; }
++.pb-loader--md { --pb-size: 120px; }
++.pb-loader--lg { --pb-size: 160px; }
++
++.pb-loader--fullscreen {
++  min-height: 40vh;
++  width: 100%;
++}
++
++.pb-loader__stage {
++  position: relative;
++  width: var(--pb-size);
++  height: var(--pb-size);
++}
++
++.pb-loader__stage svg {
++  display: block;
++  width: 100%;
++  height: 100%;
++  overflow: visible;
++}
++
++.pb-loader__label {
++  margin: 0;
++  font-size: 0.875rem;
++  color: var(--color-muted);
++}
++
++/* Box slide-in */
++.pb-loader--phase-arrive .pb-loader__box {
++  animation: pb-loader-arrive 0.6s ease-out both;
++}
++
++@keyframes pb-loader-arrive {
++  from { transform: translateX(-42%); opacity: 0.35; }
++  to { transform: translateX(0); opacity: 1; }
++}
++
++/* Stripes: horizontal in arrive ΓåÆ arc slots in transform ΓåÆ hidden when ring owns motion */
++.pb-loader__stripes {
++  transform-origin: 50% 50%;
++}
++
++.pb-loader--phase-arrive .pb-loader__stripes {
++  opacity: 1;
++}
++
++.pb-loader--phase-transform .pb-loader__stripes {
++  animation: pb-loader-stripes-curl 0.5s ease-in-out both;
++}
++
++.pb-loader--phase-load .pb-loader__stripes,
++.pb-loader--phase-complete .pb-loader__stripes,
++.pb-loader--phase-fade .pb-loader__stripes {
++  opacity: 0;
++  pointer-events: none;
++}
++
++@keyframes pb-loader-stripes-curl {
++  from { opacity: 1; transform: scaleX(1) rotate(0deg); }
++  to { opacity: 0; transform: scaleX(0.35) rotate(-55deg); }
++}
++
++/* Ring appears after transform; spins during load */
++.pb-loader__ring {
++  transform-origin: 60px 56px;
++  opacity: 0;
++}
++
++.pb-loader--phase-transform .pb-loader__ring {
++  animation: pb-loader-ring-in 0.5s ease-out both;
++}
++
++.pb-loader--phase-load .pb-loader__ring {
++  opacity: 1;
++  animation: pb-loader-spin 1.05s linear infinite;
++}
++
++.pb-loader--phase-complete .pb-loader__ring,
++.pb-loader--phase-fade .pb-loader__ring {
++  animation: pb-loader-ring-out 0.35s ease-in both;
++}
++
++@keyframes pb-loader-ring-in {
++  from { opacity: 0; transform: scale(0.7) rotate(-40deg); }
++  to { opacity: 1; transform: scale(1) rotate(0deg); }
++}
++
++@keyframes pb-loader-spin {
++  to { transform: rotate(360deg); }
++}
++
++@keyframes pb-loader-ring-out {
++  from { opacity: 1; }
++  to { opacity: 0; transform: scale(1.08); }
++}
++
++/* Closed vs open box */
++.pb-loader__box-open {
++  opacity: 0;
++}
++
++.pb-loader--phase-complete .pb-loader__box-closed {
++  opacity: 0;
++  transition: opacity 0.15s ease;
++}
++
++.pb-loader--phase-complete .pb-loader__box-open {
++  opacity: 1;
++  animation: pb-loader-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both;
++}
++
++@keyframes pb-loader-pop {
++  from { transform: scale(0.92); }
++  60% { transform: scale(1.06); }
++  to { transform: scale(1); }
++}
++
++.pb-loader__burst {
++  opacity: 0;
++  transform-origin: 50% 40%;
++}
++
++.pb-loader--phase-complete .pb-loader__burst {
++  animation: pb-loader-burst 0.7s ease-out both;
++}
++
++@keyframes pb-loader-burst {
++  0% { opacity: 0; transform: scale(0.4); }
++  35% { opacity: 1; transform: scale(1); }
++  100% { opacity: 0; transform: scale(1.25); }
++}
++
++.pb-loader--phase-fade {
++  animation: pb-loader-fade 0.4s ease-in both;
++}
++
++@keyframes pb-loader-fade {
++  to { opacity: 0; }
++}
++
++.pb-loader__shadow {
++  fill: rgb(15 23 42 / 0.18);
++}
++
++:root.dark .pb-loader__shadow,
++.dark .pb-loader__shadow {
++  fill: rgb(0 0 0 / 0.45);
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .pb-loader--reduced .pb-loader__box,
++  .pb-loader--reduced .pb-loader__stripes,
++  .pb-loader--reduced .pb-loader__ring,
++  .pb-loader--reduced .pb-loader__burst {
++    animation: none !important;
++  }
++
++  .pb-loader--reduced.pb-loader--phase-arrive .pb-loader__box,
++  .pb-loader--reduced.pb-loader--phase-transform .pb-loader__box,
++  .pb-loader--reduced.pb-loader--phase-load .pb-loader__box {
++    animation: pb-loader-pulse 1.2s ease-in-out infinite !important;
++  }
++
++  .pb-loader--reduced .pb-loader__stripes,
++  .pb-loader--reduced .pb-loader__ring,
++  .pb-loader--reduced .pb-loader__burst {
++    opacity: 0 !important;
++  }
++
++  .pb-loader--reduced.pb-loader--phase-complete .pb-loader__box-closed {
++    opacity: 0;
++  }
++
++  .pb-loader--reduced.pb-loader--phase-complete .pb-loader__box-open {
++    opacity: 1;
++  }
++}
++
++@keyframes pb-loader-pulse {
++  0%, 100% { opacity: 0.55; }
++  50% { opacity: 1; }
++}
++
+diff --git a/frontend/src/pages/CustomersPage.tsx b/frontend/src/pages/CustomersPage.tsx
+index bccca97..030706c 100644
+--- a/frontend/src/pages/CustomersPage.tsx
++++ b/frontend/src/pages/CustomersPage.tsx
+@@ -1,15 +1,16 @@
+ import { Users } from 'lucide-react'
+ import { useEffect, useState } from 'react'
+ import { Link } from 'react-router-dom'
+ import { fetchCustomers } from '../api/staff'
+ import { Button } from '../components/ui/Button'
+ import { IconBadge } from '../components/ui/IconBadge'
+ import { Input } from '../components/ui/Input'
++import { PackageLoader } from '../components/ui/PackageLoader'
+ import type { StaffCustomer } from '../types'
+ 
+ const PAGE_SIZE = 25
+ 
+ export function CustomersPage() {
+   const [query, setQuery] = useState('')
+   const [debouncedQuery, setDebouncedQuery] = useState('')
+   const [customers, setCustomers] = useState<StaffCustomer[]>([])
+@@ -65,17 +66,17 @@ export function CustomersPage() {
+           placeholder="Jane Doe, Acme Ltd, or BOSS-01009"
+           value={query}
+           onChange={(e) => setQuery(e.target.value)}
+         />
+       </div>
+ 
+       <div className="rounded-2xl border border-border bg-card overflow-hidden">
+         {loading ? (
+-          <p className="p-8 text-center text-sm text-muted">Loading customers...</p>
++          <PackageLoader done={false} size="md" label="Loading customersΓÇª" />
+         ) : customers.length === 0 ? (
+           <p className="p-8 text-center text-sm text-muted">
+             {debouncedQuery ? 'No customers match your search.' : 'No customers registered yet.'}
+           </p>
+         ) : (
+           <table className="w-full text-left text-sm">
+             <thead className="border-b border-border bg-background/50 text-xs uppercase tracking-wider text-muted">
+               <tr>
+diff --git a/frontend/src/pages/DeparturesPage.tsx b/frontend/src/pages/DeparturesPage.tsx
+index 126a313..a56f459 100644
+--- a/frontend/src/pages/DeparturesPage.tsx
++++ b/frontend/src/pages/DeparturesPage.tsx
+@@ -11,16 +11,17 @@ import {
+   removePackageFromShipment,
+   type ShipmentSummary,
+ } from '../api/staff'
+ import { StatusBadge } from '../components/warehouse/StatusBadge'
+ import { useWarehouseCounts } from '../context/WarehouseCountsContext'
+ import { Button } from '../components/ui/Button'
+ import { IconBadge } from '../components/ui/IconBadge'
+ import { Input } from '../components/ui/Input'
++import { PackageLoader } from '../components/ui/PackageLoader'
+ import { formatAppDateInput } from '../lib/datetime'
+ import type { Package } from '../types'
+ 
+ function formatDateInput(date: Date): string {
+   return formatAppDateInput(date)
+ }
+ 
+ function formatDisplayDate(iso: string): string {
+@@ -208,17 +209,17 @@ function DepartureList({
+           <Plus className="h-4 w-4" />
+           New departure
+         </Button>
+       </div>
+ 
+       {error && <p className="text-sm text-red-400">{error}</p>}
+ 
+       {loading ? (
+-        <p className="text-sm text-muted">Loading departuresΓÇª</p>
++        <PackageLoader done={false} size="md" label="Loading departuresΓÇª" />
+       ) : (
+         <>
+           <section>
+             <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">
+               Open ({openShipments.length})
+             </h2>
+             {openShipments.length === 0 ? (
+               <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+@@ -307,25 +308,27 @@ function DepartureList({
+   )
+ }
+ 
+ function DepartureDetail({ shipmentId, onBack }: { shipmentId: string; onBack: () => void }) {
+   const { refresh: refreshCounts } = useWarehouseCounts()
+   const scanRef = useRef<HTMLInputElement>(null)
+   const [shipment, setShipment] = useState<ShipmentSummary | null>(null)
+   const [loading, setLoading] = useState(true)
++  const [bootDone, setBootDone] = useState(false)
+   const [scanValue, setScanValue] = useState('')
+   const [scanLoading, setScanLoading] = useState(false)
+   const [departLoading, setDepartLoading] = useState(false)
+   const [removeLoadingId, setRemoveLoadingId] = useState<string | null>(null)
+   const [error, setError] = useState('')
+   const [success, setSuccess] = useState('')
+ 
+   const load = useCallback(async () => {
+     setLoading(true)
++    setBootDone(false)
+     setError('')
+     try {
+       const data = await fetchShipment(shipmentId)
+       setShipment(data)
+     } catch (err) {
+       setError(getErrorMessage(err))
+       setShipment(null)
+     } finally {
+@@ -404,18 +407,26 @@ function DepartureDetail({ shipmentId, onBack }: { shipmentId: string; onBack: (
+       refreshCounts()
+     } catch (err) {
+       setError(getErrorMessage(err))
+     } finally {
+       setDepartLoading(false)
+     }
+   }
+ 
+-  if (loading) {
+-    return <p className="text-sm text-muted">Loading departureΓÇª</p>
++  if (loading || !bootDone) {
++    return (
++      <PackageLoader
++        done={!loading}
++        failed={Boolean(error) && !loading}
++        size="md"
++        label="Loading departureΓÇª"
++        onComplete={() => setBootDone(true)}
++      />
++    )
+   }
+ 
+   if (!shipment) {
+     return (
+       <div>
+         <button
+           type="button"
+           onClick={onBack}
+diff --git a/frontend/src/pages/PrintQueuePage.tsx b/frontend/src/pages/PrintQueuePage.tsx
+index e11d723..124b1d5 100644
+--- a/frontend/src/pages/PrintQueuePage.tsx
++++ b/frontend/src/pages/PrintQueuePage.tsx
+@@ -7,16 +7,17 @@ import { fetchPrintQueue, markLabelsPrinted } from '../api/staff'
+ import {
+   markPrintedAfterPrint,
+   ShippingLabel,
+ } from '../components/warehouse/ShippingLabel'
+ import { EditLabelModal } from '../components/warehouse/EditLabelModal'
+ import { useWarehouseCounts } from '../context/WarehouseCountsContext'
+ import { Button } from '../components/ui/Button'
+ import { IconBadge } from '../components/ui/IconBadge'
++import { PackageLoader } from '../components/ui/PackageLoader'
+ import { useVisibleInterval } from '../hooks/useVisibleInterval'
+ import type { Package, StaffCustomer } from '../types'
+ 
+ function labelCustomer(pkg: Package): StaffCustomer | null {
+   if (!pkg.customer) return null
+   return {
+     id: pkg.customer.id,
+     full_name: pkg.customer.full_name,
+@@ -198,17 +199,22 @@ export function PrintQueuePage() {
+               : 'border-border text-muted hover:border-boss-gold/40'
+           }`}
+         >
+           Label log
+         </button>
+       </div>
+ 
+       {loading ? (
+-        <p className="no-print text-muted">Loading queue...</p>
++        <PackageLoader
++          done={false}
++          size="md"
++          label="Loading queueΓÇª"
++          className="no-print"
++        />
+       ) : packages.length === 0 ? (
+         <div className="no-print rounded-2xl border border-border bg-card p-8 text-center">
+           <Printer className="mx-auto h-10 w-10 text-muted" />
+           <p className="mt-4 font-semibold">
+             {view === 'pending' ? 'No labels in queue' : 'No labels in the last 7 days'}
+           </p>
+           <p className="mt-2 text-sm text-muted">
+             {view === 'pending'
+diff --git a/frontend/src/pages/ReceivePage.tsx b/frontend/src/pages/ReceivePage.tsx
+index d253676..2cd558e 100644
+--- a/frontend/src/pages/ReceivePage.tsx
++++ b/frontend/src/pages/ReceivePage.tsx
+@@ -33,16 +33,17 @@ import type { PreAlert } from '../types'
+ import { markPrintedAfterPrint, ShippingLabel } from '../components/warehouse/ShippingLabel'
+ import { useWarehouseCounts } from '../context/WarehouseCountsContext'
+ import { uploadPhoto, uploadUnidentifiedPhoto } from '../lib/uploadPhoto'
+ import { focusInputForSoftKeyboard } from '../lib/focusSoftKeyboard'
+ import { MAX_AUTO_RATE_LBS, MAX_RECEIVE_LBS } from '../lib/warehouseConstants'
+ import { Button } from '../components/ui/Button'
+ import { IconBadge } from '../components/ui/IconBadge'
+ import { Input } from '../components/ui/Input'
++import { PackageLoader } from '../components/ui/PackageLoader'
+ import type { Package, Shipper, StaffCustomer } from '../types'
+ 
+ type ReceiveStep = 'idle' | 'receiving' | 'preview' | 'complete'
+ 
+ const RECEIVE_PROGRESS_STEPS = [
+   { id: 1, label: 'Customer' },
+   { id: 2, label: 'Tracking' },
+   { id: 3, label: 'Weight' },
+@@ -985,17 +986,22 @@ export function ReceivePage() {
+               >
+                 <Layers className="h-3.5 w-3.5" />
+                 New batch
+               </Button>
+             )}
+           </div>
+ 
+           {receiveBatchesLoading ? (
+-            <p className="mt-2 text-xs text-muted">Loading batchesΓÇª</p>
++            <PackageLoader
++              done={false}
++              size="sm"
++              label="Loading batchesΓÇª"
++              className="mt-2"
++            />
+           ) : showNewBatchForm ? (
+             <div className="mt-3 space-y-2 rounded-lg border border-border bg-background/50 p-3">
+               <Input
+                 label="Batch label (optional)"
+                 placeholder="e.g. Tuesday AM dock, Pallet A"
+                 value={newBatchReference}
+                 onChange={(e) => setNewBatchReference(e.target.value)}
+               />
+@@ -1056,17 +1062,17 @@ export function ReceivePage() {
+ 
+       {step === 'idle' && (recentLoading || recentReceives.length > 0) && (
+         <div className="rounded-xl border border-border bg-card p-4">
+           <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-boss-gold">
+             <Clock className="h-3.5 w-3.5" />
+             Your last 3 receivals today
+           </h2>
+           {recentLoading ? (
+-            <p className="mt-2 text-xs text-muted">LoadingΓÇª</p>
++            <PackageLoader done={false} size="sm" label="LoadingΓÇª" className="mt-2" />
+           ) : recentReceives.length === 0 ? (
+             <p className="mt-2 text-xs text-muted">No packages received yet today.</p>
+           ) : (
+             <ul className="mt-2 divide-y divide-border">
+               {recentReceives.map((row) => (
+                 <li
+                   key={`${row.package_id}-${row.received_at}`}
+                   className="flex items-center justify-between gap-3 py-2 text-sm"
+diff --git a/frontend/src/pages/StaffRequestsPage.tsx b/frontend/src/pages/StaffRequestsPage.tsx
+index 25798c3..cbb0bb6 100644
+--- a/frontend/src/pages/StaffRequestsPage.tsx
++++ b/frontend/src/pages/StaffRequestsPage.tsx
+@@ -11,16 +11,17 @@ import {
+ import {
+   confirmStaffBankTransferProof,
+   fetchStaffBankTransferProofs,
+   markStaffTransferInProgress,
+   rejectStaffBankTransferProof,
+ } from '../api/staff'
+ import { Button } from '../components/ui/Button'
+ import { IconBadge } from '../components/ui/IconBadge'
++import { PackageLoader } from '../components/ui/PackageLoader'
+ import { useWarehouseCounts } from '../context/WarehouseCountsContext'
+ import { formatJmd } from '../lib/money'
+ import { PICKUP_HOURS_SHORT, PICKUP_LOCATION_LABEL } from '../lib/pickupLocation'
+ import type { BankTransferProof, DeliveryRequest } from '../types'
+ 
+ type RequestKind = 'delivery' | 'transfer'
+ type TypeFilter = 'all' | RequestKind
+ type StatusFilter =
+@@ -486,17 +487,17 @@ export function StaffRequestsPage() {
+           ? 'LoadingΓÇª'
+           : `${filteredRows.length} request${filteredRows.length === 1 ? '' : 's'}${
+               filteredRows.length !== rows.length ? ` (of ${rows.length})` : ''
+             }`}
+       </p>
+ 
+       <div className="overflow-hidden rounded-2xl border border-border bg-card">
+         {loading ? (
+-          <p className="px-5 py-8 text-sm text-muted">Loading requestsΓÇª</p>
++          <PackageLoader done={false} size="md" label="Loading requestsΓÇª" />
+         ) : filteredRows.length === 0 ? (
+           <div className="px-5 py-10 text-center">
+             <Inbox className="mx-auto h-9 w-9 text-muted" />
+             <p className="mt-3 font-semibold">No requests match your filters</p>
+             <p className="mt-1 text-sm text-muted">
+               Try clearing filters or search ΓÇö new customer submissions appear here automatically.
+             </p>
+           </div>
+diff --git a/frontend/src/pages/UnidentifiedQueuePage.tsx b/frontend/src/pages/UnidentifiedQueuePage.tsx
+index 5409f56..1b12510 100644
+--- a/frontend/src/pages/UnidentifiedQueuePage.tsx
++++ b/frontend/src/pages/UnidentifiedQueuePage.tsx
+@@ -6,16 +6,17 @@ import {
+   assignUnidentifiedPackage,
+   fetchUnidentifiedPackages,
+   searchCustomers,
+ } from '../api/staff'
+ import { useWarehouseCounts } from '../context/WarehouseCountsContext'
+ import { Button } from '../components/ui/Button'
+ import { IconBadge } from '../components/ui/IconBadge'
+ import { Input } from '../components/ui/Input'
++import { PackageLoader } from '../components/ui/PackageLoader'
+ import type { Package, StaffCustomer } from '../types'
+ 
+ export function UnidentifiedQueuePage() {
+   const { refresh: refreshCounts } = useWarehouseCounts()
+   const [packages, setPackages] = useState<Package[]>([])
+   const [total, setTotal] = useState(0)
+   const [loading, setLoading] = useState(true)
+   const [error, setError] = useState('')
+@@ -105,17 +106,17 @@ export function UnidentifiedQueuePage() {
+           <h1 className="text-2xl font-black uppercase">Unidentified Queue</h1>
+           <p className="text-sm text-muted">
+             Packages with no matching BOSS ID or customer name
+           </p>
+         </div>
+       </div>
+ 
+       {loading ? (
+-        <p className="text-muted">Loading queue...</p>
++        <PackageLoader done={false} size="md" label="Loading queueΓÇª" />
+       ) : packages.length === 0 ? (
+         <div className="rounded-2xl border border-border bg-card p-8 text-center">
+           <AlertTriangle className="mx-auto h-10 w-10 text-muted" />
+           <p className="mt-4 font-semibold">Queue is empty</p>
+           <p className="mt-2 text-sm text-muted">
+             Packages without a matched owner appear here after receival.
+           </p>
+           <Link to="/warehouse/receive" className="mt-4 inline-block text-sm text-boss-gold hover:underline">
+diff --git a/frontend/src/pages/WarehousePreAlertsPage.tsx b/frontend/src/pages/WarehousePreAlertsPage.tsx
+index 1236851..81982aa 100644
+--- a/frontend/src/pages/WarehousePreAlertsPage.tsx
++++ b/frontend/src/pages/WarehousePreAlertsPage.tsx
+@@ -1,15 +1,16 @@
+ import { Bell } from 'lucide-react'
+ import { useEffect, useState } from 'react'
+ import { Link } from 'react-router-dom'
+ import { fetchStaffPreAlerts } from '../api/staff'
+ import { Button } from '../components/ui/Button'
+ import { IconBadge } from '../components/ui/IconBadge'
+ import { Input } from '../components/ui/Input'
++import { PackageLoader } from '../components/ui/PackageLoader'
+ import type { PreAlert } from '../types'
+ 
+ const PAGE_SIZE = 25
+ 
+ type StatusFilter = 'all' | PreAlert['status']
+ 
+ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+   { value: 'all', label: 'All' },
+@@ -124,17 +125,17 @@ export function WarehousePreAlertsPage() {
+           placeholder="1Z999AA10123456784 or BOSS-01009"
+           value={query}
+           onChange={(e) => setQuery(e.target.value)}
+         />
+       </div>
+ 
+       <div className="overflow-hidden rounded-2xl border border-border bg-card">
+         {loading ? (
+-          <p className="p-8 text-center text-sm text-muted">Loading pre-alerts...</p>
++          <PackageLoader done={false} size="md" label="Loading pre-alertsΓÇª" />
+         ) : preAlerts.length === 0 ? (
+           <p className="p-8 text-center text-sm text-muted">
+             {debouncedQuery || statusFilter !== 'all'
+               ? 'No pre-alerts match your filters.'
+               : 'No pre-alerts submitted yet.'}
+           </p>
+         ) : (
+           <div className="overflow-x-auto">
