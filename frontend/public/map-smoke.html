@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Map smoke</title>
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <style>
+      html, body, #map { margin: 0; height: 100%; }
+      #log { position: fixed; z-index: 10; left: 8px; top: 8px; max-width: 90%; max-height: 40%; overflow: auto; background: #111; color: #0f0; font: 12px monospace; padding: 8px; }
+    </style>
+  </head>
+  <body>
+    <pre id="log"></pre>
+    <div id="map"></div>
+    <script type="module">
+      const logEl = document.getElementById('log')
+      const log = (...a) => { console.log(...a); logEl.textContent += a.join(' ') + '\n' }
+      const KEY = 'op_live_cb6f84075836822c950bd3b5e4eec57376b3b6e8aaee0696'
+      const PROXY = '/api/maps-proxy'
+      const UP = 'https://maps.devlabsja.com'
+      const abs = (u) => (u.startsWith('/') ? `${location.origin}${u}` : u)
+
+      const tileUrl = abs(`${PROXY}/map/{z}/{x}/{y}.mvt?key=${encodeURIComponent(KEY)}`)
+      log('tiles', tileUrl)
+
+      const { layers, namedTheme } = await import('https://cdn.jsdelivr.net/npm/protomaps-themes-base@4.5.0/+esm')
+      const style = {
+        version: 8,
+        glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
+        sources: {
+          protomaps: {
+            type: 'vector',
+            tiles: [tileUrl],
+            minzoom: 0,
+            maxzoom: 15,
+            attribution: 'DevLabs',
+          },
+        },
+        layers: layers('protomaps', namedTheme('light'), { lang: 'en' }),
+      }
+      log('layer count', style.layers.length)
+
+      const map = new maplibregl.Map({
+        container: 'map',
+        style,
+        center: [-76.7936, 18.0179],
+        zoom: 12,
+        transformRequest: (url) => {
+          let next = url
+          if (next.startsWith(UP)) next = PROXY + next.slice(UP.length)
+          next = abs(next)
+          return { url: next }
+        },
+      })
+      map.on('error', (e) => log('ERROR', e.error && (e.error.message || e.error)))
+      map.on('load', () => log('LOADED'))
+      map.on('data', (e) => {
+        if (e.dataType === 'source' && e.isSourceLoaded) log('source loaded', e.sourceId)
+      })
+    </script>
+  </body>
+</html>

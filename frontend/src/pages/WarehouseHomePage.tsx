@@ -15,7 +15,11 @@ export function WarehouseHomePage() {
   const { counts, refresh } = useWarehouseCounts()
 
   return (
-    <div className="px-4 py-8">
+    <div className="relative px-4 py-8">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -left-10 top-6 h-48 w-48 rounded-full bg-boss-gold/12 blur-3xl" />
+        <div className="absolute right-4 top-20 h-52 w-52 rounded-full bg-boss-green/10 blur-3xl" />
+      </div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <IconBadge icon={Warehouse} size="sm" />

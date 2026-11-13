@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Map debug</title>
+    <link href="/node_modules/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="/node_modules/maplibre-gl/dist/maplibre-gl.js"></script>
+    <style>
+      html, body, #map { margin: 0; height: 100%; background: #222; }
+      #log {
+        position: absolute; z-index: 2; left: 8px; top: 8px; right: 8px;
+        background: rgba(0,0,0,.85); color: #eee; font: 12px/1.4 monospace;
+        padding: 8px; max-height: 35%; overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <pre id="log">loading…</pre>
+    <div id="map"></div>
+    <script type="module">
+      import { layers, namedTheme } from '/node_modules/protomaps-themes-base/dist/esm/index.js'
+
+      const logEl = document.getElementById('log')
+      const log = (...args) => {
+        console.log(...args)
+        const line = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')
+        logEl.textContent = (logEl.textContent === 'loading…' ? '' : logEl.textContent) + line + '\n'
+      }
+
+      const KEY = 'op_live_cb6f84075836822c950bd3b5e4eec57376b3b6e8aaee0696'
+      const UPSTREAM = 'https://maps.devlabsja.com'
+      const PROXY = '/api/maps-proxy'
+      const rewrite = (url) => (url.startsWith(UPSTREAM) ? PROXY + url.slice(UPSTREAM.length) : url)
+
+      const style = {
+        version: 8,
+        glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
+        sources: {
+          protomaps: {
+            type: 'vector',
+            url: `${PROXY}/api?key=${encodeURIComponent(KEY)}`,
+            attribution: 'DevLabsJa Maps',
+          },
+        },
+        layers: layers('protomaps', namedTheme('light'), { lang: 'en' }),
+      }
+
+      log('maplibre', maplibregl.getVersion?.() || 'unknown')
+      log('layers', style.layers.length)
+      log('tilejson url', style.sources.protomaps.url)
+
+      const map = new maplibregl.Map({
+        container: 'map',
+        style,
+        center: [-76.7936, 18.0179],
+        zoom: 12,
+        transformRequest: (url, type) => {
+          const next = rewrite(url)
+          if (next !== url) log('rewrite', type || '', next.slice(0, 100))
+          return { url: next }
+        },
+      })
+      map.on('error', (e) => log('MAP ERROR', String(e.error?.message || e.error || e)))
+      map.on('sourcedata', (e) => {
+        if (e.isSourceLoaded && e.sourceId === 'protomaps') log('protomaps source loaded')
+      })
+      map.on('load', () => {
+        log('map load ok')
+        const src = map.getSource('protomaps')
+        log('source', src ? Object.keys(src) : null)
+      })
+    </script>
+  </body>
+</html>

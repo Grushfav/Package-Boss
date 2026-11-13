@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>App map smoke</title>
+    <style>
+      html, body, #map { margin: 0; height: 100%; background: #1a1a1a; }
+      #log { position: fixed; z-index: 10; left: 8px; top: 8px; max-width: 92%; max-height: 35%; overflow: auto; background: #111; color: #0f0; font: 12px monospace; padding: 8px; }
+    </style>
+  </head>
+  <body>
+    <pre id="log"></pre>
+    <div id="map"></div>
+    <script type="module">
+      const logEl = document.getElementById('log')
+      const log = (...a) => { console.log(...a); logEl.textContent += a.map(String).join(' ') + '\n' }
+      try {
+        const { getDevLabsMapStyle, rewriteMapsUrlToProxy, DEFAULT_JAMAICA_CENTER, DEFAULT_MAP_ZOOM, JAMAICA_MAX_BOUNDS } =
+          await import('/src/lib/mapStyle.ts')
+        const maplibregl = (await import('/src/../node_modules/maplibre-gl/dist/maplibre-gl.js')).default
+        await import('/src/../node_modules/maplibre-gl/dist/maplibre-gl.css')
+
+        const origin = window.location.origin
+        const style = getDevLabsMapStyle('light', origin)
+        const tiles = style.sources.protomaps.tiles
+        log('origin', origin)
+        log('tiles', JSON.stringify(tiles))
+        log('absolute?', /^https?:\/\//i.test(tiles?.[0] || ''))
+
+        const map = new maplibregl.Map({
+          container: 'map',
+          style,
+          center: DEFAULT_JAMAICA_CENTER,
+          zoom: DEFAULT_MAP_ZOOM,
+          minZoom: 8.5,
+          maxBounds: JAMAICA_MAX_BOUNDS,
+          transformRequest: (url) => ({ url: rewriteMapsUrlToProxy(url, origin) }),
+        })
+        map.on('error', (e) => log('ERROR', e.error?.message || e.error))
+        map.on('load', () => log('LOADED'))
+        map.on('data', (e) => {
+          if (e.dataType === 'source' && e.isSourceLoaded) log('source loaded', e.sourceId)
+        })
+      } catch (err) {
+        log('BOOT ERROR', err?.message || err)
+        console.error(err)
+      }
+    </script>
+  </body>
+</html>

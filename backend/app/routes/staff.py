@@ -227,8 +227,25 @@ def list_customers():
         )
 
     total = query.count()
+
+    # Sort by most active packages first (warehouse traffic), then name.
+    active_count_sq = (
+        db.session.query(
+            Package.customer_id.label("customer_id"),
+            func.count(Package.id).label("active_count"),
+        )
+        .filter(Package.status != "delivered")
+        .group_by(Package.customer_id)
+        .subquery()
+    )
     users = (
-        query.order_by(User.last_name, User.first_name, User.shipping_id)
+        query.outerjoin(active_count_sq, User.id == active_count_sq.c.customer_id)
+        .order_by(
+            func.coalesce(active_count_sq.c.active_count, 0).desc(),
+            User.last_name,
+            User.first_name,
+            User.shipping_id,
+        )
         .offset(offset)
         .limit(limit)
         .all()

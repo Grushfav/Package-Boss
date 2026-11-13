@@ -51,10 +51,10 @@ export function CheckoutPaymentModal({
   const [notes, setNotes] = useState('')
   const [processingFee, setProcessingFee] = useState('')
   const [waiveHandlingFee, setWaiveHandlingFee] = useState(false)
-  const [includeDeliveryFee, setIncludeDeliveryFee] = useState(false)
+  const [includeDeliveryFee, setIncludeDeliveryFee] = useState(true)
   const [printInvoice, setPrintInvoice] = useState(false)
   const [emailInvoice, setEmailInvoice] = useState(true)
-  const [markDelivered, setMarkDelivered] = useState(false)
+  const [markDelivered, setMarkDelivered] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -64,14 +64,6 @@ export function CheckoutPaymentModal({
     () => resolveCheckoutDelivery(packageIds, pendingDeliveryRequests),
     [packageIds, pendingDeliveryRequests],
   )
-
-  useEffect(() => {
-    if (delivery.isCompleteMatch) {
-      setIncludeDeliveryFee(true)
-    } else {
-      setIncludeDeliveryFee(false)
-    }
-  }, [delivery.isCompleteMatch, packageIds.join(',')])
 
   useEffect(() => {
     if (!isMultiPackage) {

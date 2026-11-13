@@ -1,4 +1,17 @@
-import { and, asc, count, eq, exists, ilike, inArray, ne, notExists, or } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  ne,
+  notExists,
+  or,
+  sql,
+} from 'drizzle-orm'
 
 import {
   DELIVERY_REQUEST_OPEN_STATUSES,
@@ -148,15 +161,33 @@ export async function listCustomers(options: {
 
   const where = and(...conditions)
   const [totalRow] = await db.select({ value: count() }).from(users).where(where)
+
+  const activeCountSq = db
+    .select({
+      customerId: packages.customerId,
+      activeCount: count().as('active_count'),
+    })
+    .from(packages)
+    .where(ne(packages.status, 'delivered'))
+    .groupBy(packages.customerId)
+    .as('active_pkg_counts')
+
+  // Most active packages first (warehouse traffic), then name.
   const rows = await db
-    .select()
+    .select({ user: users })
     .from(users)
+    .leftJoin(activeCountSq, eq(users.id, activeCountSq.customerId))
     .where(where)
-    .orderBy(asc(users.lastName), asc(users.firstName), asc(users.shippingId))
+    .orderBy(
+      desc(sql`coalesce(${activeCountSq.activeCount}, 0)`),
+      asc(users.lastName),
+      asc(users.firstName),
+      asc(users.shippingId),
+    )
     .limit(limit)
     .offset(offset)
 
-  return [rows, Number(totalRow?.value ?? 0)]
+  return [rows.map((r) => r.user), Number(totalRow?.value ?? 0)]
 }
 
 export async function searchCustomers(q: string, limit = 15): Promise<UserRow[]> {

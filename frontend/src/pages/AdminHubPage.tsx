@@ -48,7 +48,17 @@ export function AdminHubPage() {
   }, [reloadKey])
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
+    <div className="relative mx-auto max-w-4xl px-4 py-10">
+      {/* Soft atmosphere so frosted hub cards have something to refract */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+      >
+        <div className="absolute -left-16 top-8 h-56 w-56 rounded-full bg-boss-gold/15 blur-3xl" />
+        <div className="absolute right-0 top-24 h-64 w-64 rounded-full bg-boss-green/10 blur-3xl" />
+        <div className="absolute bottom-10 left-1/3 h-48 w-48 rounded-full bg-boss-navy/40 blur-3xl" />
+      </div>
+
       <header className="mb-10">
         <h1 className="text-2xl font-black uppercase">Hi, {user?.first_name}</h1>
         <p className="mt-1 text-sm text-muted">Where would you like to go?</p>
