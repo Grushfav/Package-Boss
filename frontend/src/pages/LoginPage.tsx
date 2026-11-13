@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { setLastAuthProvider } from '../lib/lastAuthProvider'
 import { getPostLoginPath } from '../lib/routing'
 import { AuthDivider } from '../components/auth/AuthDivider'
-import { SocialSignInButtons } from '../components/auth/SocialSignInButtons'
+import { isSocialSignInEnabled, SocialSignInButtons } from '../components/auth/SocialSignInButtons'
 import { Seo } from '../components/seo/Seo'
 import { Button } from '../components/ui/Button'
 import { IconBadge } from '../components/ui/IconBadge'
@@ -89,8 +89,12 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <AuthDivider />
-        <SocialSignInButtons mode="signin" />
+        {isSocialSignInEnabled() && (
+          <>
+            <AuthDivider />
+            <SocialSignInButtons mode="signin" />
+          </>
+        )}
 
         <div className="mt-6 flex items-center justify-between gap-4">
           <Link to="/forgot-password" className="text-xs text-muted underline hover:text-foreground">

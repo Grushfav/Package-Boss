@@ -31,6 +31,12 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
       - key: EMAIL_PROVIDER
         value: console
       - key: WHATSAPP_PROVIDER
@@ -45,4 +51,9 @@ services:
       # Stage 3: set to Express public URL including /api, e.g.
       # https://package-boss-api.onrender.com/api
       - key: VITE_API_URL
+        sync: false
+      # Public OAuth client IDs — must be present at build time for login buttons.
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+      - key: VITE_FACEBOOK_APP_ID
         sync: false

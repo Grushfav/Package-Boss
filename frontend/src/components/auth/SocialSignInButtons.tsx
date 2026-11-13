@@ -1,10 +1,16 @@
 import { useState } from 'react'
+import { isFacebookSignInEnabled } from '../../lib/facebookAuth'
+import { isGoogleSignInEnabled } from '../../lib/googleAuth'
 import { getLastAuthProvider, type AuthProvider } from '../../lib/lastAuthProvider'
 import { FacebookSignInButton } from './FacebookSignInButton'
 import { GoogleSignInButton } from './GoogleSignInButton'
 
 interface SocialSignInButtonsProps {
   mode?: 'signin' | 'signup'
+}
+
+export function isSocialSignInEnabled() {
+  return isGoogleSignInEnabled() || isFacebookSignInEnabled()
 }
 
 function LastUsedHint({ provider, last }: { provider: AuthProvider; last: AuthProvider | null }) {
@@ -18,6 +24,7 @@ function LastUsedHint({ provider, last }: { provider: AuthProvider; last: AuthPr
 
 export function SocialSignInButtons({ mode = 'signin' }: SocialSignInButtonsProps) {
   const [last] = useState(() => getLastAuthProvider())
+  if (!isSocialSignInEnabled()) return null
 
   return (
     <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
