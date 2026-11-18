@@ -237,8 +237,12 @@ def compute_customer_billing_summary(packages: list[Package]) -> dict:
         elif pkg.billing_status == "paid":
             paid_count += 1
 
+    # Same rule as the dashboard: one handling fee when 2+ bills are payable together.
+    handling_fee = MULTI_PACKAGE_HANDLING_FEE_JMD if ready_count > 1 else Decimal("0")
+
     return {
-        "total_due_jmd": float(total_due_jmd.quantize(Decimal("0.01"))),
+        "total_due_jmd": float((total_due_jmd + handling_fee).quantize(Decimal("0.01"))),
+        "handling_fee_jmd": float(handling_fee),
         "ready_count": ready_count,
         "paid_count": paid_count,
         "package_count": len(packages),

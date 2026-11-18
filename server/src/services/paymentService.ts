@@ -142,8 +142,12 @@ export async function computeCustomerBillingSummary(pkgs: PackageRow[]) {
     }
   }
 
+  // Same rule as the dashboard: one handling fee when 2+ bills are payable together.
+  const handlingFee = readyCount > 1 ? parseFloat(MULTI_PACKAGE_HANDLING_FEE_JMD) : 0
+
   return {
-    total_due_jmd: Math.round(totalDueJmd * 100) / 100,
+    total_due_jmd: Math.round((totalDueJmd + handlingFee) * 100) / 100,
+    handling_fee_jmd: handlingFee,
     ready_count: readyCount,
     paid_count: paidCount,
     package_count: pkgs.length,

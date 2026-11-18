@@ -230,3 +230,43 @@ export async function activePackageCountsByCustomerIds(
 
   return new Map(rows.map((row) => [row.customerId, Number(row.value)]))
 }
+
+/**
+ * Per-customer active package counts grouped by status (delivered excluded).
+ * One grouped query for the whole page of customers.
+ */
+export async function packageStatusBreakdownByCustomerIds(
+  userIds: string[],
+): Promise<Map<string, Record<string, number>>> {
+  const breakdown = new Map<string, Record<string, number>>()
+  if (!userIds.length) return breakdown
+
+  const rows = await db
+    .select({ customerId: packages.customerId, status: packages.status, value: count() })
+    .from(packages)
+    .where(and(inArray(packages.customerId, userIds), ne(packages.status, 'delivered')))
+    .groupBy(packages.customerId, packages.status)
+
+  for (const row of rows) {
+    const bucket = breakdown.get(row.customerId) ?? {}
+    bucket[row.status] = Number(row.value)
+    breakdown.set(row.customerId, bucket)
+  }
+  return breakdown
+}
+
+/** Per-customer count of packages in one specific status (used when the directory filters by status). */
+export async function packageStatusCountsByCustomerIds(
+  userIds: string[],
+  status: string,
+): Promise<Map<string, number>> {
+  if (!userIds.length) return new Map()
+
+  const rows = await db
+    .select({ customerId: packages.customerId, value: count() })
+    .from(packages)
+    .where(and(inArray(packages.customerId, userIds), eq(packages.status, status)))
+    .groupBy(packages.customerId)
+
+  return new Map(rows.map((row) => [row.customerId, Number(row.value)]))
+}

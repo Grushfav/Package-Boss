@@ -594,12 +594,12 @@ def send_announcement_email(
 
     frontend = (current_app.config.get("FRONTEND_URL") or "http://localhost:5173").rstrip("/")
     dashboard_url = f"{frontend}/dashboard/notifications"
-    subject = f"Package Boss update — {title}"
+    subject = f"Package Boss Update — {title}"
     body = (
         f"Hi {first_name},\n\n"
         f"{body_text}\n\n"
         f"View in your dashboard: {dashboard_url}\n\n"
-        f"— Package Boss"
+        f"— TEAM PACKAGE BOSS"
     )
     _dispatch_email(
         to_email,

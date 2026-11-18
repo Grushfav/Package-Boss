@@ -25,6 +25,7 @@ import {
   clerkHasPermission,
 } from '../lib/clerkPermissions'
 import { formatJmd, sumJmd } from '../lib/money'
+import { MULTI_PACKAGE_HANDLING_FEE_JMD } from '../lib/checkoutHandling'
 import {
   formatPackageCost,
   formatPackageFeeCell,
@@ -282,6 +283,7 @@ export function CustomerAccountPage() {
   // API omits billing summary/checkouts when the clerk lacks billing permission.
   const billingSummary = summary ?? {
     total_due_jmd: 0,
+    handling_fee_jmd: 0,
     ready_count: 0,
     paid_count: packages.filter((pkg) => pkg.billing_status === 'paid').length,
     package_count: packages.length,
@@ -371,7 +373,11 @@ export function CustomerAccountPage() {
             icon={DollarSign}
             label="Total due"
             value={formatJmd(billingSummary.total_due_jmd)}
-            sub={`${billingSummary.ready_count} bill${billingSummary.ready_count === 1 ? '' : 's'} awaiting payment`}
+            sub={
+              billingSummary.handling_fee_jmd
+                ? `${billingSummary.ready_count} bill${billingSummary.ready_count === 1 ? '' : 's'} + ${formatJmd(billingSummary.handling_fee_jmd)} handling fee`
+                : `${billingSummary.ready_count} bill${billingSummary.ready_count === 1 ? '' : 's'} awaiting payment`
+            }
             tone={billingSummary.total_due_jmd > 0 ? 'due' : 'default'}
           />
         ) : null}
@@ -908,21 +914,25 @@ function SummaryCard({
 }
 
 function recomputeSummary(packages: Pkg[]) {
-  let total_due_jmd = 0
+  let bills_total_jmd = 0
   let ready_count = 0
   let paid_count = 0
 
   for (const pkg of packages) {
     if (packageEligibleForPayment(pkg) && pkg.total_due_jmd != null) {
-      total_due_jmd += pkg.total_due_jmd
+      bills_total_jmd += pkg.total_due_jmd
       ready_count += 1
     } else if (pkg.billing_status === 'paid') {
       paid_count += 1
     }
   }
 
+  // Same rule as the server summary: one handling fee when 2+ bills are payable together.
+  const handling_fee_jmd = ready_count > 1 ? MULTI_PACKAGE_HANDLING_FEE_JMD : 0
+
   return {
-    total_due_jmd,
+    total_due_jmd: bills_total_jmd + handling_fee_jmd,
+    handling_fee_jmd,
     ready_count,
     paid_count,
     package_count: packages.length,

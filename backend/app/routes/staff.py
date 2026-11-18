@@ -92,7 +92,13 @@ from app.services.unidentified_service import customer_query
 staff_bp = Blueprint("staff", __name__)
 
 
-def _customer_dict(user: User, *, active_package_count: int | None = None) -> dict:
+def _customer_dict(
+    user: User,
+    *,
+    active_package_count: int | None = None,
+    status_package_count: int | None = None,
+    status_breakdown: dict | None = None,
+) -> dict:
     data = {
         "id": str(user.id),
         "full_name": user.full_name,
@@ -105,6 +111,10 @@ def _customer_dict(user: User, *, active_package_count: int | None = None) -> di
     }
     if active_package_count is not None:
         data["active_package_count"] = active_package_count
+    if status_package_count is not None:
+        data["status_package_count"] = status_package_count
+    if status_breakdown is not None:
+        data["status_breakdown"] = status_breakdown
     return data
 
 
@@ -114,6 +124,34 @@ def _active_package_counts(user_ids: list) -> dict:
     rows = (
         Package.query.with_entities(Package.customer_id, func.count(Package.id))
         .filter(Package.customer_id.in_(user_ids), Package.status != "delivered")
+        .group_by(Package.customer_id)
+        .all()
+    )
+    return {customer_id: count for customer_id, count in rows}
+
+
+def _package_status_breakdown(user_ids: list) -> dict:
+    """Per-customer active package counts grouped by status (delivered excluded)."""
+    breakdown: dict = {}
+    if not user_ids:
+        return breakdown
+    rows = (
+        Package.query.with_entities(Package.customer_id, Package.status, func.count(Package.id))
+        .filter(Package.customer_id.in_(user_ids), Package.status != "delivered")
+        .group_by(Package.customer_id, Package.status)
+        .all()
+    )
+    for customer_id, status, count in rows:
+        breakdown.setdefault(customer_id, {})[status] = count
+    return breakdown
+
+
+def _package_status_counts(user_ids: list, status: str) -> dict:
+    if not user_ids:
+        return {}
+    rows = (
+        Package.query.with_entities(Package.customer_id, func.count(Package.id))
+        .filter(Package.customer_id.in_(user_ids), Package.status == status)
         .group_by(Package.customer_id)
         .all()
     )
@@ -252,10 +290,20 @@ def list_customers():
     )
 
     counts = _active_package_counts([u.id for u in users])
+    status_counts = _package_status_counts([u.id for u in users], package_status) if package_status else None
+    breakdown = _package_status_breakdown([u.id for u in users])
     return jsonify(
         {
             "customers": [
-                _customer_dict(u, active_package_count=counts.get(u.id, 0)) for u in users
+                _customer_dict(
+                    u,
+                    active_package_count=counts.get(u.id, 0),
+                    status_package_count=(
+                        status_counts.get(u.id, 0) if status_counts is not None else None
+                    ),
+                    status_breakdown=breakdown.get(u.id, {}),
+                )
+                for u in users
             ],
             "total": total,
         }

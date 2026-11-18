@@ -276,7 +276,10 @@ export interface PaymentCheckout {
 }
 
 export interface CustomerAccountSummary {
+  /** Bills plus the multi-package handling fee when 2+ bills are payable. */
   total_due_jmd: number
+  /** Included in total_due_jmd; 0 when there is no fee. */
+  handling_fee_jmd?: number
   ready_count: number
   paid_count: number
   package_count: number
@@ -353,6 +356,10 @@ export interface StaffCustomer {
   account_type?: AccountType
   company_name?: string | null
   active_package_count?: number
+  /** Present only when the directory is filtered by package status. */
+  status_package_count?: number
+  /** Active (non-delivered) package counts keyed by status, e.g. { received: 2, in_transit: 5 }. */
+  status_breakdown?: Record<string, number>
 }
 
 export interface PresignResponse {

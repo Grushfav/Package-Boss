@@ -7,7 +7,11 @@ export function userFullName(user: UserRow): string {
 
 export function customerStaffDict(
   user: UserRow,
-  opts: { activePackageCount?: number } = {},
+  opts: {
+    activePackageCount?: number
+    statusPackageCount?: number
+    statusBreakdown?: Record<string, number>
+  } = {},
 ): Record<string, unknown> {
   const data: Record<string, unknown> = {
     id: user.id,
@@ -21,6 +25,12 @@ export function customerStaffDict(
   }
   if (opts.activePackageCount !== undefined) {
     data.active_package_count = opts.activePackageCount
+  }
+  if (opts.statusPackageCount !== undefined) {
+    data.status_package_count = opts.statusPackageCount
+  }
+  if (opts.statusBreakdown !== undefined) {
+    data.status_breakdown = opts.statusBreakdown
   }
   return data
 }

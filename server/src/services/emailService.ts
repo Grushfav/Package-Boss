@@ -377,8 +377,8 @@ export async function sendAnnouncementEmail(
   }
 
   const dashboardUrl = `${config.frontendUrl}/dashboard/notifications`
-  const subject = `Package Boss update — ${title}`
-  const body = `Hi ${firstName},\n\n${bodyText}\n\nView in your dashboard: ${dashboardUrl}\n\n— Package Boss`
+  const subject = `Package Boss Update — ${title}`
+  const body = `Hi ${firstName},\n\n${bodyText}\n\nView in your dashboard: ${dashboardUrl}\n\n— TEAM PACKAGE BOSS`
   await dispatchEmail(toEmail, subject, body, {
     metadata: { type: 'announcement', title },
     asyncSend: false,

@@ -124,6 +124,8 @@ import {
   activePackageCountsByCustomerIds,
   findCustomerByShippingId,
   listCustomers,
+  packageStatusBreakdownByCustomerIds,
+  packageStatusCountsByCustomerIds,
   searchCustomers,
 } from '../services/unidentifiedService.js'
 import {
@@ -298,11 +300,20 @@ staffRouter.get('/warehouse/customers', permissionRequired('directory'), async (
       activePackages,
       openRequest,
     })
-    const counts = await activePackageCountsByCustomerIds(customerRows.map((u) => u.id))
+    const ids = customerRows.map((u) => u.id)
+    const [counts, statusCounts, breakdown] = await Promise.all([
+      activePackageCountsByCustomerIds(ids),
+      packageStatus ? packageStatusCountsByCustomerIds(ids, packageStatus) : Promise.resolve(null),
+      packageStatusBreakdownByCustomerIds(ids),
+    ])
 
     res.json({
       customers: customerRows.map((u) =>
-        customerStaffDict(u, { activePackageCount: counts.get(u.id) ?? 0 }),
+        customerStaffDict(u, {
+          activePackageCount: counts.get(u.id) ?? 0,
+          statusBreakdown: breakdown.get(u.id) ?? {},
+          ...(statusCounts ? { statusPackageCount: statusCounts.get(u.id) ?? 0 } : {}),
+        }),
       ),
       total,
     })

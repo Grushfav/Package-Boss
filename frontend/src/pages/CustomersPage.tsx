@@ -1,5 +1,5 @@
 import { Users } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getErrorMessage } from '../api/client'
 import { fetchCustomerAccount, fetchCustomers } from '../api/staff'
@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext'
 import { clerkHasPermission } from '../lib/clerkPermissions'
 import { resolveCheckoutDelivery } from '../lib/checkoutDelivery'
 import { packageEligibleForPayment } from '../lib/packageBilling'
-import { WORKFLOW_STATUSES } from '../lib/packageStatuses'
+import { WORKFLOW_STATUSES, getStatusLabel } from '../lib/packageStatuses'
 import type { DeliveryRequest, Package, PaymentCheckout, StaffCustomer } from '../types'
 
 /** Prefer a package set the checkout modal can submit (no partial delivery mismatch). */
@@ -61,6 +61,22 @@ type ActivePackagesFilter = 'any' | 'has' | 'none'
 
 const PACKAGE_STATUS_FILTERS = WORKFLOW_STATUSES.filter((s) => s.value !== 'delivered')
 
+/** Workflow order for the per-customer status chips; unknown statuses sort last. */
+const STATUS_RANK = new Map<string, number>(WORKFLOW_STATUSES.map((s, i) => [s.value, i]))
+
+const STATUS_DOT_CLASS: Record<string, string> = {
+  received: 'bg-sky-500',
+  in_transit: 'bg-violet-500',
+  customs: 'bg-amber-500',
+  ready_for_pickup: 'bg-boss-green',
+}
+
+function statusBreakdownEntries(breakdown: Record<string, number> | undefined): [string, number][] {
+  return Object.entries(breakdown ?? {})
+    .filter(([, count]) => count > 0)
+    .sort(([a], [b]) => (STATUS_RANK.get(a) ?? 99) - (STATUS_RANK.get(b) ?? 99))
+}
+
 export function CustomersPage() {
   const { user } = useAuth()
   const perms = user?.permissions || user?.clerk_permissions
@@ -85,6 +101,9 @@ export function CustomersPage() {
   const [checkoutDeliveryRequests, setCheckoutDeliveryRequests] = useState<DeliveryRequest[]>([])
   const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null)
   const checkoutSeqRef = useRef(0)
+  const listSeqRef = useRef(0)
+  /** Set when we jump back a page, so the follow-up fetch does not wipe the success message. */
+  const keepMessagesRef = useRef(false)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -94,33 +113,71 @@ export function CustomersPage() {
     return () => window.clearTimeout(timer)
   }, [query])
 
+  /**
+   * Shared list fetch for the main effect and the post-checkout refresh. Only the latest
+   * request may update state. `refresh` keeps the current list (and messages) on error.
+   */
+  const loadCustomers = useCallback(
+    (refresh: boolean) => {
+      const seq = ++listSeqRef.current
+      setLoading(true)
+      const clearMessages = !refresh && !keepMessagesRef.current
+      keepMessagesRef.current = false
+      if (clearMessages) {
+        setListError('')
+        setListSuccess('')
+      }
+      fetchCustomers({
+        q: debouncedQuery || undefined,
+        limit: PAGE_SIZE,
+        offset,
+        packageStatus: packageStatus || undefined,
+        activePackages,
+        openRequest,
+      })
+        .then((data) => {
+          if (seq !== listSeqRef.current) return
+          if (data.customers.length === 0 && data.total > 0 && offset > 0) {
+            // Landed past the end (e.g. last page emptied) — jump to the last valid page.
+            const lastOffset = Math.floor((data.total - 1) / PAGE_SIZE) * PAGE_SIZE
+            if (lastOffset !== offset) {
+              keepMessagesRef.current = true
+              setOffset(lastOffset) // effect re-fetches; keep loading state until then
+              return
+            }
+          }
+          setCustomers(data.customers)
+          setTotal(data.total)
+          setLoading(false)
+        })
+        .catch((err) => {
+          if (seq !== listSeqRef.current) return
+          if (!refresh) {
+            setCustomers([])
+            setTotal(0)
+            setListError(getErrorMessage(err) || 'Could not load customers')
+          }
+          setLoading(false)
+        })
+    },
+    [debouncedQuery, offset, packageStatus, activePackages, openRequest],
+  )
+
   useEffect(() => {
-    setLoading(true)
-    setListError('')
-    setListSuccess('')
-    fetchCustomers({
-      q: debouncedQuery || undefined,
-      limit: PAGE_SIZE,
-      offset,
-      packageStatus: packageStatus || undefined,
-      activePackages,
-      openRequest,
-    })
-      .then((data) => {
-        setCustomers(data.customers)
-        setTotal(data.total)
-      })
-      .catch((err) => {
-        setCustomers([])
-        setTotal(0)
-        setListError(getErrorMessage(err) || 'Could not load customers')
-      })
-      .finally(() => setLoading(false))
-  }, [debouncedQuery, offset, packageStatus, activePackages, openRequest])
+    loadCustomers(false)
+  }, [loadCustomers])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1
   const filtersActive = Boolean(packageStatus) || activePackages !== 'any' || openRequest
+  const packageStatusLabel = PACKAGE_STATUS_FILTERS.find((s) => s.value === packageStatus)?.label
+
+  function clearFilters() {
+    setPackageStatus('')
+    setActivePackages('any')
+    setOpenRequest(false)
+    setOffset(0)
+  }
 
   async function handleCheckoutClick(customer: StaffCustomer) {
     if (!canManageBilling) return
@@ -171,23 +228,7 @@ export function CustomersPage() {
     if (options?.deliveryWarning) message += ` · ${options.deliveryWarning}`
     setListSuccess(message)
     // Refresh counts after checkout (packages may leave "active" when delivered).
-    setLoading(true)
-    fetchCustomers({
-      q: debouncedQuery || undefined,
-      limit: PAGE_SIZE,
-      offset,
-      packageStatus: packageStatus || undefined,
-      activePackages,
-      openRequest,
-    })
-      .then((data) => {
-        setCustomers(data.customers)
-        setTotal(data.total)
-      })
-      .catch(() => {
-        /* keep current list */
-      })
-      .finally(() => setLoading(false))
+    loadCustomers(true)
   }
 
   return (
@@ -232,7 +273,10 @@ export function CustomersPage() {
             id="directory-package-status"
             value={packageStatus}
             onChange={(e) => {
-              setPackageStatus(e.target.value)
+              const next = e.target.value
+              setPackageStatus(next)
+              // A status filter already implies "has packages", so reset the conflicting control.
+              if (next) setActivePackages('any')
               setOffset(0)
             }}
             className="w-full rounded-lg border border-border bg-input px-2.5 py-2 text-xs text-foreground focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold sm:px-3 sm:py-2.5 sm:text-sm"
@@ -256,11 +300,13 @@ export function CustomersPage() {
           <select
             id="directory-active-packages"
             value={activePackages}
+            disabled={Boolean(packageStatus)}
+            title={packageStatus ? 'Clear the Status filter to use this' : undefined}
             onChange={(e) => {
               setActivePackages(e.target.value as ActivePackagesFilter)
               setOffset(0)
             }}
-            className="w-full rounded-lg border border-border bg-input px-2.5 py-2 text-xs text-foreground focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold sm:px-3 sm:py-2.5 sm:text-sm"
+            className="w-full rounded-lg border border-border bg-input px-2.5 py-2 text-xs text-foreground focus:border-boss-gold focus:outline-none focus:ring-1 focus:ring-boss-gold disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:py-2.5 sm:text-sm"
           >
             <option value="any">Any</option>
             <option value="has">Has active</option>
@@ -290,6 +336,45 @@ export function CustomersPage() {
         </div>
       </div>
 
+      {filtersActive && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {packageStatus && packageStatusLabel && (
+            <FilterChip
+              label={`Status: ${packageStatusLabel}`}
+              onRemove={() => {
+                setPackageStatus('')
+                setOffset(0)
+              }}
+            />
+          )}
+          {activePackages !== 'any' && (
+            <FilterChip
+              label={activePackages === 'has' ? 'Has active packages' : 'No active packages'}
+              onRemove={() => {
+                setActivePackages('any')
+                setOffset(0)
+              }}
+            />
+          )}
+          {openRequest && (
+            <FilterChip
+              label="Open delivery/pickup"
+              onRemove={() => {
+                setOpenRequest(false)
+                setOffset(0)
+              }}
+            />
+          )}
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="ml-1 text-xs font-semibold text-boss-gold hover:underline"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         {loading ? (
           <p className="p-8 text-center text-sm text-muted">Loading customers...</p>
@@ -307,7 +392,12 @@ export function CustomersPage() {
                 <th className="hidden px-4 py-3 sm:table-cell">BOSS ID</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Parish</th>
                 <th className="hidden px-4 py-3 md:table-cell">Contact</th>
-                <th className="w-16 px-2 py-3 text-center sm:w-auto sm:px-4">Pkgs</th>
+                <th
+                  className="w-16 px-2 py-3 text-center sm:w-auto sm:px-4"
+                  title="Active packages (delivered packages are not counted)"
+                >
+                  Active
+                </th>
                 <th className="w-[9.5rem] px-2 py-3 text-right sm:w-auto sm:min-w-[11rem] sm:px-4">
                   Action
                 </th>
@@ -318,6 +408,8 @@ export function CustomersPage() {
                 <CustomerRow
                   key={customer.id}
                   customer={customer}
+                  statusFilter={packageStatus || undefined}
+                  statusFilterLabel={packageStatusLabel}
                   canCheckout={canManageBilling}
                   checkoutLoading={checkoutLoadingId === customer.shipping_id}
                   onCheckout={() => void handleCheckoutClick(customer)}
@@ -328,29 +420,33 @@ export function CustomersPage() {
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between">
+      {!loading && customers.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted">
-            Page {currentPage} of {totalPages} ({total} customers)
+            Showing {offset + 1}–{offset + customers.length} of {total}{' '}
+            {total === 1 ? 'customer' : 'customers'}
+            {totalPages > 1 && ` · Page ${currentPage} of ${totalPages}`}
           </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-              className="!py-2 !text-xs"
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + PAGE_SIZE >= total}
-              onClick={() => setOffset(offset + PAGE_SIZE)}
-              className="!py-2 !text-xs"
-            >
-              Next
-            </Button>
-          </div>
+          {totalPages > 1 && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                disabled={offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                className="!py-2 !text-xs"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                disabled={offset + PAGE_SIZE >= total}
+                onClick={() => setOffset(offset + PAGE_SIZE)}
+                className="!py-2 !text-xs"
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -373,19 +469,44 @@ export function CustomersPage() {
   )
 }
 
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-boss-gold/40 bg-boss-gold/10 py-1 pl-2.5 pr-1 text-xs font-medium">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove filter: ${label}`}
+        className="rounded-full px-1.5 text-muted hover:text-foreground"
+      >
+        ×
+      </button>
+    </span>
+  )
+}
+
 function CustomerRow({
   customer,
+  statusFilter,
+  statusFilterLabel,
   canCheckout,
   checkoutLoading,
   onCheckout,
 }: {
   customer: StaffCustomer
+  /** Status value currently selected in the filter (highlights its chip). */
+  statusFilter?: string
+  /** Set when the directory is filtered by a package status. */
+  statusFilterLabel?: string
   canCheckout: boolean
   checkoutLoading: boolean
   onCheckout: () => void
 }) {
   const activeCount = customer.active_package_count ?? 0
   const showCheckout = canCheckout && activeCount > 0
+  const statusCount = customer.status_package_count
+  const showStatusCount = statusFilterLabel !== undefined && statusCount !== undefined
+  const breakdownEntries = statusBreakdownEntries(customer.status_breakdown)
 
   return (
     <tr>
@@ -396,12 +517,32 @@ function CustomerRow({
             Business{customer.company_name ? ` · ${customer.company_name}` : ''}
           </p>
         )}
-        <p className="mt-0.5 font-mono text-xs text-boss-gold sm:hidden">{customer.shipping_id}</p>
-        {customer.contact_number && (
-          <p className="mt-0.5 text-xs text-muted sm:hidden">{customer.contact_number}</p>
+        {breakdownEntries.length > 0 && (
+          <div className="mt-1 hidden flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted sm:flex">
+            {breakdownEntries.map(([status, count]) => (
+              <span
+                key={status}
+                className={`inline-flex items-center whitespace-nowrap ${
+                  statusFilter === status ? 'font-semibold text-foreground' : ''
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`mr-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+                    STATUS_DOT_CLASS[status] ?? 'bg-muted'
+                  }`}
+                />
+                {count} {getStatusLabel(status)}
+              </span>
+            ))}
+          </div>
         )}
+        <p className="mt-0.5 text-xs sm:hidden">
+          <span className="font-mono text-boss-gold">{customer.shipping_id}</span>
+          {customer.contact_number && <span className="text-muted"> · {customer.contact_number}</span>}
+        </p>
       </td>
-      <td className="hidden px-4 py-3 font-mono text-boss-gold sm:table-cell">
+      <td className="hidden whitespace-nowrap px-4 py-3 font-mono text-boss-gold sm:table-cell">
         {customer.shipping_id}
       </td>
       <td className="hidden px-4 py-3 sm:table-cell">{customer.parish}</td>
@@ -409,26 +550,42 @@ function CustomerRow({
         <p>{customer.email}</p>
         <p className="text-xs text-muted">{customer.contact_number}</p>
       </td>
-      <td className="px-2 py-3 text-center font-semibold tabular-nums sm:px-4">{activeCount}</td>
+      <td
+        className="px-2 py-3 text-center font-semibold tabular-nums sm:px-4"
+        title={
+          showStatusCount
+            ? `${statusCount} ${statusFilterLabel} of ${activeCount} active packages`
+            : `${activeCount} active packages`
+        }
+      >
+        {showStatusCount ? (
+          <>
+            {statusCount}
+            <span className="font-normal text-muted"> / {activeCount}</span>
+          </>
+        ) : (
+          activeCount
+        )}
+      </td>
       <td className="px-2 py-3 text-right sm:px-4">
-        <div className="inline-flex flex-col items-stretch gap-1.5 sm:flex-row sm:justify-end">
+        <div className="inline-flex items-center gap-1.5 sm:justify-end">
+          <Link
+            to={`/warehouse/customers/${encodeURIComponent(customer.shipping_id)}`}
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-lg border border-border px-2 py-1.5 text-[10px] font-semibold uppercase hover:border-boss-gold/40 sm:px-3 sm:text-xs"
+          >
+            <span className="sm:hidden">View</span>
+            <span className="hidden sm:inline">View</span>
+          </Link>
           {showCheckout && (
             <button
               type="button"
               onClick={onCheckout}
               disabled={checkoutLoading}
-              className="inline-flex items-center justify-center rounded-lg border border-boss-gold/50 bg-boss-gold/10 px-2.5 py-1.5 text-[10px] font-semibold uppercase text-boss-gold hover:border-boss-gold disabled:opacity-60 sm:px-3 sm:text-xs"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-lg border border-boss-gold/50 bg-boss-gold/10 px-2 py-1.5 text-[10px] font-semibold uppercase text-boss-gold hover:border-boss-gold disabled:opacity-60 sm:px-3 sm:text-xs"
             >
               {checkoutLoading ? '…' : 'Checkout'}
             </button>
           )}
-          <Link
-            to={`/warehouse/customers/${encodeURIComponent(customer.shipping_id)}`}
-            className="inline-flex items-center justify-center rounded-lg border border-border px-2.5 py-1.5 text-[10px] font-semibold uppercase hover:border-boss-gold/40 sm:px-3 sm:text-xs"
-          >
-            <span className="sm:hidden">View</span>
-            <span className="hidden sm:inline">View</span>
-          </Link>
         </div>
       </td>
     </tr>
