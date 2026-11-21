@@ -337,7 +337,7 @@ def send_package_status_email(
         f"Your package status is now: {label}.\n\n"
         f"{shipment_block}\n\n"
         f"{action_line}\n\n"
-        f"PACKAGE BOSS TEAM"
+        f"TEAM PACKAGE BOSS"
     )
     if note:
         body = (
@@ -346,7 +346,7 @@ def send_package_status_email(
             f"{note}\n\n"
             f"{shipment_block}\n\n"
             f"{action_line}\n\n"
-            f"PACKAGE BOSS TEAM"
+            f"TEAM PACKAGE BOSS"
         )
     html_body = render_package_status_html(
         first_name,
@@ -416,7 +416,7 @@ def send_package_status_batch_email(
         f"Your package status is now: {label}.\n\n"
         f"{count} packages:\n{tracking_lines}\n\n"
         f"View your packages: {packages_url}\n\n"
-        f"PACKAGE BOSS TEAM"
+        f"TEAM PACKAGE BOSS"
     )
     if note:
         body = (
@@ -425,7 +425,7 @@ def send_package_status_batch_email(
             f"{note}\n\n"
             f"{count} packages:\n{tracking_lines}\n\n"
             f"View your packages: {packages_url}\n\n"
-            f"PACKAGE BOSS TEAM"
+            f"TEAM PACKAGE BOSS"
         )
 
     package_rows: list[tuple[str, str | None, str | None]] = []

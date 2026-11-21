@@ -369,7 +369,7 @@ def render_package_status_html(
       {tracking_box}
       {note_block}
       <p style="margin:20px 0 0;font-size:14px;font-weight:700;letter-spacing:0.04em;color:{TEXT_PRIMARY};">
-        PACKAGE BOSS TEAM
+        TEAM PACKAGE BOSS
       </p>"""
     return render_layout(
         preheader=(
@@ -449,7 +449,7 @@ def render_package_status_batch_html(
       {packages_table}
       {note_block}
       <p style="margin:20px 0 0;font-size:14px;font-weight:700;letter-spacing:0.04em;color:{TEXT_PRIMARY};">
-        PACKAGE BOSS TEAM
+        TEAM PACKAGE BOSS
       </p>"""
     tracking_preview = ", ".join(row[0] for row in package_rows[:3])
     if count > 3:

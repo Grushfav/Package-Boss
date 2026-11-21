@@ -219,14 +219,14 @@ export async function sendPackageStatusEmail(
   body += status === 'ready_for_pickup' && opts.packageId
     ? `View your invoice: ${ctaUrl}\n\n`
     : `Track your package: ${trackUrl}\n\n`
-  body += 'PACKAGE BOSS TEAM'
+  body += 'TEAM PACKAGE BOSS'
 
   if (opts.note) {
     body = `Hi ${firstName},\n\nYour package status is now: ${label}.\n\n${opts.note}\n\n${shipmentBlock}\n\n`
     body += status === 'ready_for_pickup' && opts.packageId
       ? `View your invoice: ${ctaUrl}\n\n`
       : `Track your package: ${trackUrl}\n\n`
-    body += 'PACKAGE BOSS TEAM'
+    body += 'TEAM PACKAGE BOSS'
   }
 
   const htmlBody = renderPackageStatusHtml(firstName, trackingNumber, label, trackUrl, resolveLogoUrl(), {
@@ -274,7 +274,7 @@ export async function sendPackageStatusBatchEmail(
     `Your package status is now: ${label}.\n\n` +
     `${count} packages:\n${trackingLines}\n\n` +
     `View your packages: ${packagesUrl}\n\n` +
-    `PACKAGE BOSS TEAM`
+    `TEAM PACKAGE BOSS`
   if (opts.note) {
     body =
       `Hi ${firstName},\n\n` +
@@ -282,7 +282,7 @@ export async function sendPackageStatusBatchEmail(
       `${opts.note}\n\n` +
       `${count} packages:\n${trackingLines}\n\n` +
       `View your packages: ${packagesUrl}\n\n` +
-      `PACKAGE BOSS TEAM`
+      `TEAM PACKAGE BOSS`
   }
 
   const packageRows: Array<[string, string | null, string | null]> = pkgs.map((pkg) => [
